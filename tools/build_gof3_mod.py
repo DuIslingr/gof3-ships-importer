@@ -346,9 +346,9 @@ def decode_texture(path, png):
 TERRAN_LIKE = {"trailCount": 1, "trailWidth": 0.45, "trailWander": 0.6, "trailIntensity": 0.35, "trailLength": 2.0, "coneIntensity": 2.5}
 RACE_TRAIL = {"terran": TERRAN_LIKE, "vossk": TERRAN_LIKE}
 # The engines whose own exhaust mesh shapes the cone ("coneProfile": its rings' place, brightness and u) and whose exhaust
-# material's AngleBlend fades its cards edge-on ("coneFade"); the others keep the remake's defaults (the Nivelian rings,
-# no fade), as their looks were matched with them.
-OWN_CONE = {"vossk"}
+# material's AngleBlend fades its cards edge-on ("coneFade": seen from straight behind only the flares show). All three:
+# the Nivelian rings are the remake's default, the Terran ones peak at 0.93 and take the whole texture.
+OWN_CONE = {"nivelian", "terran", "vossk"}
 # The engines drawn in their materials' colour (Colorize_Color1 = the EngineAttachment colour) rather than the hull's nozzle
 # light (the Shamash's nozzles glow yellow-green, its plume and flares are teal green).
 MATERIAL_COLOUR = {"vossk"}
