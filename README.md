@@ -102,3 +102,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 - Blender runs out of memory: fewer at once (`--jobs 2`).
 - Different game versions: built and checked with the Switch version 1.0.2 and the Android version 2.1.3.
 - Only one run at a time can use a work folder: a second one says so and stops.
+
+## License
+
+The importer's scripts are under the MIT license (LICENSE). It covers this code only: the mod it builds holds the
+game's own models, textures and data, which stay their owners' and are for your own use.
