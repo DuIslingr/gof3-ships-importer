@@ -1,0 +1,5 @@
+# What the importer builds (Galaxy on Fire 3's models and textures: never commit or share them)
+work/
+gof3_ships/
+*.zip
+__pycache__/

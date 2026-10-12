@@ -1,0 +1,1079 @@
+{
+  "_comment": "Skins that exist only in data.pdb (no .ae4material): a ship record's Customization component = colour preset (slot 0x12fdc2), emissive preset (0x316b81), colour mask (0x7375c5), decal sheet (0x2eb3d0); Gold-tier records add a specular colour (0x674092) and Specular_Multiplier / Gloss_Multiplier floats (0x1d4676 / 0x26691a). Slot 0x4b861d (the Gold pack) is on every ship, the plain ones too: a reference to the gold version, not applied. ae4_resolve.py adds these to resolve.json, ae4_ship_textures.py bakes them as paint schemes (the ship's body material with the overrides), ae4_scheme_variant.py builds a model. preset / emissive_preset = data.pdb names (ae4_pdb_colors.py); emissive_color / specular = values given directly; mask relative to the assets dir; decals = the decal sheet texture. no_iridescence = the skin's material is a _noiri one (no iridescence: dropped from the model).",
+  "terran/008": [
+    {
+      "scheme": "goldgorgon",
+      "preset": "GoldGorgon",
+      "mask": "ships/terran/008/colormasks/ship_terran_008_cm_001.tga.ae4texture",
+      "game_name": "GOLDEN GORGON (Ship_id008_SolidusSerpent_Gold_Name): pack GoldGorgon (record 308214144) = colour preset GoldGorgon, specular x4 / gloss x2, emissive and specular colours of the GoldVossk records (2774971958 / 1167697287); mask Gorgon_ColorMask",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "nivelian/208": [
+    {
+      "scheme": "sutoeshii",
+      "preset": "Colorize_Anila_MkktBkkt",
+      "emissive_preset": "Emissive_Anila_MkktBkkt",
+      "mask": "ships/nivelian/208/colormasks/ship_nivelian_208_cm_mkktbkkt.tga.ae4texture",
+      "game_name": "SUTOE-SHII (Ship_Scout_01_id208_Sutoe-Shii_0_T0, the Event_2017_S02 season reward): Customization = Colorize_Anila_MkktBkkt + Emissive_Anila_MkktBkkt + Anila_ColorMask_MkktBkkt (+ the Gold pack reference every ship has); the canopy stays the ship's (blue)"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Scout_01_id208_Sutoe-Shii_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Scout_01_id208_Sutoe-Shii_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "nivelian/222": [
+    {
+      "scheme": "khador_e2017s03",
+      "preset": "Colorize_Anila_MkktBkkt",
+      "emissive_preset": "Emissive_Anila_MkktBkkt",
+      "mask": "ships/nivelian/207/colormasks/ship_nivelian_207_cm_mkktbkkt.tga.ae4texture",
+      "game_name": "KHADOR, 2017 season-3 event version (Ship_Gunship_02_id222_Khador_E2017S03): Customization = Colorize_Anila_MkktBkkt + Emissive_Anila_MkktBkkt (+ the Gold pack reference every ship has) + ColorMask = nivelian/207 cm_mkktbkkt; materials ship_nivelian_220's (ShapeMatReplacement)"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_02_id222_Khador_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_02_id222_Khador_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "nivelian/201": [
+    {
+      "scheme": "grgath",
+      "preset": "Colorize_Boss_Trim",
+      "emissive_preset": "BrownEmissive",
+      "mask": "ships/nivelian/201/colormasks/ship_nivelian_201_cm_001.tga.ae4texture",
+      "decals": "ship_decals_001.png",
+      "game_name": "ATAUNO RHEEP \"GR'GATH\" (Ship_id201_Anumati_Name_2; Ship_Fighter_04_id201_AtaunoRheep_1_*): Customization = Colorize_Boss_Trim + BrownEmissive + Anumati_ColorMask_Boss_Trim (cm_001) + DecalMaterial_Boss_Trim (ship_matid01_decals_001)"
+    },
+    {
+      "scheme": "blackred",
+      "preset": "Colorize_Anumati_BlackRed",
+      "mask": "ships/nivelian/201/colormasks/ship_nivelian_201_cm_001.tga.ae4texture",
+      "game_name": "Atauno Rheep black / red (Ship_Fighter_04_id201_AtaunoRheep_2_T0): Customization = Colorize_Anumati_BlackRed + Anumati_ColorMask_Black_Red (cm_001)"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_03_id201_AtaunoRheep_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_03_id201_AtaunoRheep_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "vossk/122": [
+    {
+      "scheme": "shamash2",
+      "preset": "Colorize_Shamash_BlackRed",
+      "emissive_preset": "RedEmissive",
+      "mask": "ships/vossk/120/colormasks/ship_vossk_120_cm_001.tga.ae4texture",
+      "no_iridescence": true,
+      "game_name": "SHAMASH II (Ship_Gunship_05_id122_Shamash_II_T0..T6): ShapeMatReplacement = ship_vossk_120_matid01_body_dissolve_noiri (no iridescence); Customization = Colorize_Shamash_BlackRed + RedEmissive + Shamash_ColorMask_Black_Red (vossk/120 cm_001)"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_05_id122_Sh'Gaal_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_05_id122_Sh'Gaal_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "terran/000": [
+    {
+      "scheme": "grgath",
+      "record": "Ship_Fighter_08_id000_Groza_1_T0",
+      "game_name": "GROZA \"GR'GATH\" (Ship_id000_Groza_Name_2)",
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "preset_record": "Colorize_Boss_Trim#3243875398",
+      "emissive_color": [
+        0.5333,
+        0.3843,
+        0.2078
+      ],
+      "emissive_record": "BrownEmissive#1174355545",
+      "mask": "ships/terran/000/colormasks/ship_terran_000_cm_001.tga.ae4texture",
+      "decals": "ship_decals_001.png"
+    },
+    {
+      "scheme": "red",
+      "record": "Ship_Fighter_07_id000_Groza_2_T0",
+      "game_name": "GROZA R.E.D. (Ship_id000_Groza_Skin_Name_1)",
+      "color1": [
+        0.1059,
+        0.1059,
+        0.1059
+      ],
+      "color2": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "preset_record": "Colorize_Groza_Starter_Bundle#3339070892",
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0157
+      ],
+      "emissive_record": "RedEmissive#3847543364"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_07_id000_Groza_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_07_id000_Groza_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "terran/001": [
+    {
+      "scheme": "grgath",
+      "record": "Ship_Fighter_06_id001_Argus_1_T0",
+      "game_name": "ARGUS \"GR'GATH\" (Ship_id001_Argus_Name_2)",
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "preset_record": "Colorize_Boss_Trim#3243875398",
+      "emissive_color": [
+        0.5333,
+        0.3843,
+        0.2078
+      ],
+      "emissive_record": "BrownEmissive#1174355545",
+      "mask": "ships/terran/001/colormasks/ship_terran_001_cm_001.tga.ae4texture",
+      "decals": "ship_decals_001.png"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_05_id001_Argus_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_05_id001_Argus_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "terran/003": [
+    {
+      "scheme": "atlas2",
+      "record": "Ship_Gunship_04_id003_Atlas_1_T0",
+      "game_name": "ATLAS II (Ship_id003_Atlas_2_Name)",
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "preset_record": "Colorize_Boss_Porros#2953508639",
+      "mask": "ships/terran/003/colormasks/ship_terran_003_cm_002.tga.ae4texture",
+      "decals": "ship_decals_002.png"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_03_id003_Atlas_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_03_id003_Atlas_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "terran/004": [
+    {
+      "scheme": "acheron2",
+      "record": "Ship_Fighter_10_id004_Acheron_1_T0",
+      "game_name": "ACHERON II (Ship_id004_Acheron_Name_2)",
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "preset_record": "Colorize_Boss_Trim#3243875398",
+      "emissive_color": [
+        0.3294,
+        0.2941,
+        0.1255
+      ],
+      "emissive_record": "UmberEmissive#4079324998",
+      "mask": "ships/terran/004/colormasks/ship_terran_004_cm_001.tga.ae4texture",
+      "decals": "ship_decals_001.png"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_09_id004_Acheron_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_09_id004_Acheron_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "nivelian/206": [
+    {
+      "scheme": "moornta2",
+      "record": "Ship_Scout_04_id206_Moornta_1_T0",
+      "game_name": "MOORNTA II (Ship_id206_Shayla_Name_2)",
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "preset_record": "Colorize_Boss_Porros#2953508639",
+      "emissive_color": [
+        0.7373,
+        0.4627,
+        0.1255
+      ],
+      "emissive_record": "ShaylaEmissive#3968285716",
+      "mask": "ships/nivelian/206/colormasks/ship_nivelian_206_cm_002.tga.ae4texture",
+      "decals": "ship_decals_002.png"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Scout_03_id206_Moornta_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Scout_03_id206_Moornta_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "vossk/102": [
+    {
+      "scheme": "greyshadow",
+      "record": "Ship_Scout_11_id102_Na'Takath_1_T0",
+      "game_name": "NA'TAKATH \"GREY SHADOW\" (Ship_id102_Nisroc_Name_2)",
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "preset_record": "Colorize_Boss_Porros#2953508639",
+      "mask": "ships/vossk/102/colormasks/ship_vossk_102_cm_002.tga.ae4texture",
+      "decals": "ship_decals_002.png"
+    }
+  ],
+  "vossk/103": [
+    {
+      "scheme": "greyshadow",
+      "record": "Ship_Scout_08_id103_Shaan'Ra-Grth_1_T0",
+      "game_name": "SHAAN'RA \"GREY SHADOW\" (Ship_id103_Nabu_Name_2)",
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "preset_record": "Colorize_Boss_Porros#2953508639",
+      "mask": "ships/vossk/103/colormasks/ship_vossk_103_cm_002.tga.ae4texture",
+      "decals": "ship_decals_002.png"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Scout_07_id103_Shaan'Ra-Grth_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Scout_07_id103_Shaan'Ra-Grth_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "vossk/108": [
+    {
+      "scheme": "mardk2",
+      "record": "Ship_Fighter_13_id108_Mar'Dk_1_T0",
+      "game_name": "MAR'DK II (Ship_id108_Marduk_Name_2)",
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "preset_record": "Colorize_Boss_Porros#2953508639",
+      "mask": "ships/vossk/108/colormasks/ship_vossk_108_cm_002.tga.ae4texture",
+      "decals": "ship_decals_002.png"
+    },
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_12_id108_Mar'Dk_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_12_id108_Mar'Dk_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "terran/006": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Scout_05_id006_Styx_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Scout_05_id006_Styx_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "terran/031": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_10_id031_Bloodstar_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_10_id031_Bloodstar_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      },
+      "mask": "ships/terran/031/colormasks/ship_terran_031_colormask_000.tga.ae4texture"
+    }
+  ],
+  "vossk/101": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_11_id101_Gl'KaMesh_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_11_id101_Gl'KaMesh_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "vossk/107": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_06_id107_Shamash_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_06_id107_Shamash_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "vossk/110": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_15_id110_Chu'Koth_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_15_id110_Chu'Koth_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "nivelian/210": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_01_id210_Aegir_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_01_id210_Aegir_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "terran/005": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Scout_06_id105_Nereus_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Scout_06_id105_Nereus_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "nivelian/209": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_09_id209_Sona-The_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_09_id209_Sona-The_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "nivelian/205": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Fighter_02_id205_ShoterPaah_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Fighter_02_id205_ShoterPaah_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "vossk/109": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_08_id109_Scorpion_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_08_id109_Scorpion_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "nivelian/207": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_01_id207_Nestaar_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_01_id207_Nestaar_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "terran/009": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_07_id009_Albatross_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Gunship_07_id009_Albatross_0_T0_Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ],
+  "vossk/100": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Scout_09_id100_H'Soc_0_T0_Gold",
+      "game_name": "Gold tier (Ship_Scout_09_id100_H'Soc_0_T0_Gold)",
+      "color1": [
+        0.5294,
+        0.4235,
+        0.1137
+      ],
+      "color2": [
+        0.2078,
+        0.1765,
+        0.0941
+      ],
+      "preset_record": "GoldVossk#2450921361",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "GoldVossk#2774971958",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.6392,
+          0.1373
+        ],
+        "Specular_Multiplier": 5.0,
+        "Gloss_Multiplier": 4.0
+      }
+    }
+  ],
+  "terran/022": [
+    {
+      "scheme": "gold",
+      "record": "Ship_Gunship_11_id022_TiNung_0_T0-Gold",
+      "game_name": "Gold tier (Ship_Gunship_11_id022_TiNung_0_T0-Gold)",
+      "color1": [
+        0.3373,
+        0.2471,
+        0.0745
+      ],
+      "color2": [
+        0.2078,
+        0.1647,
+        0.1137
+      ],
+      "preset_record": "Gold#743222214",
+      "emissive_color": [
+        1.0,
+        0.8157,
+        0.5843
+      ],
+      "emissive_record": "Gold#3283853526",
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.8235,
+          0.2902
+        ],
+        "Specular_Multiplier": 4.0,
+        "Gloss_Multiplier": 2.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "_comment": "Per-ship corrections to what ae4_resolve.py infers, from the game data (data.pdb). body_material / glass_material: relative to the assets dir.",
+  "nivelian/222": {
+    "body_material": "ships/nivelian/220/ship_nivelian_220_matid01_body.ae4material",
+    "glass_material": "ships/nivelian/220/ship_nivelian_220_matid02_glass.ae4material",
+    "why": "KHADOR (id 222): every Ship_Gunship_02_id222_Khador_* record's ShapeMatReplacement uses ship_nivelian_220's materials; the model's body GUID matches no file, and 222's own _dissolve stand-in glows white instead of 220's blue."
+  }
+}
