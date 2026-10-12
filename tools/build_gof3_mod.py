@@ -339,8 +339,19 @@ def decode_texture(path, png):
 # Galaxy on Fire 3's Terran engine (checked against the Argus in GoF3's ship viewer, rotating): no wavering streams, only
 # thin straight streaks fading behind the bright cone spike; GoF3 units like the TRAIL_ constants ("trailLength" x the
 # exhaust cards' length like TRAIL_LENGTH), the cone 2.5 x brighter (the spike's yellow-orange core).
-RACE_TRAIL = {"terran": {"trailCount": 1, "trailWidth": 0.45, "trailWander": 0.6, "trailIntensity": 0.35, "trailLength": 2.0,
-                         "coneIntensity": 2.5}}
+# Galaxy on Fire 3's Vossk engine looks like the Terran one in green (the Shamash in GoF3's ship viewer, rotating): the same
+# thin straight streak behind a bright cone spike, no wavering streams (its data.pdb TrailVossk names the Nivelian particle
+# system, but GoF3 shows no such streams on the Vossk ships); from behind only the flares over the lit nozzle rings (the
+# cone's cards vanish edge-on, "coneFade"); every part in the engine's green (see MATERIAL_COLOUR).
+TERRAN_LIKE = {"trailCount": 1, "trailWidth": 0.45, "trailWander": 0.6, "trailIntensity": 0.35, "trailLength": 2.0, "coneIntensity": 2.5}
+RACE_TRAIL = {"terran": TERRAN_LIKE, "vossk": TERRAN_LIKE}
+# The engines whose own exhaust mesh shapes the cone ("coneProfile": its rings' place, brightness and u) and whose exhaust
+# material's AngleBlend fades its cards edge-on ("coneFade"); the others keep the remake's defaults (the Nivelian rings,
+# no fade), as their looks were matched with them.
+OWN_CONE = {"vossk"}
+# The engines drawn in their materials' colour (Colorize_Color1 = the EngineAttachment colour) rather than the hull's nozzle
+# light (the Shamash's nozzles glow yellow-green, its plume and flares are teal green).
+MATERIAL_COLOUR = {"vossk"}
 
 
 def texture_colour(png):
@@ -432,6 +443,24 @@ def engine_fx(fx_name, tmp):
         tints = {"coneColor": part_colour(mat("000_exhaust"), colour), "spiralColor": part_colour(mat("spiral"), colour)}
         tints["trailColor"] = tints["spiralColor"]   # (the particle system's isn't readable: the clip's plume is the strands' blue)
         tints = {k: v for k, v in tints.items() if v}
+    own = {}
+    if race in OWN_CONE:
+        # the exhaust mesh's rings (each a z with one brightness and u: the cards' vertices) as shares of its length
+        g = ae4_meshgroup.read_all(base + "_exhaust.ae4meshgroup")[0]
+        P = np.asarray(g["a_position"]); C = np.asarray(g["a_vtxColor"]); T = np.asarray(g["a_texCoord0"])
+        profile = []
+        for z in sorted(set(np.round(P[:, 2], 3))):
+            at = np.round(P[:, 2], 3) == z
+            profile += [round(float(z) / length, 4), round(float(C[at][:, 0].mean()), 3), round(float(np.clip(T[at][:, 0].mean(), 0, 1)), 3)]
+        own["coneProfile"] = profile
+        v, _ = ae4_material.read(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material"))
+        if v.get("AngleBlend_Enabled") and v.get("AngleBlend_Absolute"):
+            own["coneFade"] = [round(float(v["AngleBlend_MinAngle"]), 3), round(float(v["AngleBlend_MaxAngle"]), 3)]
+    if race in MATERIAL_COLOUR:
+        for part, name in (("flareColor", "glow"), ("coneColor", "exhaust")):
+            c = part_colour(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_{name}.ae4material"), colour)
+            if c: own[part] = c
+        if "coneColor" in own: own["trailColor"] = own["coneColor"]
     rt = RACE_TRAIL.get(race, {})
     trail = {"trailCount": rt.get("trailCount", TRAIL_COUNT), "trailLength": round(length * rt.get("trailLength", TRAIL_LENGTH) * K),
              "trailWidth": round(rt.get("trailWidth", TRAIL_WIDTH) * K), "trailWander": round(rt.get("trailWander", TRAIL_WANDER) * K),
@@ -439,7 +468,7 @@ def engine_fx(fx_name, tmp):
              **({"coneIntensity": rt["coneIntensity"]} if "coneIntensity" in rt else {})}
     return {**files, "glowSize": [round(square * gscale * K), round(float(streak[0]) * gscale * K), round(float(streak[1]) * gscale * K)],
             "coneLength": round(length * K), "coneWidth": round(radius * K),
-            **trail, **(spiral or {}), "color": [round(c, 3) for c in colour], **tints, **texture_tints}
+            **trail, **(spiral or {}), "color": [round(c, 3) for c in colour], **tints, **texture_tints, **own}
 
 
 def nozzle_tinted(fx, nozzle):
