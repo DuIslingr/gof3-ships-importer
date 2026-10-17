@@ -274,6 +274,18 @@ def ship_rotation(M):
 def game(p): return [round(-p[0] * K), round(p[1] * K), round(-p[2] * K)]
 
 
+def centreline_turn(q):
+    """An engine on the centreline: its turn without the sideways part (the quaternion's y, about the up axis), None when
+    nothing is left. A centred nozzle has no side to angle to: the K'ssshar Ka's centre helper carries its right engine's
+    8.5 deg outward turn (copied from it), so its plume veered off to one side."""
+    x, y, z, w = q
+    n = math.sqrt(x * x + z * z + w * w)
+    if n < 1e-6: return None
+    r = [x / n, 0.0, z / n, w / n]
+    if r[3] < 0: r = [-v for v in r]
+    return None if r[3] > 0.99999 else [round(float(v), 5) for v in r]
+
+
 def outline_plausible(points, r):
     """Whether a measured nozzle outline (glTF units around its mount) can stand for a nozzle of mean half size 'r': its
     mean radius at least half of it and its centre within 1.5 x it (a nozzle may sit a little off its helper; the remake
@@ -937,6 +949,7 @@ def main():
             if m.get("outline") and outline_plausible(m["outline"], r / max(1e-6, m["scale"])):
                 ex["outline"] = outline_game(m["outline"])   # the nozzle's shape (the remake's exhaust styles)
             turn = ship_rotation(W[node[m["node"]]]) if m.get("node") in node else None
+            if turn and abs(m["pos"][0]) < 0.15: turn = centreline_turn(turn)
             if turn: ex["rotation"] = turn   # the engine helper's turn: the way the engineFx blows (the Vossk engines angle out)
             mounts.append(ex)
 
