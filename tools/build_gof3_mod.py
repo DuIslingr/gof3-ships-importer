@@ -274,6 +274,17 @@ def ship_rotation(M):
 def game(p): return [round(-p[0] * K), round(p[1] * K), round(-p[2] * K)]
 
 
+def outline_plausible(points, r):
+    """Whether a measured nozzle outline (glTF units around its mount) can stand for a nozzle of mean half size 'r': its
+    mean radius at least half of it and its centre within 1.5 x it (a nozzle may sit a little off its helper; the remake
+    centres the effect on it). The Vossk nozzle rings light only a few scattered pixels hot enough, which gave slivers a
+    fifth of the nozzle across beside it (the Shaan'ra-Grth's); a few others caught a lit panel beside the hull."""
+    P = np.asarray(points, dtype=float)
+    if len(P) < 3: return False
+    c = P.mean(0)
+    return float(np.linalg.norm(P - c, axis=1).mean()) >= 0.5 * r and float(np.linalg.norm(c)) <= 1.5 * r
+
+
 def outline_game(points):
     """A nozzle outline (glTF units around its mount) as a mount's "outline": [x0, y0, x1, y1, ...] in game units, position_engine's axes."""
     return [v for x, y in points for v in (round(-x * K, 1), round(y * K, 1))]
@@ -304,9 +315,11 @@ PARTICLES = os.path.join(MERGED, "particles")
 ENGINE_RACE = {"NivelianEngine": "nivelian", "TerranEngine": "terran", "VosskEngine": "vossk", "InouacEngine": "inouac"}
 ENGINE_TEXTURES = {"nivelian": "nivelian", "terran": "terran", "vossk": "vossk", "inouac": "nivelian"}
 # The trail (the particle system's parameters aren't readable: matched by eye against GoF3's ship viewer), GoF3 units:
-TRAIL_LENGTH = 4.33       # x the exhaust cards' length (the Moornta: 2800 game units)
+TRAIL_LENGTH = 1.5        # x the exhaust cards' length (970 game units: GoF3's ship viewer shows only short wisps behind the
+                          # Atauno Rheep and the Nestaar, a fifth of the hull; 4.33, the Moornta in flight, ran 1.5 hulls behind)
 TRAIL_WIDTH = 1.5         # half width at the nozzle (a soft wake behind the helix)
-TRAIL_WANDER = 8.0        # how hard it sways (EngineFx eases each stream toward random sideways speeds of up to this / its time)
+TRAIL_WANDER = 3.0        # how hard it sways (EngineFx eases each stream toward random sideways speeds of up to this / its time;
+                          # cut with the length, 8.0 at 4.33: the same waviness along the shorter stream)
 TRAIL_TIME = 0.75         # seconds
 TRAIL_COUNT = 2           # streams per exhaust
 # The helix (GoF3's spiral: two ribbon strands winding round the axis, radius 0.5 -> 0.1 over its length; its animation
@@ -344,14 +357,29 @@ def decode_texture(path, png):
 # system, but GoF3 shows no such streams on the Vossk ships); from behind only the flares over the lit nozzle rings (the
 # cone's cards vanish edge-on, "coneFade"); every part in the engine's green (see MATERIAL_COLOUR).
 TERRAN_LIKE = {"trailCount": 1, "trailWidth": 0.45, "trailWander": 0.6, "trailIntensity": 0.35, "trailLength": 2.0, "coneIntensity": 2.5}
-RACE_TRAIL = {"terran": TERRAN_LIKE, "vossk": TERRAN_LIKE}
+# The Vossk streak as long as the Terran one (GoF3 units, the Terran cards' 10.48 x 2: the Vossk cards are half as long again,
+# and 2 x them ran past the K'ssshar Ka's and the Shaan'ra-Grth's whole hulls) and straight (no wander: GoF3's ship viewer shows
+# a still, thin line behind the spike).
+VOSSK_LIKE = {**TERRAN_LIKE, "trailWander": 0.0, "trailSpan": 2.0 * 10.48}
+RACE_TRAIL = {"terran": TERRAN_LIKE, "vossk": VOSSK_LIKE}
 # The engines whose own exhaust mesh shapes the cone ("coneProfile": its rings' place, brightness and u) and whose exhaust
-# material's AngleBlend fades its cards edge-on ("coneFade": seen from straight behind only the flares show). All three:
-# the Nivelian rings are the remake's default, the Terran ones peak at 0.93 and take the whole texture.
-OWN_CONE = {"nivelian", "terran", "vossk"}
+# material's AngleBlend fades its cards edge-on ("coneFade": seen from straight behind only the flares show). All of them:
+# the Nivelian rings are the remake's default, the Terran ones peak at 0.93 and take the whole texture, the Inouac engine
+# borrows the Nivelian textures and with them the Nivelian exhaust's rings and fade (it has no exhaust material of its own).
+OWN_CONE = {"nivelian", "terran", "vossk", "inouac"}
 # The engines drawn in their materials' colour (Colorize_Color1 = the EngineAttachment colour) rather than the hull's nozzle
 # light (the Shamash's nozzles glow yellow-green, its plume and flares are teal green).
 MATERIAL_COLOUR = {"vossk"}
+# ... except the flare: GoF3's ship viewer shows the Vossk flares lime over the hull's lime nozzle rings (the K'ssshar Ka,
+# Na'takath, Shaan'ra-Grth: their brightest pixels at hue 80-90, the plume around them teal at 130-160), so a Vossk ship's
+# flare takes its nozzles' colour (each exhaust's glowColor) and the style its typical one (the Vossk hulls' mean).
+NOZZLE_FLARE = {"vossk": (0.65, 1.0, 0.11)}
+# The nozzle radius each engine effect is drawn for (game units; the engineFx's "nozzle": the remake sizes exhaust styles
+# against it, on these ships and as styles on others), measured on the hulls in the remake from behind: the Nivelian cone
+# fills its nozzles (the Atauno Rheep's hexagons ~85-95 against the cone's 87), the Terran one overhangs them a little (the
+# Argus' 75-110 against 138), the Vossk one by about three times (the K'ssshar Ka's ~46, the Shaan'ra-Grth's ~34). The
+# engine_glows measurement is only the hottest core of each nozzle's glow, 1 to 5 x smaller, so it can't give this.
+ENGINE_NOZZLE = {"nivelian": 87, "terran": 100, "vossk": 45}
 
 
 def texture_colour(png):
@@ -445,29 +473,37 @@ def engine_fx(fx_name, tmp):
         tints = {k: v for k, v in tints.items() if v}
     own = {}
     if race in OWN_CONE:
-        # the exhaust mesh's rings (each a z with one brightness and u: the cards' vertices) as shares of its length
-        g = ae4_meshgroup.read_all(base + "_exhaust.ae4meshgroup")[0]
+        # the exhaust mesh's rings (each a z with one brightness and u: the cards' vertices) as shares of its length; an
+        # engine without an exhaust material of its own (the Inouac's: it borrows the Nivelian textures) takes the
+        # exhaust it borrows them from, mesh and material
+        src = race if os.path.exists(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material")) else tex
+        sbase = os.path.join(ENGINE_VFX, src, f"vfx_engine_{src}_000")
+        g = ae4_meshgroup.read_all(sbase + "_exhaust.ae4meshgroup")[0]
         P = np.asarray(g["a_position"]); C = np.asarray(g["a_vtxColor"]); T = np.asarray(g["a_texCoord0"])
+        slen = float(P[:, 2].max())
         profile = []
         for z in sorted(set(np.round(P[:, 2], 3))):
             at = np.round(P[:, 2], 3) == z
-            profile += [round(float(z) / length, 4), round(float(C[at][:, 0].mean()), 3), round(float(np.clip(T[at][:, 0].mean(), 0, 1)), 3)]
+            profile += [round(float(z) / slen, 4), round(float(C[at][:, 0].mean()), 3), round(float(np.clip(T[at][:, 0].mean(), 0, 1)), 3)]
         own["coneProfile"] = profile
-        v, _ = ae4_material.read(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material"))
+        v, _ = ae4_material.read(sbase + "_exhaust.ae4material")
         if v.get("AngleBlend_Enabled") and v.get("AngleBlend_Absolute"):
             own["coneFade"] = [round(float(v["AngleBlend_MinAngle"]), 3), round(float(v["AngleBlend_MaxAngle"]), 3)]
     if race in MATERIAL_COLOUR:
         for part, name in (("flareColor", "glow"), ("coneColor", "exhaust")):
+            if part == "flareColor" and race in NOZZLE_FLARE: continue
             c = part_colour(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_{name}.ae4material"), colour)
             if c: own[part] = c
         if "coneColor" in own: own["trailColor"] = own["coneColor"]
     rt = RACE_TRAIL.get(race, {})
-    trail = {"trailCount": rt.get("trailCount", TRAIL_COUNT), "trailLength": round(length * rt.get("trailLength", TRAIL_LENGTH) * K),
+    trail = {"trailCount": rt.get("trailCount", TRAIL_COUNT),
+             "trailLength": round((rt["trailSpan"] if "trailSpan" in rt else length * rt.get("trailLength", TRAIL_LENGTH)) * K),
              "trailWidth": round(rt.get("trailWidth", TRAIL_WIDTH) * K), "trailWander": round(rt.get("trailWander", TRAIL_WANDER) * K),
              "trailTime": TRAIL_TIME, **({"trailIntensity": rt["trailIntensity"]} if "trailIntensity" in rt else {}),
              **({"coneIntensity": rt["coneIntensity"]} if "coneIntensity" in rt else {})}
     return {**files, "glowSize": [round(square * gscale * K), round(float(streak[0]) * gscale * K), round(float(streak[1]) * gscale * K)],
             "coneLength": round(length * K), "coneWidth": round(radius * K),
+            **({"nozzle": ENGINE_NOZZLE[race]} if race in ENGINE_NOZZLE else {}),
             **trail, **(spiral or {}), "color": [round(c, 3) for c in colour], **tints, **texture_tints, **own}
 
 
@@ -507,6 +543,7 @@ def exhaust_styles(tmp):
         cone = part_colour(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material"), ENGINE_FX[fx_name][0])
         if cone and "coneColor" not in fx: fx["coneColor"] = cone
         if cone and "trailColor" not in fx: fx["trailColor"] = cone
+        if race in NOZZLE_FLARE and "flareColor" not in fx: fx["flareColor"] = list(NOZZLE_FLARE[race])   # (no hull to take it from)
         out.append({"id": sid, "name": name, "engineFx": fx, "palette": palette, "mainName": "Flare colour",
                     "secondName": "Trail and helix colour" if "spiral" in fx else "Trail colour"})
     return out
@@ -897,7 +934,8 @@ def main():
                   "glowColor": m["color"] or ship_colour,
                   "glowSize": [round(sz[0] * K), round(sz[1] * K), round(r * plume * FLAME * K)]}
             if abs(m["scale"] - 1.0) > 0.01: ex["fxScale"] = round(float(m["scale"]), 3)   # the engine helper's scale (engineFx)
-            if m.get("outline"): ex["outline"] = outline_game(m["outline"])   # the nozzle's shape (the remake's exhaust styles)
+            if m.get("outline") and outline_plausible(m["outline"], r / max(1e-6, m["scale"])):
+                ex["outline"] = outline_game(m["outline"])   # the nozzle's shape (the remake's exhaust styles)
             turn = ship_rotation(W[node[m["node"]]]) if m.get("node") in node else None
             if turn: ex["rotation"] = turn   # the engine helper's turn: the way the engineFx blows (the Vossk engines angle out)
             mounts.append(ex)

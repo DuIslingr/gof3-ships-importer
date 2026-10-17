@@ -49,8 +49,9 @@ Size: 53.5 game units per GoF3 unit (the kit's scale; GoF2's Groza is 1231 units
 keep their relative sizes; the bosses (Khador Boss, Krotac, Snotch, Sh'Gaal, Bl'Arek, Cronus) are 2200-3200 units long.
 
 Engines: Galaxy on Fire 3's own engine effect (ships.json "engineFx", the remake's EngineFx): at every exhaust a flare
-(the white-hot star and its long horizontal streak, brightest seen from behind), a soft cone of crossed cards, and two long
-streams that waver in smooth waves and bend behind the ship when it turns, like GoF3's engine trails. Each race's own flare
+(the white-hot star and its long horizontal streak, brightest seen from behind), a soft cone of crossed cards that fades
+as it turns edge-on (from straight behind only the flares show, as in GoF3), and two short streams that waver in smooth
+waves and bend behind the ship when it turns, like GoF3's engine trails. Each race's own flare
 and exhaust textures (fx/: Nivelian, Terran, Vossk; the Inouac engines borrow the Nivelian ones), GoF3's beam_001 streak for
 the streams, all at GoF3's sizes; each exhaust in the colour the model shows at that nozzle (the hull's emissive texture
 around the engine helper, tools/engine_glows.py), a skin its own scheme's where it lights them differently. Engines GoF3
@@ -58,11 +59,13 @@ scales or turns keep that ("fxScale", "rotation": the Retro's small and large en
 The Nivelian engines add GoF3's helix: two strands of crackling lightning winding round the exhaust and spinning, in the
 deep blue of GoF3's materials, with the streams a dim blue wake under them (the lightning texture is a guess: GoF3's spiral
 material names its textures by GUID only). The Terran engines burn in their textures' own amber, as GoF3 shows them (a bright spike with a thin straight streak, no
-wavering streams). Nunam and Kinac have no engine helpers, so no engines.
+wavering streams); the Vossk engines the same in teal with lime flares in the nozzles' own colour, their streak as short and
+straight as the Terran one. Nunam and Kinac have no engine helpers, so no engines.
 Exhaust styles (exhausts.json): the three GoF3 drives (Nivelian with its helix, Terran, Vossk) on any ship, the game's own
 included: the hangar's Customize screen gets an Exhaust row with the drive's two colours (the flare and cone, the trails and
 helix), offered in GoF3's engine colours. They sit on the ship's own exhausts and take each nozzle's shape. Each GoF3
-hull's exhausts carry their nozzle's outline ("outline", from the glowing nozzle surface), so other mods' exhausts fit them too.
+hull's exhausts carry their nozzle's outline where it was measured cleanly ("outline", from the glowing nozzle surface), so
+other mods' exhausts fit them too.
 
 From version 1: the paint variants (Groza Gold, Atlas II, ...) are skins of their hull now, not ships: a saved game flying
 one gets the remake's usual treatment of a ship that no longer exists (a Phantom and the ship's price back). Their stats
