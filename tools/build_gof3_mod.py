@@ -3,7 +3,7 @@ hulls/, guns/, turret/, skins/, icons/, preview.png, README.txt.
 python build_gof3_mod.py [out, default ~/GOF2UnityRemakeMods/gof3_ships] [--max-texture 1024] [--no-icons] [--icons-from DIR]
 Needs ../gof3converted (the hulls without guns, their paint-scheme textures, the guns in weapons/), ../gof3converted_loadouts
 (manifest.json = each folder's data.pdb record and default arming; its .glb files for the icons), ../romfs_merged/data.pdb,
-the venv (numpy, Pillow) and Blender on PATH (the turret, the icons).
+the venv (numpy, Pillow, SciPy: the floating-gun check) and Blender on PATH (the turret, the icons).
 (build_gof3_mod_v1.py made the old layout: one ship per paint scheme, each its own model with its guns baked in.)
 
 One kit ("gof3", shipkits.json) holds every hull as a part of the slot "hull", each part only for its own ship type, so a
@@ -231,6 +231,80 @@ def slim_glb(src, dst, maxtex, edit=None):
     while len(nb) % 4: nb.append(0)
     j["buffers"][0]["byteLength"] = len(nb)
     write_glb(dst, j, nb)
+
+
+# ---------------------------------------------------------------- floating guns and turrets
+
+SNAP_GAP = 0.05           # GoF3 units: a gun or turret further than this from the hull (with its pylons) is moved onto it
+SNAP_SPACING = 0.03       # the surface sampling step for the measurement
+
+
+def surface_points(path, spacing=SNAP_SPACING):
+    """Points on a .glb's LOD0 surfaces (no shadows), glTF space: the vertices and area-weighted samples of every triangle."""
+    j, b, n = read(path); W = world(j); out = []
+    rng = np.random.default_rng(7)
+    for i, nd in enumerate(j["nodes"]):
+        name = nd.get("name", "")
+        if "mesh" not in nd or i not in W or any(t in name for t in ("LOD1", "LOD2", "shadow")): continue
+        for pr in j["meshes"][nd["mesh"]]["primitives"]:
+            P = _accessor(j, b, n, pr["attributes"]["POSITION"]).astype(np.float64)
+            P = (np.c_[P, np.ones(len(P))] @ W[i].T)[:, :3]
+            I = _accessor(j, b, n, pr["indices"]).reshape(-1, 3) if "indices" in pr else np.arange(len(P)).reshape(-1, 3)
+            A, B, C = P[I[:, 0]], P[I[:, 1]], P[I[:, 2]]
+            cnt = np.minimum(np.ceil(0.5 * np.linalg.norm(np.cross(B - A, C - A), axis=1) / spacing ** 2).astype(int), 400) + 1
+            k = np.repeat(np.arange(len(I)), cnt)
+            u, v = rng.random(len(k)), rng.random(len(k)); f = u + v > 1; u[f] = 1 - u[f]; v[f] = 1 - v[f]
+            out += [P, A[k] + (B[k] - A[k]) * u[:, None] + (C[k] - A[k]) * v[:, None]]
+    return np.concatenate(out) if out else np.zeros((0, 3))
+
+
+def snap_floating_mounts(ships, parts, rules):
+    """Guns and turrets that would float: GoF3's hardpoints are made for one gun each (a boss's for its big gun, a turret
+    socket for its own large base), and the kit hangs whichever GoF3 gun a GoF2 weapon maps to (or the remake's turret) on
+    them. Each primary and turret mount's gap to the hull (its pylons included) is measured with every gun model it may
+    carry (the turret base for a turret), and a mount whose median gap is over SNAP_GAP is moved that far toward the hull
+    along the gap, in steps (the Cronus' wing guns 0.57 units out, the Krotac's lower turret socket 3.7)."""
+    try:
+        from scipy.spatial import cKDTree
+    except ImportError:
+        print("scipy isn't installed: floating guns and turrets not checked"); return
+    guns = sorted({r["model"] for r in rules if r.get("slot") == "primary"})
+    G = {f: surface_points(os.path.join(OUT, f), 0.02) for f in guns + ["turret/turret.glb"]}
+    by_id = {p["id"]: p for p in parts}
+    for s in ships:
+        hull = surface_points(os.path.join(OUT, by_id[s["id"]]["model"]))
+        if not len(hull): continue
+        tree = cKDTree(hull)
+        for m in s["mounts"]:
+            if m["slotType"] not in (0, 2): continue
+            models = guns if m["slotType"] == 0 else ["turret/turret.glb"]
+            r = m.get("rotation"); x, y, z, w = r if r else (0.0, 0.0, 0.0, 1.0)
+            R = quat_matrix(-x, -y, z, w)   # (the remake's mount turn back in glTF space, ship_rotation's mirror)
+            if m.get("upsideDown"): R = R @ np.diag([-1.0, -1.0, 1.0])
+            p = np.array([-m["position_engine"][0], m["position_engine"][1], -m["position_engine"][2]], dtype=float) / K
+            moved = np.zeros(3)
+            for _ in range(4):
+                gaps, dirs = [], []
+                for f in models:
+                    g = G[f] @ R.T + p + moved
+                    d, idx = tree.query(g)
+                    k = int(np.argmin(d)); gaps.append(float(d[k]))
+                    dirs.append((hull[idx[k]] - g[k]) / max(1e-9, d[k]))
+                med = float(np.median(gaps))
+                if med <= SNAP_GAP: break
+                dvec = np.mean(dirs, axis=0); dvec /= max(1e-9, np.linalg.norm(dvec))
+                moved += dvec * (med - 0.5 * SNAP_GAP)
+            if np.linalg.norm(moved) > 1e-6:
+                q = p + moved
+                print(f"{s['id']}: {'gun' if m['slotType'] == 0 else 'turret'} at {m['position_engine']} moved "
+                      f"{np.linalg.norm(moved):.2f} units onto the hull")
+                m["position_engine"] = [round(-q[0] * K), round(q[1] * K), round(-q[2] * K)]
+
+
+def quat_matrix(x, y, z, w):
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
 
 
 def world(j):
@@ -914,8 +988,10 @@ def main():
             if len(prim) >= 2 and len(prim) % 2 == 0: break
             if hp in hpnode and hp not in secs and hp not in prim: prim.append(hp)
         def pylon(hp):   # the hardpoint's pylon (its mesh and contact shadow): shown only while the mount carries a weapon
-            n = f"{base}_weapon_mount_helper_{hp}"
-            return {"nodes": [n]} if n in node else {}
+            # (by its number, whatever ship it's named after: several hulls borrow another's pylons, the Nestaar's are
+            # ship_nivelian_210_weapon_mount_helper_NNN; looked up by this ship's name alone they stayed always shown)
+            n = next((k for k in node if k.endswith(f"_weapon_mount_helper_{hp}")), None)
+            return {"nodes": [n]} if n else {}
         for hp in prim:
             M = W[node[hpnode[hp]]]; m = {"slotType": 0, "position_engine": game(M[:3, 3]), **pylon(hp)}
             r = ship_rotation(M)
@@ -1041,6 +1117,7 @@ def main():
                   | {PRIMARY_DEFAULT, TURRET_DEFAULT})
     for f, mk in guns: build_gun(f, mk)
     build_turret(os.path.join(OUT, "turret", "turret.glb"))
+    snap_floating_mounts(ships, parts, weapon_rules())
 
     # icons and preview (rendered from the loadout .glb: the hull with its GoF3 default guns)
     if ICONS:

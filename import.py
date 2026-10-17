@@ -51,7 +51,7 @@ def log(msg):
 def check_python():
     if sys.version_info < (3, 9): fail("Python 3.9 or newer is needed")
     missing = []
-    for mod, pip in (("numpy", "numpy"), ("PIL", "pillow"), ("texture2ddecoder", "texture2ddecoder")):
+    for mod, pip in (("numpy", "numpy"), ("PIL", "pillow"), ("texture2ddecoder", "texture2ddecoder"), ("scipy", "scipy")):
         try: __import__(mod)
         except ImportError: missing.append(pip)
     try:

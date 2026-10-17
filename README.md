@@ -25,12 +25,12 @@ It runs on **Windows, macOS and Linux**.
     version's textures and game data where both have a file, the Android files filling in what the Switch romfs lacks).
   The game versions differ a little: the Android version (2.1.3) has newer game data, with some hulls' hull and shield
   values changed (so their armor and price in the mod) and a few typos in the texts fixed.
-- **Python 3.9 or newer** with numpy, Pillow, texture2ddecoder and pyzstd:
+- **Python 3.9 or newer** with numpy, Pillow, texture2ddecoder, SciPy and pyzstd:
   - Windows: install Python from python.org (tick "Add python.exe to PATH"), then in a Command Prompt
-    `py -m pip install numpy pillow texture2ddecoder pyzstd`
+    `py -m pip install numpy pillow texture2ddecoder scipy pyzstd`
   - macOS: install Python from python.org or Homebrew (`brew install python`), then in Terminal
-    `python3 -m pip install numpy pillow texture2ddecoder pyzstd`
-  - Linux: `python3 -m pip install numpy pillow texture2ddecoder pyzstd` (in a virtual environment if your distribution
+    `python3 -m pip install numpy pillow texture2ddecoder scipy pyzstd`
+  - Linux: `python3 -m pip install numpy pillow texture2ddecoder scipy pyzstd` (in a virtual environment if your distribution
     asks for one: `python3 -m venv venv` and use `venv/bin/python`)
 - **Blender 4.2 or newer** (blender.org): it builds the models. It is found by itself on the PATH, in Program Files
   (Windows; also Steam's copy) or in Applications (macOS); else give its path with `--blender`.
