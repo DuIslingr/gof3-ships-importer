@@ -17,6 +17,8 @@ Customize (the hangar, under Inspect ship):
             own projectile colours (shipkits.json palette "weapons": the Colorize_Color1 of each GoF3 weapon effect's
             material): Burst Laser violet, Pulse Laser sky blue, Ion Cannon teal, Pirate Ion Cannon red, Plasma Sprayer green,
             EMP blue, Ricochet orange, Scatter Cannon yellow, Amber, White; or Original.
+  Weapon models  Shown or Hidden: hidden, the hull flies without its GoF3 guns, their pylons and the turret model (the
+            weapons still fire, from the hardpoints themselves; shipkits.json "hardpoints": "toggle").
 Guns: the GoF3 guns follow the weapons mounted (shipkits.json "hardpoints"): pulse lasers show the Burst Laser, the M6 beams
 the Beam Laser, blasters the Plasma Blast, the Micro Guns and the Scram Cannon the Auto Laser, the railguns the Railgun, the
 mass drivers the Mass Driver, the thermo guns the Plasma Focus, the scatter guns the Scatter Plasma, the Disruptor and Dark

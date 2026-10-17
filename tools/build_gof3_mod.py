@@ -23,6 +23,8 @@ GoF3 ship is one ships.json entry with "kit": "gof3", "kitType" its id, and:
              mount as its swivel, the GoF3 gun its item maps to on top) instead of the game's turret models, keeping the item's
              stats and behaviour. Mounts at the hull's own turret_NNN sockets (upright or under the hull), else on top of the
              hull's rear half.
+  toggle     the guns, their pylons and the turret model can be hidden in the hangar's Customize screen (Weapon models:
+             Shown / Hidden; the kit's hardpoints "toggle"): the hull as GoF3 shows it bare, the shots then leave from the mounts.
 Every stat comes from the hull's data.pdb record (templates merged field by field, ae4_pdb_arming.Records), as before:
   name / description   GuiAttribute 4067579 / 9934023 -> the text records' English string (3906420)
   race                 Identity 9536365: 3 Terran -> 0, 4 Vossk -> 1, 6 Nivelian -> 2, 7 pirates -> 8, 5 Inouac -> 3 Midorian
@@ -1154,7 +1156,7 @@ def main():
 
     kit = {"id": KIT, "name": "Galaxy on Fire 3 hulls", "slots": ["hull"], "scale": round(K * 0.05, 5), "yaw": 180,
            "parts": parts, "skins": skins, "palettes": {"weapons": weapon_palette()},
-           "hardpoints": {"turret": "turret/turret.glb", "weapons": weapon_rules()}}
+           "hardpoints": {"turret": "turret/turret.glb", "toggle": True, "weapons": weapon_rules()}}
     json.dump([kit], open(os.path.join(OUT, "shipkits.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(info, open(os.path.join(OUT, "source.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)

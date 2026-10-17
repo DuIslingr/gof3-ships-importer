@@ -89,7 +89,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   the ship's strength.
 - In the hangar, **Customize ship** (under Inspect ship) picks the hull's paint scheme (Skin: GoF3's numbered schemes and
   its special paints like Gold or Dragon) and the colour of the energy weapons' shots, in GoF3's colours.
-- The mounted guns show as GoF3 guns on the hull's hardpoints, a turret as a GoF3 turret.
+- The mounted guns show as GoF3 guns on the hull's hardpoints, a turret as a GoF3 turret. The Customize screen's
+  **Weapon models** row hides them, with their pylons, for a bare hull (the weapons still fire).
 - The engines burn with GoF3's engine effects (each race's flare and exhaust, the Nivelian helix). The mod also brings
   the three GoF3 drives as exhaust styles any ship can wear.
 - The mod's own `README.txt` lists where every value comes from.
