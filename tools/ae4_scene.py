@@ -30,12 +30,20 @@ def read(path):
             return dict(id=nid, name=names.get(nid, f"node_{nid}"), parent=parent, pos=f[0:3], scale=sc, rot=q)
         return None
     cands = {o: r for o in range(0, len(d) - 59) if (r := rec(o))}
-    best = []
+    best, start = [], 0
     for o in cands:
         if o - 60 in cands: continue          # not the start of a run
-        run = []
+        run, o0 = [], o
         while o in cands: run.append(cands[o]); o += 60
-        if len(run) > len(best): best = run
+        if len(run) > len(best): best, start = run, o0
+    # A node's parent is the i64 at the start of the NEXT record (the record is [id u64][id u32][10f][parent i64] read
+    # from its second field on): taken from the record's own leading field, every parent was the node before's, the
+    # first one lost (a root) and the Hades' hull 86 units off its own engine helpers.
+    ids = {r["id"] for r in best}
+    for k, r in enumerate(best):
+        o = start + 60 * (k + 1)
+        p = struct.unpack_from("<q", d, o)[0] if o + 8 <= len(d) else -1
+        r["parent"] = p if p in ids and p != r["id"] else -1
     nodes = {r.pop("id"): r for r in best}
     return nodes
 

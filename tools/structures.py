@@ -166,6 +166,11 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None):
     W = world_matrices(scene)
     body = next((i for i, n in scene.items() if n["name"] == f"{name}_lod_000_body"), None)
     M = W[body] if body is not None else np.eye(4)
+    # The Hades' body is a root of its own at +(0, 86, -9.3) beside its geometry / helpers roots at -(0, 86, -9.3): it belongs
+    # under the geometry root (the two cancel). Taken alone it put the hull 86 units above its own engine helpers (the
+    # Manticore's exhausts hung under its nozzles).
+    geo = next((i for i, n in scene.items() if n["name"] == f"{name}_geometry" and n["parent"] == -1), None)
+    if body is not None and geo is not None and scene[body]["parent"] == -1: M = W[geo] @ W[body]
     sections = [s for s in ae4_meshgroup.read_all(f"{model_dir}/{name}_lod_000_body.ae4meshgroup")
                 if "a_texCoord1" in s and np.abs(np.asarray(s["a_texCoord1"])).max() > 0]
     lm_path = f"{sdir}/materials/multi/{name}_light_ao.tga.ae4texture"
@@ -187,7 +192,9 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None):
         if re.search(r"_(turret|engine|damaged|hangar|bow|stern|generator)", n["name"]):
             Wm = W[i]
             up = Wm[:3, 1] / max(1e-9, float(np.linalg.norm(Wm[:3, 1])))
-            helpers[n["name"]] = ([float(v) for v in Wm[:3, 3]], float(np.cbrt(abs(np.linalg.det(Wm[:3, :3])))), [float(v) for v in up])
+            back = Wm[:3, 2] / max(1e-9, float(np.linalg.norm(Wm[:3, 2])))   # an engine's way out (glTF +z = astern)
+            helpers[n["name"]] = ([float(v) for v in Wm[:3, 3]], float(np.cbrt(abs(np.linalg.det(Wm[:3, :3])))), [float(v) for v in up],
+                                  [float(v) for v in back])
     P = np.asarray(pos)
     return {"min": P.min(0).tolist(), "max": P.max(0).tolist(), "helpers": helpers, "triangles": len(idx) // 3,
             "coverage": float(mask.mean())}
