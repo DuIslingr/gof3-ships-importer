@@ -637,225 +637,24 @@ def hull_points(path):
 # ---------------------------------------------------------------- engines (GoF3's engine effect: the remake's "engineFx")
 
 # Each ship's EngineAttachment names its engine effect (NivelianEngine -> /assets/vfx/engines/nivelian/vfx_engine_nivelian_000
-# .ae4scene: a flare "glow_mesh", crossed exhaust cards, a spiral) and its VfxList a trail (TrailNivelian -> the Fork particle
-# system particles/ship_engine_nivelian.psb: stretched beam_001.bmp streaks drifting apart). The remake's EngineFx draws the
-# flare (two quads), the cone and the trails from three PNGs in the mod's fx/ (greyscale: tinted by each exhaust's colour).
-# The Inouac engine has no textures of its own (it borrows by GUID): the Nivelian ones. The spiral's flow textures can't be
-# identified (materials name their textures by GUID only): no spiral.
+# .ae4scene: a flare "glow_mesh", the exhaust, a spiral) and its VfxList a trail (TrailNivelian -> the Fork particle system
+# particles/ship_engine_nivelian.psb). The remake draws both as GoF3 does (EngineFx): the scene's parts with their own meshes,
+# textures and shader options (engine_meshes.py) and the Fork emitters (fork_psb.py). (Until 2026-10-24 the remake drew an
+# imitation from three PNGs: flare and cone cards, a ribbon helix and wavering streams; gone with its settings.)
 ENGINE_VFX = os.path.join(ASSETS, "vfx", "engines")
 PARTICLES = os.path.join(MERGED, "particles")
 ENGINE_RACE = {"NivelianEngine": "nivelian", "TerranEngine": "terran", "VosskEngine": "vossk", "InouacEngine": "inouac"}
-ENGINE_TEXTURES = {"nivelian": "nivelian", "terran": "terran", "vossk": "vossk", "inouac": "nivelian"}
-# The trail (the particle system's parameters aren't readable: matched by eye against GoF3's ship viewer), GoF3 units:
-TRAIL_LENGTH = 1.5        # x the exhaust cards' length (970 game units: GoF3's ship viewer shows only short wisps behind the
-                          # Atauno Rheep and the Nestaar, a fifth of the hull; 4.33, the Moornta in flight, ran 1.5 hulls behind)
-TRAIL_WIDTH = 1.5         # half width at the nozzle (a soft wake behind the helix)
-TRAIL_WANDER = 3.0        # how hard it sways (EngineFx eases each stream toward random sideways speeds of up to this / its time;
-                          # cut with the length, 8.0 at 4.33: the same waviness along the shorter stream)
-TRAIL_TIME = 0.75         # seconds
-TRAIL_COUNT = 2           # streams per exhaust
-# The helix (GoF3's spiral: two ribbon strands winding round the axis, radius 0.5 -> 0.1 over its length; its animation
-# spins it): the turns, spin and width matched by eye against GoF3 in flight (the Moornta), the lightning texture
-# (assets_best/vfx/generic/vfx_generic_electricity_000) a guess at what the spiral's material names by GUID only.
-SPIRAL_TURNS = 2.0
-SPIRAL_SPIN = 1.2         # turns a second
-SPIRAL_WIDTH = 0.41       # each strand's half width (wide enough for the bolt's branches to show)
-# With the helix it carries the look (GoF3 in flight): the trails a dim soft wake under it, the flare and the cone dimmer.
-SPIRAL_TRAIL_INTENSITY = 0.35
-SPIRAL_GLOW_INTENSITY = 0.75
-SPIRAL_CONE_INTENSITY = 0.4
-SPIRAL_TRAIL_WIDTH = 1.7
-
-
-def grey_png(src_png, dst, size=None, alpha=False):
-    """A texture as a grey additive PNG (the brightest channel; with 'alpha', times its alpha)."""
-    a = np.asarray(Image.open(src_png).convert("RGBA")).astype(np.float32)
-    v = a[..., :3].max(axis=2) * (a[..., 3] / 255.0 if alpha else 1.0)
-    im = Image.fromarray(np.clip(v, 0, 255).astype(np.uint8), "L").convert("RGB")
-    if size and im.size[0] > size: im = im.resize((size, size), Image.LANCZOS)
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    im.save(dst, optimize=True)
+# The nozzle radius each engine effect is drawn for (game units; the engineFx's "nozzle": the remake sizes exhaust styles
+# against it, on these ships and as styles on others), measured on the hulls in the remake from behind: the Nivelian exhaust
+# fills its nozzles (the Atauno Rheep's hexagons ~85-95 against its 87), the Terran one overhangs them a little (the Argus'
+# 75-110 against 138), the Vossk one by about three times (the K'ssshar Ka's ~46, the Shaan'ra-Grth's ~34). The engine_glows
+# measurement is only the hottest core of each nozzle's glow, 1 to 5 x smaller, so it can't give this. Others: their exhaust
+# mesh's radius (engine_nozzle).
+ENGINE_NOZZLE = {"nivelian": 87, "terran": 100, "vossk": 45}
 
 
 def decode_texture(path, png):
     subprocess.run([sys.executable, os.path.join(HERE, "ae4_texture.py"), path, png], check=True, capture_output=True)
-
-
-# Galaxy on Fire 3's Terran engine (checked against the Argus in GoF3's ship viewer, rotating): no wavering streams, only
-# thin straight streaks fading behind the bright cone spike; GoF3 units like the TRAIL_ constants ("trailLength" x the
-# exhaust cards' length like TRAIL_LENGTH), the cone 2.5 x brighter (the spike's yellow-orange core).
-# Galaxy on Fire 3's Vossk engine looks like the Terran one in green (the Shamash in GoF3's ship viewer, rotating): the same
-# thin straight streak behind a bright cone spike, no wavering streams (its data.pdb TrailVossk names the Nivelian particle
-# system, but GoF3 shows no such streams on the Vossk ships); from behind only the flares over the lit nozzle rings (the
-# cone's cards vanish edge-on, "coneFade"); every part in the engine's green (see MATERIAL_COLOUR).
-TERRAN_LIKE = {"trailCount": 1, "trailWidth": 0.45, "trailWander": 0.6, "trailIntensity": 0.35, "trailLength": 2.0, "coneIntensity": 2.5}
-# The Vossk streak as long as the Terran one (GoF3 units, the Terran cards' 10.48 x 2: the Vossk cards are half as long again,
-# and 2 x them ran past the K'ssshar Ka's and the Shaan'ra-Grth's whole hulls) and straight (no wander: GoF3's ship viewer shows
-# a still, thin line behind the spike).
-VOSSK_LIKE = {**TERRAN_LIKE, "trailWander": 0.0, "trailSpan": 2.0 * 10.48}
-RACE_TRAIL = {"terran": TERRAN_LIKE, "vossk": VOSSK_LIKE}
-# The engines whose own exhaust mesh shapes the cone ("coneProfile": its rings' place, brightness and u) and whose exhaust
-# material's AngleBlend fades its cards edge-on ("coneFade": seen from straight behind only the flares show). All of them:
-# the Nivelian rings are the remake's default, the Terran ones peak at 0.93 and take the whole texture, the Inouac engine
-# borrows the Nivelian textures and with them the Nivelian exhaust's rings and fade (it has no exhaust material of its own).
-OWN_CONE = {"nivelian", "terran", "vossk", "inouac"}
-# The engines drawn in their materials' colour (Colorize_Color1 = the EngineAttachment colour) rather than the hull's nozzle
-# light (the Shamash's nozzles glow yellow-green, its plume and flares are teal green).
-MATERIAL_COLOUR = {"vossk"}
-# ... except the flare: GoF3's ship viewer shows the Vossk flares lime over the hull's lime nozzle rings (the K'ssshar Ka,
-# Na'takath, Shaan'ra-Grth: their brightest pixels at hue 80-90, the plume around them teal at 130-160), so a Vossk ship's
-# flare takes its nozzles' colour (each exhaust's glowColor) and the style its typical one (the Vossk hulls' mean).
-NOZZLE_FLARE = {"vossk": (0.65, 1.0, 0.11)}
-# The nozzle radius each engine effect is drawn for (game units; the engineFx's "nozzle": the remake sizes exhaust styles
-# against it, on these ships and as styles on others), measured on the hulls in the remake from behind: the Nivelian cone
-# fills its nozzles (the Atauno Rheep's hexagons ~85-95 against the cone's 87), the Terran one overhangs them a little (the
-# Argus' 75-110 against 138), the Vossk one by about three times (the K'ssshar Ka's ~46, the Shaan'ra-Grth's ~34). The
-# engine_glows measurement is only the hottest core of each nozzle's glow, 1 to 5 x smaller, so it can't give this.
-ENGINE_NOZZLE = {"nivelian": 87, "terran": 100, "vossk": 45}
-
-
-def texture_colour(png):
-    """A decoded effect texture's own colour: its pixels' mean weighted by brightness (the dark ones left out), brightest
-    channel 1."""
-    a = np.asarray(Image.open(png).convert("RGB"), dtype=np.float64) / 255.0
-    lum = a.max(axis=2)
-    w = lum * (lum > 0.15)
-    if w.sum() <= 0: return None
-    c = (a * w[..., None]).reshape(-1, 3).sum(0) / w.sum()
-    return [round(float(x), 3) for x in c / max(1e-6, c.max())]
-
-
-def part_colour(material, engine_colour):
-    """An engine effect part's colour from its GoF3 material: Colorize_Color1 is the engine attachment's colour (the
-    EngineAttachment record sets it; Colorize_Custom keeps the material's own), times DiffuseColor when
-    DiffuseColorMultiply; brightest channel 1. None without the material."""
-    if not os.path.exists(material): return None
-    import ae4_material
-    v, _ = ae4_material.read(material)
-    c = np.array(v["Colorize_Color1"][:3] if v.get("Colorize_Custom") else engine_colour, dtype=float)
-    if v.get("DiffuseColorMultiply"): c = c * np.array(v["DiffuseColor"][:3], dtype=float)
-    return [round(float(x), 3) for x in c / max(1e-6, c.max())]
-
-
-TRAIL_RACE = {"TrailNivelian": "nivelian", "TrailTerran": "terran", "TrailVossk": "vossk"}
-
-
-def engine_fx(fx_name, tmp, trail_name=None):
-    """The ships.json "engineFx" for a GoF3 engine effect (its fx/ PNGs written once), None when it isn't known. 'trail_name'
-    the ship's own trail (its VfxList's Trail*: the Inouac ships' InouacEngine trails TrailTerran's straight streak, every
-    other ship's trail matches its engine); None = the engine's race's."""
-    race = ENGINE_RACE.get(fx_name)
-    if race is None: return None
-    import ae4_meshgroup, ae4_scene
-    base = os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000")
-    glow = ae4_meshgroup.read_all(base + "_glow_mesh.ae4meshgroup")[0]
-    off = np.abs(np.asarray(glow["a_pos2dOffset"]))
-    square = float(off[:4].max())                              # the square: the whole texture
-    streak = off[4:].max(axis=0)                               # the streak: half width, half height
-    gscale = next((v["scale"][0] for v in ae4_scene.read(base + ".ae4scene").values() if "glow" in v["name"]), 1.0)
-    ex = np.asarray(ae4_meshgroup.read_all(base + "_exhaust.ae4meshgroup")[0]["a_position"])
-    radius, length = float(np.linalg.norm(ex[:, :2], axis=1).max()), float(ex[:, 2].max())
-    tex = ENGINE_TEXTURES[race]
-    os.makedirs(tmp, exist_ok=True)
-    files = {"glow": f"fx/{tex}_glow.png", "cone": f"fx/{tex}_cone.png", "trail": "fx/engine_trail.png", "spiral": "fx/engine_spiral.png"}
-    for kind, name in (("glow", "glow"), ("cone", "exhaust")):
-        dst = os.path.join(OUT, files[kind])
-        if not os.path.exists(dst):
-            png = os.path.join(tmp, f"{tex}_{name}.png")
-            decode_texture(os.path.join(ENGINE_VFX, tex, f"vfx_engine_{tex}_{name}_000.tga.ae4texture"), png)
-            grey_png(png, dst, 256)
-    dst = os.path.join(OUT, files["trail"])
-    if not os.path.exists(dst):
-        png = os.path.join(tmp, "beam_001.png")
-        decode_texture(os.path.join(PARTICLES, "beam_001.bmp.ae4texture"), png)
-        grey_png(png, dst, None, alpha=True)
-    spiral = None
-    if os.path.exists(base + "_spiral.ae4meshgroup"):   # (only the Nivelian engine has the helix)
-        dst = os.path.join(OUT, files["spiral"])
-        if not os.path.exists(dst):
-            png = os.path.join(tmp, "electricity.png")
-            decode_texture(os.path.join(ENGINE_VFX, "..", "generic", "vfx_generic_electricity_000.tga.ae4texture"), png)
-            grey_png(png, dst, 256, alpha=True)
-        sp = np.asarray(ae4_meshgroup.read_all(base + "_spiral.ae4meshgroup")[0]["a_position"])
-        s_len = float(sp[:, 2].max()); rr = np.hypot(sp[:, 0], sp[:, 1]); z = sp[:, 2]
-        r0, r1 = float(rr[z < s_len * 0.15].mean()), float(rr[z > s_len * 0.85].mean())
-        spiral = {"spiral": files["spiral"], "spiralLength": round(s_len * K), "spiralRadius": [round(r0 * K), round(r1 * K)],
-                  "spiralWidth": round(SPIRAL_WIDTH * K), "spiralTurns": SPIRAL_TURNS, "spiralSpin": SPIRAL_SPIN,
-                  "trailWidth": round(SPIRAL_TRAIL_WIDTH * K), "trailIntensity": SPIRAL_TRAIL_INTENSITY,
-                  "glowIntensity": SPIRAL_GLOW_INTENSITY, "coneIntensity": SPIRAL_CONE_INTENSITY}
-    del files["spiral"]
-    colour, _ = ENGINE_FX.get(fx_name, ENGINE_FX["TerranEngine"])
-    # Colorize_Options 1 (the Terran engine's materials): GoF3 draws the textures in their own colour (the Argus's amber
-    # flares and spikes, whatever its EngineAttachment colour says); every part takes it.
-    texture_tints = {}
-    import ae4_material
-    gm = os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_glow.ae4material")
-    if os.path.exists(gm) and ae4_material.read(gm)[0].get("Colorize_Options") == 1:
-        for part, name in (("flareColor", "glow"), ("coneColor", "exhaust")):
-            png = os.path.join(tmp, f"{tex}_{name}.png")
-            if not os.path.exists(png): decode_texture(os.path.join(ENGINE_VFX, tex, f"vfx_engine_{tex}_{name}_000.tga.ae4texture"), png)
-            c = texture_colour(png)
-            if c: texture_tints[part] = c
-        if "coneColor" in texture_tints: texture_tints["trailColor"] = texture_tints["coneColor"]
-        if "flareColor" in texture_tints: colour = texture_tints["flareColor"]
-    # The helix engine: each part's colour as GoF3's materials make it (checked against GoF3 in flight: the Moornta's deep
-    # blue strands and plume). The others keep the hull's nozzle colour for every part: the Terran / Vossk hulls' nozzles
-    # are lit orange / yellow-green while their effect materials colour blue / green, and nothing shows which GoF3 draws.
-    tints = {}
-    if spiral:
-        mats = os.path.join(ENGINE_VFX, race)
-        mat = lambda part: os.path.join(mats, f"vfx_engine_{race}_{part}.ae4material")
-        tints = {"coneColor": part_colour(mat("000_exhaust"), colour), "spiralColor": part_colour(mat("spiral"), colour)}
-        tints["trailColor"] = tints["spiralColor"]   # (the particle system's isn't readable: the clip's plume is the strands' blue)
-        tints = {k: v for k, v in tints.items() if v}
-    own = {}
-    if race in OWN_CONE:
-        # the exhaust mesh's rings (each a z with one brightness and u: the cards' vertices) as shares of its length; an
-        # engine without an exhaust material of its own (the Inouac's: it borrows the Nivelian textures) takes the
-        # exhaust it borrows them from, mesh and material
-        src = race if os.path.exists(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material")) else tex
-        sbase = os.path.join(ENGINE_VFX, src, f"vfx_engine_{src}_000")
-        # the rings from the engine's own exhaust mesh (the Inouac's: wider and shorter than the Nivelian, its brightest
-        # ring at 0.165 of the length); a borrowed texture's band (the Nivelian u 0.39 -> 0.69) spread along them, as
-        # the borrowed picture is drawn on them (the Inouac mesh's own u runs -0.57 -> 1.58, for a texture named by GUID only)
-        g = ae4_meshgroup.read_all(base + "_exhaust.ae4meshgroup")[0]
-        P = np.asarray(g["a_position"]); C = np.asarray(g["a_vtxColor"]); T = np.asarray(g["a_texCoord0"])
-        band = None
-        if src != race:
-            Tb = np.asarray(ae4_meshgroup.read_all(sbase + "_exhaust.ae4meshgroup")[0]["a_texCoord0"])
-            band = (float(Tb[:, 0].min()), float(Tb[:, 0].max()))
-        slen = float(P[:, 2].max())
-        profile = []
-        for z in sorted(set(np.round(P[:, 2], 3))):
-            at = np.round(P[:, 2], 3) == z
-            u = band[0] + (band[1] - band[0]) * float(z) / slen if band else float(np.clip(T[at][:, 0].mean(), 0, 1))
-            profile += [round(float(z) / slen, 4), round(float(C[at][:, 0].mean()), 3), round(u, 3)]
-        own["coneProfile"] = profile
-        v, _ = ae4_material.read(sbase + "_exhaust.ae4material")
-        if v.get("AngleBlend_Enabled") and v.get("AngleBlend_Absolute"):
-            own["coneFade"] = [round(float(v["AngleBlend_MinAngle"]), 3), round(float(v["AngleBlend_MaxAngle"]), 3)]
-        if v.get("UVAnim_Enabled"):
-            # GoF3's UVAnim flow on the exhaust cards (the remake's GoF2/ModEngineFlow): the texture churning in a moving
-            # field, the material's speed, strength and tiling (Nivelian 0.5 / 1 / 0.5, Terran 4 / 0.8 / 2, Vossk 1.3 / 1 / 0.5)
-            own["coneFlow"] = [round(float(v.get("UVAnim_SpeedMultiplier", 1.0)), 3), round(float(v.get("UVAnim_FlowStrength", 1.0)), 3),
-                               round(float(v.get("UVAnim_FlowTiling", 0.5)), 3)]
-    if race in MATERIAL_COLOUR:
-        for part, name in (("flareColor", "glow"), ("coneColor", "exhaust")):
-            if part == "flareColor" and race in NOZZLE_FLARE: continue
-            c = part_colour(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_{name}.ae4material"), colour)
-            if c: own[part] = c
-        if "coneColor" in own: own["trailColor"] = own["coneColor"]
-    rt = RACE_TRAIL.get(TRAIL_RACE.get(trail_name, race), {})
-    if TRAIL_RACE.get(trail_name, race) != race: rt = {k: v for k, v in rt.items() if k != "coneIntensity"}   # (the engine's own cone)
-    trail = {"trailCount": rt.get("trailCount", TRAIL_COUNT),
-             "trailLength": round((rt["trailSpan"] if "trailSpan" in rt else length * rt.get("trailLength", TRAIL_LENGTH)) * K),
-             "trailWidth": round(rt.get("trailWidth", TRAIL_WIDTH) * K), "trailWander": round(rt.get("trailWander", TRAIL_WANDER) * K),
-             "trailTime": TRAIL_TIME, **({"trailIntensity": rt["trailIntensity"]} if "trailIntensity" in rt else {}),
-             **({"coneIntensity": rt["coneIntensity"]} if "coneIntensity" in rt else {})}
-    return {**files, "glowSize": [round(square * gscale * K), round(float(streak[0]) * gscale * K), round(float(streak[1]) * gscale * K)],
-            "coneLength": round(length * K), "coneWidth": round(radius * K),
-            **({"nozzle": ENGINE_NOZZLE[race]} if race in ENGINE_NOZZLE else {}),
-            **trail, **(spiral or {}), "color": [round(c, 3) for c in colour], **tints, **texture_tints, **own}
 
 
 MESH_GLOW = 1.0   # GoF3's engines' brightness in the remake (engineFx "meshGlow")
@@ -888,35 +687,41 @@ def fork_emitter(name):
 _engine_meshes = {}
 
 
-def engine_mesh_fields(fx_name):
-    """The engine as GoF3 draws it (engine_meshes: its scene's parts with their own meshes, textures and shader options):
-    "meshes" and its scale for the ship's engineFx; the remake then draws those in place of the flare, cone and helix, and
-    the trails on top. {} when the engine has no scene."""
+def engine_nozzle(rel, body):
+    """The nozzle radius (game units) an engine file (fx/engines/<name>.json) is drawn for: its part 'body''s (name ending
+    so) widest reach from the axis, x its scale, x K; None without it."""
+    try: parts = json.load(open(os.path.join(OUT, rel)))["parts"]
+    except (OSError, ValueError, KeyError): return None
+    for p in parts:
+        if p.get("sprite") or not p["name"].endswith(body): continue
+        V = np.asarray(p["v"], dtype=float).reshape(-1, 3) * np.asarray(p.get("scale", [1, 1, 1]), dtype=float)
+        return round(float(np.hypot(V[:, 0], V[:, 1]).max()) * K)
+    return None
+
+
+def engine_fx(fx_name):
+    """The ships.json "engineFx" for a GoF3 engine effect as GoF3 draws it (engine_meshes: its scene's parts with their own
+    meshes, textures and shader options): "meshes", its scale, the nozzle it is drawn for. None when it isn't known or has
+    no scene."""
     race = ENGINE_RACE.get(fx_name)
-    if race is None: return {}
+    if race is None: return None
     if race not in _engine_meshes:
         import engine_meshes
         rel = engine_meshes.build(OUT, ASSETS, MERGED, f"vfx/engines/{race}/vfx_engine_{race}_000.ae4scene", f"engine_{race}")
-        _engine_meshes[race] = {"meshes": rel, "meshScale": round(K, 3), "meshGlow": MESH_GLOW} if rel else {}
-    return _engine_meshes[race]
+        nozzle = ENGINE_NOZZLE.get(race) or (engine_nozzle(rel, "exhaust") if rel else None)
+        _engine_meshes[race] = {"meshes": rel, "meshScale": round(K, 3), "meshGlow": MESH_GLOW, **({"nozzle": nozzle} if nozzle else {})} if rel else None
+    return dict(_engine_meshes[race]) if _engine_meshes[race] else None
 
 
-def nozzle_tinted(fx, nozzle):
-    """The Terran engine's parts (drawn in their textures' amber, Colorize_Options 1) over a hull whose nozzles glow yellower:
-    halfway to the nozzles' colour, as GoF3's additive flare over the lit nozzle shows (the Retro / Groza Gr'Gath, gold
-    nozzles: measured in a GoF3 video at about (1, 0.75, 0.35), the blend gives (1, 0.80, 0.35)). Ships with orange or
-    other-coloured nozzles keep the amber (the Argus' was matched against GoF3's ship viewer; blue nozzles would grey it)."""
-    if not fx or "flareColor" not in fx or not nozzle or max(nozzle) != nozzle[0] or nozzle[1] <= fx["flareColor"][1]: return fx
-    fx = dict(fx)
-    for part in ("flareColor", "coneColor", "trailColor"):
-        if part in fx: fx[part] = [round((a + b) / 2, 3) for a, b in zip(fx[part], nozzle)]
-    return fx
-
-
-# The three engine effects as exhaust styles any ship can wear (exhausts.json: the remake's Customize screen, ModExhausts):
-# GoF3's own look, each part in the colour its materials give it, offered with GoF3's engine colours.
+# GoF3's engines as exhaust styles any ship can wear (exhausts.json: the remake's Customize screen, ModExhausts), drawn as GoF3
+# draws them (its own meshes and particles, in its own colours unless the build picks others): the fighters' Nivelian (with
+# its helix), Terran and Vossk engines with their trails and booster flashes, and the capital ships' three.
 EXHAUST_STYLES = [("NivelianEngine", "nivelian", "GoF3 Nivelian drive"), ("TerranEngine", "terran", "GoF3 Terran drive"),
                   ("VosskEngine", "vossk", "GoF3 Vossk drive")]
+LARGE_STYLES = [("terran", "terran_large", "GoF3 Terran capital drive"), ("nivelian", "nivelian_large", "GoF3 Nivelian capital drive"),
+                ("vossk", "vossk_large", "GoF3 Vossk capital drive")]
+# Each engine's trail: the Fork system its race's ships carry (data.pdb's TrailNivelian / TrailTerran / TrailVossk name these).
+STYLE_TRAIL = {"nivelian": "ship_engine_nivelian", "terran": "ship_engine_pirate", "vossk": "ship_engine_nivelian"}
 EXHAUST_COLOURS = [("terran", "Terran blue", "TerranEngine"), ("terran_large", "Terran orange", "TerranEngineLarge"),
                    ("nivelian", "Nivelian cyan", "NivelianEngine"), ("nivelian_large", "Nivelian blue", "NivelianEngineLarge"),
                    ("vossk", "Vossk green", "VosskEngine"), ("inouac", "Inouac teal", "InouacEngine"), ("pirate", "Pirate red", "PirateEngine")]
@@ -924,22 +729,30 @@ EXHAUST_EXTRA = [("helix", "Helix blue", (0.216, 0.557, 1.0)), ("violet", "Viole
                  ("white", "White", (0.95, 0.97, 1.0))]
 
 
-def exhaust_styles(tmp):
-    """exhausts.json: GoF3's Nivelian (with its helix), Terran and Vossk engine effects as exhaust styles."""
+def exhaust_styles():
+    """exhausts.json: GoF3's fighter engines (with their trails and booster flashes) and its capital engines as exhaust
+    styles."""
+    import capitals
     hexrgb = lambda c: "#%02X%02X%02X" % tuple(round(255 * float(x)) for x in c)
     palette = [{"id": i, "name": n, "color": hexrgb(ENGINE_FX[f][0])} for i, n, f in EXHAUST_COLOURS]
     palette += [{"id": i, "name": n, "color": hexrgb(c)} for i, n, c in EXHAUST_EXTRA]
     out = []
     for fx_name, sid, name in EXHAUST_STYLES:
-        fx = engine_fx(fx_name, tmp)
+        fx = engine_fx(fx_name)
         if not fx: continue
         race = ENGINE_RACE[fx_name]
-        cone = part_colour(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material"), ENGINE_FX[fx_name][0])
-        if cone and "coneColor" not in fx: fx["coneColor"] = cone
-        if cone and "trailColor" not in fx: fx["trailColor"] = cone
-        if race in NOZZLE_FLARE and "flareColor" not in fx: fx["flareColor"] = list(NOZZLE_FLARE[race])   # (no hull to take it from)
-        out.append({"id": sid, "name": name, "engineFx": fx, "palette": palette, "mainName": "Flare colour",
-                    "secondName": "Trail and helix colour" if "spiral" in fx else "Trail colour"})
+        trail = fork_emitter(STYLE_TRAIL[race])
+        boost = fork_emitter(f"ad_engine_booster_{race}")
+        fx = {**fx, **({"trailParticles": trail} if trail else {}), **({"boostParticles": boost} if boost else {})}
+        helix = race == "nivelian"
+        out.append({"id": sid, "name": name, "engineFx": fx, "palette": palette, "mainName": "Engine colour",
+                    "secondName": "Helix and trail colour" if helix else "Trail colour"})
+    for race, sid, name in LARGE_STYLES:
+        fx = capitals.large_engine_fx(OUT, ASSETS, race, MERGED)
+        if not fx: continue
+        nozzle = engine_nozzle(fx["meshes"], f"large_{race}")
+        out.append({"id": sid, "name": name, "engineFx": {**fx, **({"nozzle": nozzle} if nozzle else {})}, "palette": palette,
+                    "mainName": "Engine colour", "secondName": "Second colour"})
     return out
 
 
@@ -1379,10 +1192,9 @@ def main():
     price_fits = gof2_price_fits()
     ships, info, parts, skins = [], {}, [], []
     sw = SkinWriter()
-    def locked_engine_fx(fx_name, trail_name):
+    def locked_engine_fx(fx_name):
         with fx_lock:   # (writes the fx/ files once)
-            fx = engine_fx(fx_name, os.path.join(OUT, ".fx_tmp"), trail_name)
-            return {**fx, **engine_mesh_fields(fx_name)} if fx else fx
+            return engine_fx(fx_name)
 
     def ship_particles(rid, contrail_points, fx_name):
         """The ship's own GoF3 trail and contrails: its VfxList's Trail* / Contrails entries (the others are buffs, impacts and
@@ -1490,8 +1302,6 @@ def main():
         # engines: colour and nozzle as the model shows them (engine_glows.py), else the GoF3 engine effect's colour
         att = D.comp(rid, "EngineAttachment").get(1002168)
         fx_name = D.R.name(D.R.sub(att[0]).get(1)) if att else None
-        vfx = [D.R.name(D.R.sub(x).get(1)) for x in D.comp(rid, "VfxList").get(580509, [])]
-        trail_name = next((v for v in vfx if v.startswith("Trail")), None)
         fx_colour, plume = ENGINE_FX.get(fx_name, ENGINE_FX["TerranEngine"])
         measured = measure_engines(glb)
         good = [m["size"] for m in measured if m["size"] and m["lit"] >= 0.02 and min(m["size"]) >= 0.15]
@@ -1583,7 +1393,7 @@ def main():
             "engineGlowRadius": round(min(70, max(18, 24 * length / 1000)), 1),
             "engineGlowColor": ship_colour,
             "mounts": mounts,
-            **({"engineFx": {**fx, **ship_particles(rid, contrail_pts, fx_name)}} if (fx := nozzle_tinted(locked_engine_fx(fx_name, trail_name), ship_colour)) else {}),
+            **({"engineFx": {**fx, **ship_particles(rid, contrail_pts, fx_name)}} if (fx := locked_engine_fx(fx_name)) else {}),
             **({"flight": {"topSpeed": top}} if top else {}),
             **({"integrated": {"items": built_in}} if built_in else {}),
             **({"traffic": {"boss": True}, "npcTurrets": [BOSS_TURRET.get(race, 48)] * len(turrets)} if boss else {}),
@@ -1723,8 +1533,7 @@ def main():
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",
         "preview": "preview.png"}, open(os.path.join(OUT, "mod.json"), "w", encoding='utf-8'), indent=4, ensure_ascii=False)
     shutil.copy(os.path.join(HERE, "gof3_mod_readme.txt"), os.path.join(OUT, "README.txt"))
-    json.dump(exhaust_styles(os.path.join(OUT, ".fx_tmp")), open(os.path.join(OUT, "exhausts.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
-    shutil.rmtree(os.path.join(OUT, ".fx_tmp"), ignore_errors=True)   # (engine_fx's decoded textures)
+    json.dump(exhaust_styles(), open(os.path.join(OUT, "exhausts.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     shutil.rmtree(os.path.join(OUT, ".turned"), ignore_errors=True)   # (the TURN hulls' turned copies)
     phase("done")
     print(f"{len(ships)} ships, {len(skins)} skins, {len(guns)} guns written to {OUT}")
