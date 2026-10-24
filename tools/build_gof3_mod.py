@@ -649,8 +649,9 @@ ENGINE_RACE = {"NivelianEngine": "nivelian", "TerranEngine": "terran", "VosskEng
 # fills its nozzles (the Atauno Rheep's hexagons ~85-95 against its 87), the Terran one overhangs them a little (the Argus'
 # 75-110 against 138), the Vossk one by about three times (the K'ssshar Ka's ~46, the Shaan'ra-Grth's ~34). The engine_glows
 # measurement is only the hottest core of each nozzle's glow, 1 to 5 x smaller, so it can't give this. Others: their exhaust
-# mesh's radius (engine_nozzle).
-ENGINE_NOZZLE = {"nivelian": 87, "terran": 100, "vossk": 45}
+# mesh's radius (engine_nozzle). The Nivelian 60, not its exhaust's 87: as a style on other ships (the game's Phantom) it came
+# out the smallest of the three, its glare dimmer than the Terran one (the user's report, 2026-10-24); 87 / 1.45 matched by eye.
+ENGINE_NOZZLE = {"nivelian": 60, "terran": 100, "vossk": 45}
 
 
 def decode_texture(path, png):
