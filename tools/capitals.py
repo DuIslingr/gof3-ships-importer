@@ -17,14 +17,12 @@ build(out_dir, assets) -> (ships, stations, interiors): the ships.json, stations
 import math, os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
-from PIL import Image
-import structures, hangar_room, ae4_meshgroup, ae4_scene, ae4_material, nozzle_outline
+import structures, hangar_room, ae4_meshgroup, ae4_scene, ae4_material, nozzle_outline, engine_meshes
 
 K = 1231.49 / 23.02                       # game units per GoF3 unit (build_gof3_mod.K)
 MAX_TURRETS = 8
 MAX_ENGINES = 16                          # every nozzle lit (the Vossk battleship has 13, its freighter 14)
-FLARE = 1.6                               # the flare streak against GoF3's quad (see large_engine_fx)
-FLARE_BRIGHT = 1.67
+MESH_GLOW = 1.0                           # GoF3's engines' brightness in the remake (engineFx "meshGlow")
 NOZZLE = 2.09                             # an engine helper's scale x this = its nozzle's radius (GoF3 units: the large
                                           # engine's body, which GoF3 sizes to the nozzle)
 TURRET = {0: 48, 1: 49, 2: 48}            # the Hammerhead D2A2, the Vossk L'ksaar
@@ -98,77 +96,14 @@ def spread(items, n):
     return [items[round(i * (len(items) - 1) / (n - 1))] for i in range(n)]
 
 
-def _ring_profile(path, offset):
-    """A large engine mesh's rings behind its nozzle (scene z 'offset' added; z > 0 = backward): [(z, radius, colour)]."""
-    g = ae4_meshgroup.read_all(path)[0]
-    P = np.asarray(g["a_position"]); C = np.asarray(g["a_vtxColor"])[:, :3]
-    out = []
-    for z in sorted(set(np.round(P[:, 2], 3))):
-        at = np.round(P[:, 2], 3) == z
-        out.append((float(z) + offset, float(np.hypot(P[at, 0], P[at, 1]).max()), C[at].mean(0)))
-    return [r for r in out if r[0] >= 0.0]
-
-
-def _tapered(rings, length, rmax, out_png, size=(256, 128)):
-    """The cone cards' texture: along u the share of the length, across v a soft band as wide as the mesh's radius there (the
-    remake's cards are as wide everywhere: the taper is in the picture)."""
-    zs = np.array([r[0] for r in rings]) / length; rs = np.array([r[1] for r in rings]) / rmax
-    u = (np.arange(size[0]) + 0.5) / size[0]; v = (np.arange(size[1]) + 0.5) / size[1]
-    w = np.clip(np.interp(u, zs, rs), 0.02, 1.0)
-    d = np.abs(v[:, None] * 2 - 1) / w[None, :]
-    a = np.clip(1 - d, 0, 1) ** 1.5
-    img = (a * 255).astype(np.uint8)
-    Image.merge("RGBA", [Image.fromarray(img)] * 4).save(out_png)
-
-
-def _soft(out_png, size, sx, sy):
-    """A soft gaussian spot (the flare) or streak (the core's trail): grey with the same alpha."""
-    x = (np.arange(size[0]) + 0.5) / size[0] * 2 - 1; y = (np.arange(size[1]) + 0.5) / size[1] * 2 - 1
-    a = np.exp(-(x[None, :] / sx) ** 2 - (y[:, None] / sy) ** 2)
-    img = (a / a.max() * 255).astype(np.uint8)
-    Image.merge("RGBA", [Image.fromarray(img)] * 4).save(out_png)
-
-
-def _bright(c):
-    c = np.asarray(c, float)
-    return [round(float(x), 3) for x in c / max(1e-6, c.max())]
-
-
-def large_engine_fx(out_dir, assets, race):
-    """ships.json "engineFx" for GoF3's capital ship engine (vfx/engines/large/vfx_enigne_large_<race>: a glowing nozzle body
-    8 units long, a hot core reaching 11.5 behind it and a flat flare streak 32 x 4.6 across the nozzle, all drawn in their
-    vertex colours, the flare in its material's colours x 3), sized for an engine helper of scale 1 (each engine's
-    "fxScale" = its helper's scale): the body as the cone (its rings' brightness and its taper, the cards' picture), the core
-    as one straight trail, the flare as the glow's streak."""
-    base = f"{assets}/vfx/engines/large/vfx_enigne_large_{race}"
-    scene = {v["name"]: v for v in ae4_scene.read(base + ".ae4scene").values()}
-    main_z = scene[f"vfx_enigne_large_{race}"]["pos"][2]
-    core_z = main_z + scene[f"vfx_enigne_large_{race}_core"]["pos"][2]   # (the core and the flare are the body's children)
-    body = _ring_profile(base + ".ae4meshgroup", main_z)
-    core = _ring_profile(base + "_core.ae4meshgroup", core_z)
-    length = body[-1][0]; rmax = max(r[1] for r in body)
-    fx = os.path.join(out_dir, "fx"); os.makedirs(fx, exist_ok=True)
-    _tapered(body, length, rmax, os.path.join(fx, f"large_{race}_cone.png"))
-    _soft(os.path.join(fx, "large_glow.png"), (128, 128), 0.65, 0.65)   # (flat: the streak takes its whole length)
-    if not os.path.exists(os.path.join(fx, "large_core.png")): _soft(os.path.join(fx, "large_core.png"), (64, 128), 0.4, 3.0)
-    profile = []
-    for z, r, c in body: profile += [round(z / length, 4), round(float(max(c)), 3), round(z / length, 4)]
-    weights = np.array([max(c) for _, _, c in body])
-    cone = _bright(sum(w * c for w, (_, _, c) in zip(weights, body)) / max(1e-6, weights.sum()))
-    cw = np.array([max(c) for _, _, c in core])
-    trail = _bright(sum(w * c for w, (_, _, c) in zip(cw, core)) / max(1e-6, cw.sum()))
-    v, _ = ae4_material.read(base + "_flare.ae4material")
-    flare = _bright((np.asarray(v["Colorize_Color1"][:3]) + np.asarray(v["Colorize_Color2"][:3])) / 2)
-    fl = np.asarray(ae4_meshgroup.read_all(base + "_flare.ae4meshgroup")[0]["a_position"])
-    # The glow square twice the body's radius, the streak FLARE x GoF3's flare quad (its texture is named by GUID only: ours
-    # fades toward the ends, theirs shows the quad's whole length), brighter than its vertex grey x Colorize_Multiplier.
-    return {"glow": "fx/large_glow.png", "glowSize": [round(2 * rmax * K), round(FLARE * float(fl[:, 0].max()) * K), round(FLARE * float(fl[:, 1].max()) * K)],
-            "glowIntensity": round(FLARE_BRIGHT * 0.5 * float(v.get("Colorize_Multiplier", 3.0)), 2),
-            "cone": f"fx/large_{race}_cone.png", "coneLength": round(length * K), "coneWidth": round(rmax * K),
-            "coneProfile": profile, "coneFade": [0.0, 0.3], "coneFlow": [0, 1, 0.5],
-            "trail": "fx/large_core.png", "trailCount": 1, "trailLength": round(core[-1][0] * K),
-            "trailWidth": round(max(r[1] for r in core) * K), "trailWander": 0, "trailTime": 0.75,
-            "color": flare, "flareColor": flare, "coneColor": cone, "trailColor": trail}
+def large_engine_fx(out_dir, assets, race, merged=None):
+    """ships.json "engineFx" for GoF3's capital ship engine as GoF3 draws it (engine_meshes: vfx/engines/large/
+    vfx_enigne_large_<race>: the glowing nozzle body, the hot core reaching behind it and the flat flare across the nozzle,
+    each with its own mesh, textures and shader options; the remake's EngineFx draws them at each engine helper, sized by
+    its "fxScale", the helper's scale)."""
+    merged = merged or os.environ.get("GOF3_MERGED") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "romfs_merged")
+    rel = engine_meshes.build(out_dir, assets, merged, f"vfx/engines/large/vfx_enigne_large_{race}.ae4scene", f"engine_large_{race}")
+    return {"meshes": rel, "meshScale": round(K, 3), "meshGlow": MESH_GLOW} if rel else None
 
 
 def build(out_dir, assets, log=print):

@@ -858,6 +858,49 @@ def engine_fx(fx_name, tmp, trail_name=None):
             **trail, **(spiral or {}), "color": [round(c, 3) for c in colour], **tints, **texture_tints, **own}
 
 
+MESH_GLOW = 1.0   # GoF3's engines' brightness in the remake (engineFx "meshGlow")
+_fork_emitters = {}
+
+
+def fork_emitter(name):
+    """A Fork particle file's (romfs particles/<name>.psb) first emitter as the remake's CustomForkEmitter (fork_psb: life,
+    sizes, colour keys, rate, its texture written once to fx/particles/), None when it isn't there."""
+    if name in _fork_emitters: return _fork_emitters[name]
+    import fork_psb
+    path = os.path.join(PARTICLES, name + ".psb")
+    ems = fork_psb.read(path) if os.path.exists(path) else []
+    out = None
+    if ems and ems[0].get("texture"):
+        e = ems[0]
+        src = next(iter(sorted(glob.glob(os.path.join(PARTICLES, e["texture"] + ".*.ae4texture")))), None)
+        if src:
+            rel = f"fx/particles/{e['texture']}.png"
+            dst = os.path.join(OUT, rel)
+            if not os.path.exists(dst):
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                decode_texture(src, dst)
+            out = {"texture": rel, "life": e["life"], "sizeStart": e["sizeStart"], "sizeMid": e["sizeMid"], "sizeEnd": e["sizeEnd"],
+                   "sizeMidTime": e["sizeMidTime"], "colors": [round(v, 4) for c in e["colors"] for v in c],
+                   "colorTimes": e["colorTimes"], "rate": e["rate"], "max": int(e["max"]),
+                   **({"local": True} if int(e["flags"], 16) & 0x20000 else {})}
+    _fork_emitters[name] = out
+    return out
+_engine_meshes = {}
+
+
+def engine_mesh_fields(fx_name):
+    """The engine as GoF3 draws it (engine_meshes: its scene's parts with their own meshes, textures and shader options):
+    "meshes" and its scale for the ship's engineFx; the remake then draws those in place of the flare, cone and helix, and
+    the trails on top. {} when the engine has no scene."""
+    race = ENGINE_RACE.get(fx_name)
+    if race is None: return {}
+    if race not in _engine_meshes:
+        import engine_meshes
+        rel = engine_meshes.build(OUT, ASSETS, MERGED, f"vfx/engines/{race}/vfx_engine_{race}_000.ae4scene", f"engine_{race}")
+        _engine_meshes[race] = {"meshes": rel, "meshScale": round(K, 3), "meshGlow": MESH_GLOW} if rel else {}
+    return _engine_meshes[race]
+
+
 def nozzle_tinted(fx, nozzle):
     """The Terran engine's parts (drawn in their textures' amber, Colorize_Options 1) over a hull whose nozzles glow yellower:
     halfway to the nozzles' colour, as GoF3's additive flare over the lit nozzle shows (the Retro / Groza Gr'Gath, gold
@@ -1337,7 +1380,34 @@ def main():
     ships, info, parts, skins = [], {}, [], []
     sw = SkinWriter()
     def locked_engine_fx(fx_name, trail_name):
-        with fx_lock: return engine_fx(fx_name, os.path.join(OUT, ".fx_tmp"), trail_name)   # (writes the fx/ PNGs once)
+        with fx_lock:   # (writes the fx/ files once)
+            fx = engine_fx(fx_name, os.path.join(OUT, ".fx_tmp"), trail_name)
+            return {**fx, **engine_mesh_fields(fx_name)} if fx else fx
+
+    def ship_particles(rid, contrail_points, fx_name):
+        """The ship's own GoF3 trail and contrails: its VfxList's Trail* / Contrails entries (the others are buffs, impacts and
+        explosions) and their VfxEffectData (5928412 the particle file; 2623219 where: 2 the engine helpers, 3 the contrail
+        helpers) as the engineFx's "trailParticles" / "contrailParticles" (Fork's
+        emitters, run by the remake as GoF3 runs them) and the contrail points."""
+        out = {}
+        for x in D.comp(rid, "VfxList").get(580509, []):
+            rec = D.R.sub(x).get(1)
+            link = D.R.fields(rec).get(1469832) if rec in D.R.p.recs else None
+            data = D.R.sub(link[0]).get(1) if link else None
+            if data not in D.R.p.recs: continue
+            f = D.R.fields(data)
+            psb = f.get(5928412, [b""])[0]
+            psb = psb.decode("latin-1") if isinstance(psb, bytes) else None
+            rname = D.R.name(rec) or ""
+            key = "trailParticles" if rname.startswith("Trail") else "contrailParticles" if rname.startswith("Contrail") else None   # (not the buffs')
+            if not psb or not key or key in out or (key == "contrailParticles" and not contrail_points): continue
+            with fx_lock: em = fork_emitter(psb)
+            if em: out[key] = em
+        if "contrailParticles" in out: out["contrails"] = [c for p in contrail_points for c in game(p)]
+        # the booster's flash at the engines (ad_engine_booster_<race>: the Nivelian, Terran and Vossk engines have one)
+        with fx_lock: boost = fork_emitter(f"ad_engine_booster_{ENGINE_RACE.get(fx_name)}") if ENGINE_RACE.get(fx_name) else None
+        if boost: out["boostParticles"] = boost
+        return out
 
     def ship_view(rid, j, W, length, L):
         """How the ship is seen (the remake's ModShipView): the chase camera, the cockpit seat, the damage smoke's points
@@ -1443,6 +1513,7 @@ def main():
             if turn and abs(m["pos"][0]) < 0.15: turn = centreline_turn(turn)
             if turn: ex["rotation"] = turn   # the engine helper's turn: the way the engineFx blows (the Vossk engines angle out)
             mounts.append(ex)
+        contrail_pts = [W[i][:3, 3] for i, nd in enumerate(j["nodes"]) if i in W and re.search(r"_contrail_\d{3}$", nd["name"])]
         if not measured:
             # no engine helpers: thin exhausts at the wing tips (one per contrail helper: the hull's outermost point on
             # its side) and the hull's own tips (TIP_EXHAUSTS). Not at the helpers themselves: the Nunam's sit 3.5 units
@@ -1512,7 +1583,7 @@ def main():
             "engineGlowRadius": round(min(70, max(18, 24 * length / 1000)), 1),
             "engineGlowColor": ship_colour,
             "mounts": mounts,
-            **({"engineFx": fx} if (fx := nozzle_tinted(locked_engine_fx(fx_name, trail_name), ship_colour)) else {}),
+            **({"engineFx": {**fx, **ship_particles(rid, contrail_pts, fx_name)}} if (fx := nozzle_tinted(locked_engine_fx(fx_name, trail_name), ship_colour)) else {}),
             **({"flight": {"topSpeed": top}} if top else {}),
             **({"integrated": {"items": built_in}} if built_in else {}),
             **({"traffic": {"boss": True}, "npcTurrets": [BOSS_TURRET.get(race, 48)] * len(turrets)} if boss else {}),
