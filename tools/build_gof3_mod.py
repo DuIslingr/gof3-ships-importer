@@ -1,6 +1,7 @@
 """The GoF3 ships as a Galaxy on Fire 2 Unity Remake mod of customizable ships: <out>/mod.json, ships.json, shipkits.json,
 hulls/, guns/, turret/, skins/, icons/, preview.png, README.txt.
 python build_gof3_mod.py [out, default ~/GOF2UnityRemakeMods/gof3_ships] [--max-texture 1024] [--no-icons] [--icons-from DIR]
+                         [--jobs N]
 Needs ../gof3converted (the hulls without guns, their paint-scheme textures, the guns in weapons/), ../gof3converted_loadouts
 (manifest.json = each folder's data.pdb record and default arming; its .glb files for the icons), ../romfs_merged/data.pdb,
 the venv (numpy, Pillow, SciPy: the floating-gun check) and Blender on PATH (the turret, the icons).
@@ -38,10 +39,11 @@ Every stat comes from the hull's data.pdb record (templates merged field by fiel
                        turret = the turret mounts
   cargo                GoF3 ships have no hold: by class and hull length
 Scale: the kit's 53.5 game units per GoF3 unit (GoF2's Groza is 1231 units long, GoF3's 23.02), yaw 180 (the GoF3 models face
--Z). Exhaust glows: each engine's colour and nozzle size from the hull's emissive texture around its helper (engine_glows.py),
+-Z); the Nunam's model is turned round first (TURN: GoF3 models it backwards against its concept art). Hulls without engine
+helpers (the Inouac ships) get thin exhausts at their contrail helpers, the Nunam also at its spike tips (TIP_EXHAUSTS). Exhaust glows: each engine's colour and nozzle size from the hull's emissive texture around its helper (engine_glows.py),
 the flame's length from the GoF3 engine effect's plume. Hulls without a ship record (manifest note "no ship record") are left
 out."""
-import glob, hashlib, io, json, math, os, re, shutil, struct, subprocess, sys, unicodedata
+import functools, glob, time, hashlib, io, json, math, os, re, shutil, struct, subprocess, sys, threading, unicodedata
 from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 BLENDER = os.environ.get("GOF3_BLENDER") or "blender"   # import.py sets it (Blender found by itself on any system)
@@ -52,10 +54,11 @@ from ae4_pdb_arming import Records
 from glb_layout import layout, read, trs
 from engine_glows import engines as measure_engines, _accessor
 
-args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not sys.argv[i - 1] in ("--max-texture", "--icons-from")]
+args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not sys.argv[i - 1] in ("--max-texture", "--icons-from", "--jobs")]
 OUT = os.path.abspath(args[0] if args else os.path.expanduser("~/GOF2UnityRemakeMods/gof3_ships"))
 MAXTEX = int(sys.argv[sys.argv.index("--max-texture") + 1]) if "--max-texture" in sys.argv else 1024
 ICONS = "--no-icons" not in sys.argv
+JOBS = int(sys.argv[sys.argv.index("--jobs") + 1]) if "--jobs" in sys.argv else 0   # 0: by the memory free (jobs())
 ICONS_FROM = os.path.abspath(sys.argv[sys.argv.index("--icons-from") + 1]) if "--icons-from" in sys.argv else None
 # Where the earlier stages put their results (import.py sets these; the defaults are the original layout next to tools/).
 CONV = os.environ.get("GOF3_CONV") or os.path.join(HERE, "..", "gof3converted")
@@ -104,6 +107,16 @@ SCHEME = {"001": "Scheme 1", "002": "Scheme 2", "003": "Scheme 3", "000": "Schem
           "greyshadow": "Grey Shadow", "goldgorgon": "Golden Gorgon"}
 SCHEME_ORDER = ["001", "002", "003", "000", "pirate", "huawei"]   # then the data.pdb skins by name, Gold last
 MAX_TURRETS = 2
+# Hulls GoF3 models the other way round from their concept art: turned about the up axis (degrees) before anything reads them,
+# so their hardpoints, pylons, turret sockets and helpers turn with them. The Nunam: Fishlabs' concept (M. Nagel, 2013) flies
+# it canopy first, the two long spikes trailing; GoF3's model has the spikes where every other hull has its nose (-Z).
+TURN = {"ship_inouac_600": 180}
+# Hulls without engine helpers (the Inouac ships) get exhausts at their contrail helpers (GoF3's wing-tip trails) and at these
+# points (glTF units, the converted model before its TURN): the Nunam's two spike tips, which its concept art shows glowing
+# and trailing cyan like its wing tips.
+TIP_EXHAUSTS = {"ship_inouac_600": [(3.05, 5.4, -9.39), (-3.05, 5.4, -9.39)]}
+TIP_SIZE = 0.25           # GoF3 units: a tip exhaust's nozzle half size
+TIP_FX_SCALE = 0.45       # its engine effect at this size (a thin streak off the tip, not an engine's plume)
 
 # GoF2 weapon -> GoF3 gun (family, mk). Families: 000 Burst Laser, 001 Scatter Plasma, 002 Plasma Focus, 003 Dismantler,
 # 004 Mass Driver, 005 Plasma Blast, 006 Auto Laser, 007 Railgun, 008 Beam Laser.
@@ -195,6 +208,21 @@ def write_glb(path, j, binc):
                            + js + struct.pack("<II", len(binc), 0x004E4942) + binc)
 
 
+def turned(src, deg, dst):
+    """'src' with its scene turned 'deg' degrees about the up axis (a new root node over the scene's nodes), written to 'dst';
+    'src' itself when there is no turn."""
+    if not deg: return src
+    j, b, n = read(src)
+    binc = b[28 + n:28 + n + struct.unpack_from("<I", b, 20 + n)[0]]
+    scene = j["scenes"][j.get("scene", 0)]
+    h = math.radians(deg) / 2
+    j["nodes"].append({"name": "turn", "rotation": [0.0, math.sin(h), 0.0, math.cos(h)], "children": scene["nodes"]})
+    scene["nodes"] = [len(j["nodes"]) - 1]
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    write_glb(dst, j, binc)
+    return dst
+
+
 def slim_glb(src, dst, maxtex, edit=None):
     """A converted .glb for the game: textures scaled to maxtex, the specular / iridescence maps and extensions left out (the
     remake reads base colour, metallic-roughness, normal and emission only); 'edit(j)' may change the JSON (nodes) first."""
@@ -260,22 +288,46 @@ def surface_points(path, spacing=SNAP_SPACING):
     return np.concatenate(out) if out else np.zeros((0, 3))
 
 
+JOB_GB = 1.0              # what one hull's worker adds at its peak (one worker 1.1 GB in all, four the same)
+
+
+def jobs():
+    """Workers for the per-hull steps: --jobs, else half the CPUs, fewer when the memory available is short (JOB_GB each,
+    4 GB kept back). Every core at once froze the whole machine (2026-10-24, no out-of-memory kill logged: the build
+    held under 3 GB); four take the build from 251 s to 67 s with the same output. The process also runs at a lower
+    priority (main), so the desktop stays usable."""
+    if JOBS: return max(1, JOBS)
+    try:
+        avail = next(int(l.split()[1]) for l in open("/proc/meminfo") if l.startswith("MemAvailable:")) / 1024 ** 2
+    except (OSError, StopIteration):
+        avail = 8.0
+    return max(1, min((os.cpu_count() or 4) // 2, int((avail - 4) / JOB_GB)))
+
+
+GUN_POINTS = 3000         # each gun model's surface thinned to this many points for the check (their spacing stays well
+                          # under SNAP_GAP; the full 25 000-70 000 made it the build's slowest step by far)
+
+
 def snap_floating_mounts(ships, parts, rules):
     """Guns and turrets that would float: GoF3's hardpoints are made for one gun each (a boss's for its big gun, a turret
     socket for its own large base), and the kit hangs whichever GoF3 gun a GoF2 weapon maps to (or the remake's turret) on
     them. Each primary and turret mount's gap to the hull (its pylons included) is measured with every gun model it may
     carry (the turret base for a turret), and a mount whose median gap is over SNAP_GAP is moved that far toward the hull
-    along the gap, in steps (the Cronus' wing guns 0.57 units out, the Krotac's lower turret socket 3.7)."""
+    along the gap, in steps (the Cronus' wing guns 0.57 units out, the Krotac's lower turret socket 3.7). The hulls are
+    checked in parallel (SciPy's KD-tree queries let go of the GIL)."""
     try:
         from scipy.spatial import cKDTree
     except ImportError:
         print("scipy isn't installed: floating guns and turrets not checked"); return
     guns = sorted({r["model"] for r in rules if r.get("slot") == "primary"})
-    G = {f: surface_points(os.path.join(OUT, f), 0.02) for f in guns + ["turret/turret.glb"]}
+    rng = np.random.default_rng(11)
+    def thin(P): return P if len(P) <= GUN_POINTS else P[rng.choice(len(P), GUN_POINTS, replace=False)]
+    G = {f: thin(surface_points(os.path.join(OUT, f), 0.02)) for f in guns + ["turret/turret.glb"]}
     by_id = {p["id"]: p for p in parts}
-    for s in ships:
+    def check(s):
+        log = []
         hull = surface_points(os.path.join(OUT, by_id[s["id"]]["model"]))
-        if not len(hull): continue
+        if not len(hull): return log
         tree = cKDTree(hull)
         for m in s["mounts"]:
             if m["slotType"] not in (0, 2): continue
@@ -298,9 +350,13 @@ def snap_floating_mounts(ships, parts, rules):
                 moved += dvec * (med - 0.5 * SNAP_GAP)
             if np.linalg.norm(moved) > 1e-6:
                 q = p + moved
-                print(f"{s['id']}: {'gun' if m['slotType'] == 0 else 'turret'} at {m['position_engine']} moved "
-                      f"{np.linalg.norm(moved):.2f} units onto the hull")
+                log.append(f"{s['id']}: {'gun' if m['slotType'] == 0 else 'turret'} at {m['position_engine']} moved "
+                           f"{np.linalg.norm(moved):.2f} units onto the hull")
                 m["position_engine"] = [round(-q[0] * K), round(q[1] * K), round(-q[2] * K)]
+        return log
+    with ThreadPoolExecutor(jobs()) as ex:
+        for log in ex.map(check, ships):
+            for line in log: print(line)
 
 
 def quat_matrix(x, y, z, w):
@@ -493,8 +549,13 @@ def part_colour(material, engine_colour):
     return [round(float(x), 3) for x in c / max(1e-6, c.max())]
 
 
-def engine_fx(fx_name, tmp):
-    """The ships.json "engineFx" for a GoF3 engine effect (its fx/ PNGs written once), None when it isn't known."""
+TRAIL_RACE = {"TrailNivelian": "nivelian", "TrailTerran": "terran", "TrailVossk": "vossk"}
+
+
+def engine_fx(fx_name, tmp, trail_name=None):
+    """The ships.json "engineFx" for a GoF3 engine effect (its fx/ PNGs written once), None when it isn't known. 'trail_name'
+    the ship's own trail (its VfxList's Trail*: the Inouac ships' InouacEngine trails TrailTerran's straight streak, every
+    other ship's trail matches its engine); None = the engine's race's."""
     race = ENGINE_RACE.get(fx_name)
     if race is None: return None
     import ae4_meshgroup, ae4_scene
@@ -566,24 +627,38 @@ def engine_fx(fx_name, tmp):
         # exhaust it borrows them from, mesh and material
         src = race if os.path.exists(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_exhaust.ae4material")) else tex
         sbase = os.path.join(ENGINE_VFX, src, f"vfx_engine_{src}_000")
-        g = ae4_meshgroup.read_all(sbase + "_exhaust.ae4meshgroup")[0]
+        # the rings from the engine's own exhaust mesh (the Inouac's: wider and shorter than the Nivelian, its brightest
+        # ring at 0.165 of the length); a borrowed texture's band (the Nivelian u 0.39 -> 0.69) spread along them, as
+        # the borrowed picture is drawn on them (the Inouac mesh's own u runs -0.57 -> 1.58, for a texture named by GUID only)
+        g = ae4_meshgroup.read_all(base + "_exhaust.ae4meshgroup")[0]
         P = np.asarray(g["a_position"]); C = np.asarray(g["a_vtxColor"]); T = np.asarray(g["a_texCoord0"])
+        band = None
+        if src != race:
+            Tb = np.asarray(ae4_meshgroup.read_all(sbase + "_exhaust.ae4meshgroup")[0]["a_texCoord0"])
+            band = (float(Tb[:, 0].min()), float(Tb[:, 0].max()))
         slen = float(P[:, 2].max())
         profile = []
         for z in sorted(set(np.round(P[:, 2], 3))):
             at = np.round(P[:, 2], 3) == z
-            profile += [round(float(z) / slen, 4), round(float(C[at][:, 0].mean()), 3), round(float(np.clip(T[at][:, 0].mean(), 0, 1)), 3)]
+            u = band[0] + (band[1] - band[0]) * float(z) / slen if band else float(np.clip(T[at][:, 0].mean(), 0, 1))
+            profile += [round(float(z) / slen, 4), round(float(C[at][:, 0].mean()), 3), round(u, 3)]
         own["coneProfile"] = profile
         v, _ = ae4_material.read(sbase + "_exhaust.ae4material")
         if v.get("AngleBlend_Enabled") and v.get("AngleBlend_Absolute"):
             own["coneFade"] = [round(float(v["AngleBlend_MinAngle"]), 3), round(float(v["AngleBlend_MaxAngle"]), 3)]
+        if v.get("UVAnim_Enabled"):
+            # GoF3's UVAnim flow on the exhaust cards (the remake's GoF2/ModEngineFlow): the texture churning in a moving
+            # field, the material's speed, strength and tiling (Nivelian 0.5 / 1 / 0.5, Terran 4 / 0.8 / 2, Vossk 1.3 / 1 / 0.5)
+            own["coneFlow"] = [round(float(v.get("UVAnim_SpeedMultiplier", 1.0)), 3), round(float(v.get("UVAnim_FlowStrength", 1.0)), 3),
+                               round(float(v.get("UVAnim_FlowTiling", 0.5)), 3)]
     if race in MATERIAL_COLOUR:
         for part, name in (("flareColor", "glow"), ("coneColor", "exhaust")):
             if part == "flareColor" and race in NOZZLE_FLARE: continue
             c = part_colour(os.path.join(ENGINE_VFX, race, f"vfx_engine_{race}_000_{name}.ae4material"), colour)
             if c: own[part] = c
         if "coneColor" in own: own["trailColor"] = own["coneColor"]
-    rt = RACE_TRAIL.get(race, {})
+    rt = RACE_TRAIL.get(TRAIL_RACE.get(trail_name, race), {})
+    if TRAIL_RACE.get(trail_name, race) != race: rt = {k: v for k, v in rt.items() if k != "coneIntensity"}   # (the engine's own cone)
     trail = {"trailCount": rt.get("trailCount", TRAIL_COUNT),
              "trailLength": round((rt["trailSpan"] if "trailSpan" in rt else length * rt.get("trailLength", TRAIL_LENGTH)) * K),
              "trailWidth": round(rt.get("trailWidth", TRAIL_WIDTH) * K), "trailWander": round(rt.get("trailWander", TRAIL_WANDER) * K),
@@ -848,7 +923,8 @@ def weapon_rules():
 # ---------------------------------------------------------------- skins
 
 
-def file_hash(p): return hashlib.md5(open(p, "rb").read()).hexdigest() if p and os.path.exists(p) else None
+@functools.lru_cache(maxsize=None)
+def file_hash(p): return hashlib.md5(open(p, "rb").read()).hexdigest() if p and os.path.exists(p) else None   # (asked again and again)
 
 
 def scaled(img, maxtex):
@@ -858,24 +934,55 @@ def scaled(img, maxtex):
 
 
 class SkinWriter:
-    """Writes each skin texture once (by its source content and kind; many schemes share a file)."""
+    """Writes each skin texture once (by its source content and kind; many schemes share a file). The hulls are built in
+    parallel, so the first to reach a texture encodes it under a temporary name and every hull gets a placeholder; finish()
+    then puts the file under the smallest of the paths asked for and fills the placeholders in, so a build doesn't depend
+    on which thread came first (it did: the same texture landed in another hull's folder from run to run)."""
     def __init__(self):
         self.done = {}
+        self.lock = threading.Lock()
 
     def write(self, src, kind, rel):
         key = (file_hash(src), kind)
-        if key in self.done: return self.done[key]
+        rel += ".jpg" if kind == "color" else ".png"
+        with self.lock:
+            entry = self.done.get(key)
+            if entry:
+                entry["best"] = min(entry["best"], rel)
+                return entry["token"]
+            n = len(self.done)
+            entry = self.done[key] = {"token": f"\0skin{n}\0", "best": rel,
+                                      "tmp": os.path.join(OUT, ".skin_tmp", f"{n}{os.path.splitext(rel)[1]}")}
+        os.makedirs(os.path.dirname(entry["tmp"]), exist_ok=True)
+        dst = entry["tmp"]
         img = Image.open(src)
         if kind == "color":          # base colour / emission: opaque, JPG
-            rel += ".jpg"; scaled(img.convert("RGB"), MAXTEX).save(os.path.join(OUT, rel), "JPEG", quality=90, optimize=True)
+            scaled(img.convert("RGB"), MAXTEX).save(dst, "JPEG", quality=90, optimize=True)
         elif kind == "alpha":        # glass / decals: their alpha matters
-            rel += ".png"; scaled(img.convert("RGBA"), MAXTEX).save(os.path.join(OUT, rel), "PNG", optimize=True)
+            scaled(img.convert("RGBA"), MAXTEX).save(dst, "PNG", optimize=True)
         elif kind == "ms":           # glTF roughness (G) -> URP Lit metallic / smoothness (R 0, A 1 - roughness); metallicFactor 0
             g = np.asarray(scaled(img.convert("RGB"), MAXTEX), dtype=np.uint8)[:, :, 1]
             a = np.zeros(g.shape + (4,), dtype=np.uint8); a[:, :, 3] = 255 - g
-            rel += ".png"; Image.fromarray(a, "RGBA").save(os.path.join(OUT, rel), "PNG", optimize=True)
-        self.done[key] = rel
-        return rel
+            Image.fromarray(a, "RGBA").save(dst, "PNG", optimize=True)
+        return entry["token"]
+
+    def finish(self, skins):
+        """Moves every texture to its path and puts the paths into the skins (their placeholders)."""
+        paths = {}
+        for entry in self.done.values():
+            dst = os.path.join(OUT, entry["best"])
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            os.replace(entry["tmp"], dst)
+            paths[entry["token"]] = entry["best"]
+        def fill(v):
+            if isinstance(v, dict): return {k: fill(x) for k, x in v.items()}
+            if isinstance(v, list): return [fill(x) for x in v]
+            return paths.get(v, v) if isinstance(v, str) else v
+        skins[:] = fill(skins)
+        shutil.rmtree(os.path.join(OUT, ".skin_tmp"), ignore_errors=True)
+        root = os.path.join(OUT, "skins")   # a hull folder whose textures all went to another hull's
+        for d in os.listdir(root) if os.path.isdir(root) else []:
+            if os.path.isdir(os.path.join(root, d)) and not os.listdir(os.path.join(root, d)): os.rmdir(os.path.join(root, d))
 
 
 def glb_image(path, role):
@@ -956,18 +1063,29 @@ def turret_mounts(path, pts_hull):
             for down, p in found[:MAX_TURRETS]]
 
 
+T0 = time.perf_counter()
+def phase(what): print(f"[{time.perf_counter() - T0:6.1f} s] {what}", flush=True)
+
+
 def main():
+    try: os.nice(10)
+    except (AttributeError, OSError): pass
     man = json.load(open(os.path.join(LOAD, "manifest.json"), encoding='utf-8-sig'))
     D = Data()
     for d in ("hulls", "guns", "turret", "skins", "icons"): os.makedirs(os.path.join(OUT, d), exist_ok=True)
     price_fits = gof2_price_fits()
     ships, info, parts, skins = [], {}, [], []
     sw = SkinWriter()
-    for folder, e in man.items():
+    def locked_engine_fx(fx_name, trail_name):
+        with fx_lock: return engine_fx(fx_name, os.path.join(OUT, ".fx_tmp"), trail_name)   # (writes the fx/ PNGs once)
+
+    def build_one(folder, e):
+        """One hull's ships.json entry, source.json record, kit part, skins and log line; None for a paint scheme's
+        folder or a hull without a ship record."""
         rec = e.get("record")
-        if not rec or e.get("note") == "no ship record": continue
+        if not rec or e.get("note") == "no ship record": return None
         base = re.match(r"ship_[a-z]+_\d{3}", folder).group(0)
-        if folder != base: continue                  # a paint scheme: one of the hull's skins
+        if folder != base: return None                 # a paint scheme: one of the hull's skins
         rid = D.R.p.byname[rec][0]
         cls = CLASS.get(D.num(rid, "ShipType", 531157), "gunship")
         hull = D.num(rid, "Hull", 1929780) or 0.0; shield = D.num(rid, "Shield", 3522367) or 0.0
@@ -975,7 +1093,12 @@ def main():
         ident = D.num(rid, "Identity", 9536365)
         name = NAMES.get(folder) or D.gui_text(rid, 4067579) or base
         desc = D.gui_text(rid, 9934023) or ""
-        glb = os.path.join(CONV, base, base + ".glb")
+        glb = turned(os.path.join(CONV, base, base + ".glb"), TURN.get(base), os.path.join(OUT, ".turned", base + ".glb"))
+        # a turned hull's helpers turned with it, guns included: their turns are taken in the hull's new frame (the turn
+        # undone on both sides), so its guns still point at its new nose and its engines blow out of its new stern
+        h = math.radians(TURN.get(base, 0)) / 2
+        U = trs({"rotation": [0.0, math.sin(-h), 0.0, math.cos(-h)]})
+        def own_turn(M): return ship_rotation(M @ U)
         L = layout(glb); length = (L["max"][2] - L["min"][2]) * K
         j, _, _ = read(glb); W = world(j)
         node = {nd["name"]: i for i, nd in enumerate(j["nodes"])}
@@ -996,7 +1119,7 @@ def main():
             return {"nodes": [n]} if n else {}
         for hp in prim:
             M = W[node[hpnode[hp]]]; m = {"slotType": 0, "position_engine": game(M[:3, 3]), **pylon(hp)}
-            r = ship_rotation(M)
+            r = own_turn(M)
             if r: m["rotation"] = r
             mounts.append(m)
         # TODO (noted 2026-10-11, undecided): every GoF3 record arms one secondary launcher, so every ship has 1 secondary slot
@@ -1009,6 +1132,8 @@ def main():
         # engines: colour and nozzle as the model shows them (engine_glows.py), else the GoF3 engine effect's colour
         att = D.comp(rid, "EngineAttachment").get(1002168)
         fx_name = D.R.name(D.R.sub(att[0]).get(1)) if att else None
+        vfx = [D.R.name(D.R.sub(x).get(1)) for x in D.comp(rid, "VfxList").get(580509, [])]
+        trail_name = next((v for v in vfx if v.startswith("Trail")), None)
         fx_colour, plume = ENGINE_FX.get(fx_name, ENGINE_FX["TerranEngine"])
         measured = measure_engines(glb)
         good = [m["size"] for m in measured if m["size"] and m["lit"] >= 0.02 and min(m["size"]) >= 0.15]
@@ -1026,10 +1151,20 @@ def main():
             if abs(m["scale"] - 1.0) > 0.01: ex["fxScale"] = round(float(m["scale"]), 3)   # the engine helper's scale (engineFx)
             if m.get("outline") and outline_plausible(m["outline"], r / max(1e-6, m["scale"])):
                 ex["outline"] = outline_game(m["outline"])   # the nozzle's shape (the remake's exhaust styles)
-            turn = ship_rotation(W[node[m["node"]]]) if m.get("node") in node else None
+            turn = own_turn(W[node[m["node"]]]) if m.get("node") in node else None
             if turn and abs(m["pos"][0]) < 0.15: turn = centreline_turn(turn)
             if turn: ex["rotation"] = turn   # the engine helper's turn: the way the engineFx blows (the Vossk engines angle out)
             mounts.append(ex)
+        if not measured:
+            # no engine helpers: thin exhausts at the contrail helpers and the hull's own tips (TIP_EXHAUSTS)
+            tips = [W[i][:3, 3] for i, nd in enumerate(j["nodes"]) if i in W and re.search(r"_contrail_\d{3}$", nd["name"])]
+            R = trs({"rotation": [0.0, math.sin(math.radians(TURN.get(base, 0)) / 2), 0.0, math.cos(math.radians(TURN.get(base, 0)) / 2)]})
+            tips += [(R @ np.array([*p, 1.0]))[:3] for p in TIP_EXHAUSTS.get(base, [])]
+            for p in tips:
+                sz = TIP_SIZE * TIP_FX_SCALE
+                mounts.append({"slotType": 3, "position_engine": game(p), "turretAngles": [0.35, 0.35, 0.35],
+                               "glowColor": ship_colour, "glowSize": [round(sz * K), round(sz * K), round(sz * plume * FLAME * K)],
+                               "fxScale": TIP_FX_SCALE})
 
         def engine_colour(emissive_png):
             """A paint scheme's exhaust colour (its emissive texture around the nozzles), None = the hull's own."""
@@ -1055,10 +1190,9 @@ def main():
         sid = folder[len("ship_"):]
         race = RACE.get(ident, 0)
         hull_file = f"hulls/{sid}.glb"
-        parts.append({"id": sid, "slot": "hull", "name": None, "model": hull_file, "types": [sid],
+        part = ({"id": sid, "slot": "hull", "name": None, "model": hull_file, "types": [sid], "_src": glb,
                       "_unused": sorted(set(hpnode) - set(prim) - set(secs))})
         ship_skins = skins_of(base, man, sw, engine_colour)
-        skins += ship_skins
         equip = CONVERT["equipment"][cls] + int(dev)
         n_prim = sum(1 for m in mounts if m["slotType"] == 0); n_sec = sum(1 for m in mounts if m["slotType"] == 1)
         def fitted(w):
@@ -1075,19 +1209,30 @@ def main():
             "engineGlowRadius": round(min(70, max(18, 24 * length / 1000)), 1),
             "engineGlowColor": ship_colour,
             "mounts": mounts,
-            **({"engineFx": fx} if (fx := nozzle_tinted(engine_fx(fx_name, os.path.join(OUT, ".fx_tmp")), ship_colour)) else {}),
+            **({"engineFx": fx} if (fx := nozzle_tinted(locked_engine_fx(fx_name, trail_name), ship_colour)) else {}),
             "lounge": {"systemRace": race if race in (0, 1, 2, 3) and ident != 5 else -1,
                        "minCampaign": round(lc["minCampaign"][0] + (lc["minCampaign"][1] - lc["minCampaign"][0]) * tt),
                        "minRank": round(lc["minRank"][0] + (lc["minRank"][1] - lc["minRank"][0]) * tt),
                        "chance": lc["chance"]},
         }
-        ships.append(entry)
-        info[sid] = {"folder": folder, "record": rec, "raw_name": name, "class": cls, "identity": ident, "engine": fx_name,
+        info_item = {"folder": folder, "record": rec, "raw_name": name, "class": cls, "identity": ident, "engine": fx_name,
                      "engines_measured": sum(1 for m in measured if m["color"]), "engines": len(measured), "hull": hull,
                      "shield": shield, "steering": steer, "deviceEquip": dev, "length": round(length),
                      "turrets": len(turrets), "skins": [s["id"] for s in ship_skins]}
-        print(f"{sid}: {len(ship_skins)} skins, {len(turrets)} turret mount(s)", flush=True)
+        return entry, info_item, part, ship_skins, f"{sid}: {len(ship_skins)} skins, {len(turrets)} turret mount(s)"
 
+    # the hulls in parallel (their models read, measured and their skins written: mostly NumPy and Pillow, which let go
+    # of the GIL), kept in the manifest's order
+    fx_lock = threading.Lock()
+    with ThreadPoolExecutor(jobs()) as ex:
+        for r in ex.map(lambda fe: build_one(*fe), list(man.items())):
+            if r is None: continue
+            entry, info_item, part, ship_skins, line = r
+            ships.append(entry); parts.append(part); skins += ship_skins; info[entry["id"]] = info_item
+            print(line, flush=True)
+    sw.finish(skins)
+
+    phase("hulls measured, skins written")
     # names: mixed case, the same name told apart (a boss / retro hull)
     for s in ships: s["name"] = mixed_case(info[s["id"]]["raw_name"])
     def fold(n): return unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode().lower()
@@ -1107,19 +1252,22 @@ def main():
     # models: the hulls (no guns), the guns, the turret
     def slim(p):
         base = "ship_" + p["id"]
-        unused = p.pop("_unused")
+        unused = p.pop("_unused"); src = p.pop("_src")
         def strip(j):   # the pylons of hardpoints no slot uses: never carry a weapon, so never shown
             for nd in j["nodes"]:
                 m = re.search(r"_weapon_(?:mount_(\d{3})_mesh|shadow_(\d{3}))$", nd["name"])
                 if m and (m.group(1) or m.group(2)) in unused: nd.pop("mesh", None)
-        slim_glb(os.path.join(CONV, base, base + ".glb"), os.path.join(OUT, p["model"]), MAXTEX, strip)
+        slim_glb(src, os.path.join(OUT, p["model"]), MAXTEX, strip)
         return p["id"]
-    with ThreadPoolExecutor(8) as ex: list(ex.map(slim, parts))
+    with ThreadPoolExecutor(jobs()) as ex: list(ex.map(slim, parts))
     guns = sorted({(f, mk) for f, mk, _ in PRIMARY_GUNS + TURRET_GUNS} | {(f, mk) for f, mk, _ in PRIMARY_CATEGORIES + TURRET_CATEGORIES}
                   | {PRIMARY_DEFAULT, TURRET_DEFAULT})
+    phase("hull models written")
     for f, mk in guns: build_gun(f, mk)
     build_turret(os.path.join(OUT, "turret", "turret.glb"))
+    phase("guns and turret written")
     snap_floating_mounts(ships, parts, weapon_rules())
+    phase("floating guns checked")
 
     # icons and preview (rendered from the loadout .glb: the hull with its GoF3 default guns)
     if ICONS:
@@ -1127,10 +1275,13 @@ def main():
         script = os.path.join(tmp, "render.py"); open(script, "w", encoding='utf-8').write(ICON_SCRIPT)
         def render(s):
             out_png = os.path.join(OUT, s["icon"])
-            if ICONS_FROM and os.path.exists(os.path.join(ICONS_FROM, s["id"] + ".png")) and not s["id"] in PREVIEW:
+            if ICONS_FROM and os.path.exists(os.path.join(ICONS_FROM, s["id"] + ".png")) and not s["id"] in PREVIEW \
+                    and info[s["id"]]["folder"] not in TURN:   # (a turned hull's old icon shows it the old way round)
                 shutil.copy(os.path.join(ICONS_FROM, s["id"] + ".png"), out_png); return s["id"], True
             png = os.path.join(tmp, s["id"] + ".png")
-            subprocess.run([BLENDER, "-b", "-P", script, "--", os.path.join(LOAD, info[s["id"]]["folder"] + ".glb"), png],
+            folder = info[s["id"]]["folder"]
+            src = turned(os.path.join(LOAD, folder + ".glb"), TURN.get(folder), os.path.join(tmp, folder + "_turned.glb"))
+            subprocess.run([BLENDER, "-b", "-P", script, "--", src, png],
                            capture_output=True)
             if os.path.exists(png): icon(png, out_png)
             return s["id"], os.path.exists(png)
@@ -1154,6 +1305,7 @@ def main():
         prev.save(os.path.join(OUT, "preview.png"))
         shutil.rmtree(tmp, ignore_errors=True)
 
+    phase("icons and preview")
     kit = {"id": KIT, "name": "Galaxy on Fire 3 hulls", "slots": ["hull"], "scale": round(K * 0.05, 5), "yaw": 180,
            "parts": parts, "skins": skins, "palettes": {"weapons": weapon_palette()},
            "hardpoints": {"turret": "turret/turret.glb", "toggle": True, "weapons": weapon_rules()}}
@@ -1171,6 +1323,8 @@ def main():
     shutil.copy(os.path.join(HERE, "gof3_mod_readme.txt"), os.path.join(OUT, "README.txt"))
     json.dump(exhaust_styles(os.path.join(OUT, ".fx_tmp")), open(os.path.join(OUT, "exhausts.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     shutil.rmtree(os.path.join(OUT, ".fx_tmp"), ignore_errors=True)   # (engine_fx's decoded textures)
+    shutil.rmtree(os.path.join(OUT, ".turned"), ignore_errors=True)   # (the TURN hulls' turned copies)
+    phase("done")
     print(f"{len(ships)} ships, {len(skins)} skins, {len(guns)} guns written to {OUT}")
 
 
