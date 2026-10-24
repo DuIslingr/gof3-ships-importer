@@ -7,8 +7,8 @@ special with their turret helpers armed (npcTurrets, at most MAX_TURRETS: the mu
 cruising among the orbits' freighters. Never sold. At GoF3's own scale (K), so the Nemesis is 4.4 km long.
 
 The Hades (structures/terran/geometry/props/hades) becomes the Manticore, stations.json's mobile station (Modding.
-MobileStations): no planet, it tours the Terran systems (MANTICORE_ROUTE, a Terran ship wherever it is) and is docked at where
-it is, its system the one of the orbit it is in, into
+MobileStations): no planet, it roams every system (two hours in each, a Terran ship wherever it is, its GoF3 engines lit)
+and is docked at where it is, its system the one of the orbit it is in, into
 its own hangar and bar (interiors.json): the hangar GoF3's own Hades hangar (hangar_room: the ShipSelectionB room, GoF3's
 lighting baked in, at GoF3's scale like the ships), the bar the game's Terran bar lit cooler (its markers the game's own, read
 from StationLevel.GameRoomMarkers). At HADES_SCALE of GoF3's (12.6 km would reach past the flight level's 15 km far plane).
@@ -39,9 +39,10 @@ CAPITALS = [   # race, model number, role, name, description
 ]
 HADES_SCALE = 0.5
 MANTICORE_SYSTEM = 14                     # its home, Magnetar (Dis, where every multiplayer pilot starts)
-# Its tour of the Terran systems along their gates, two orbits each (a stay of 20 minutes: 5 h 20 min round): Magnetar,
-# Union, Aquila, Prospero, Vulpes, Augmenta, Buntta, Pescal Inartu. A Terran ship wherever it is ("race").
-MANTICORE_ROUTE = [70, 73, 55, 57, 36, 38, 81, 83, 66, 68, 98, 95, 40, 43, 91, 93]
+# It roams every system ("route": "any"), two hours in each before it moves on, so a pilot who leaves it can come back to it
+# soon, its orbits there half an hour each; a Terran ship wherever it is ("race"); the star map marks where it is.
+MANTICORE_STAY = 30
+MANTICORE_SYSTEM_MINUTES = 120
 ROOM_SCALE = K * 0.05                     # metres per GoF3 unit: the hangar at the ships' scale
 # The Hades hangar's markers in GoF3 units (glTF space: the pad at the origin, the open front +z, the back wall -78): the pad's
 # deck, the camera in front of the room looking past the pad (the ship right of centre, like the game's hangars), the two lit
@@ -109,11 +110,18 @@ def build(out_dir, assets, log=print):
     hades_dir = f"{assets}/structures/terran/geometry/props/hades"
     info = structures.convert(hades_dir, "structure_terran_hades_000", "terran", os.path.join(out_dir, "structures/hades.glb"), 4096, assets)
     size = np.asarray(info["max"]) - np.asarray(info["min"])
+    centre = (np.asarray(info["max"]) + np.asarray(info["min"])) / 2   # the remake centres a station's model on its bounds
+    engines = []
+    for hname, h in sorted(info["helpers"].items()):
+        if "_engine_" not in hname: continue
+        r = round(h[1] * ENGINE_GLOW * K * HADES_SCALE)
+        engines.append({"position_engine": game(np.asarray(h[0]) - centre, HADES_SCALE), "glowSize": [r, r, r * 3]})
     stations = [{
         "id": "manticore", "system": MANTICORE_SYSTEM, "name": "Manticore", "techLevel": 10, "planet": 0, "looksLike": 70,
         "model": "structures/hades.glb", "modelSize": round(float(size.max()) * K * HADES_SCALE), "modelYaw": 180,
         "interior": "terran", "hangar": "manticore_hangar", "bar": "manticore_bar",
-        "mobile": {"route": MANTICORE_ROUTE, "stayMinutes": 20, "speed": 0.15, "race": "terran"},
+        "mobile": {"route": "any", "stayMinutes": MANTICORE_STAY, "systemMinutes": MANTICORE_SYSTEM_MINUTES, "speed": 0.15,
+                   "race": "terran", "engines": engines, "engineColor": ENGINE_COLOUR[0]},
     }]
     room = hangar_room.convert(assets, os.path.join(out_dir, "structures/manticore_hangar.glb"), 4096, log)
     log(f"Manticore hangar: {room['triangles']} triangles")
@@ -126,7 +134,7 @@ def build(out_dir, assets, log=print):
         {"id": "manticore_bar", "type": "bar", "model": "gof2:bar_terran", "ambient": [0.18, 0.21, 0.28],
          "lightIntensity": 1.0, "markers": BAR_MARKERS},
     ]
-    log(f"Manticore: {round(float(size.max()) * K * HADES_SCALE * 0.05)} m, mobile through {len(MANTICORE_ROUTE)} orbits")
+    log(f"Manticore: {round(float(size.max()) * K * HADES_SCALE * 0.05)} m, {len(engines)} engines, roaming every system")
     return ships, stations, interiors
 
 
