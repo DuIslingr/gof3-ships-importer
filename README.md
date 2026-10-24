@@ -90,8 +90,9 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 ## In the game
 
 - The ships are sold by visitors in the Space Lounges of their race's systems, from a story step (or rank) that grows with
-  the ship's strength. Their blueprints can be found too (dropped by ships of their race, sold in the lounges, a few in
-  hackable derelicts) and built in the hangar's Blueprints tab.
+  the ship's strength. Their blueprints work like Galaxy on Fire 2's: each sold by one lounge visitor at one station of its
+  race, the recipe the hull's GoF3 guns plus goods, ores and cores; a few also lie in hackable derelicts, and ships of the
+  race drop them now and then as in GoF3. A blueprint is obtained once, then built in the hangar's Blueprints tab.
 - The five boss hulls aren't sold: pirate bosses fly them, and a destroyed boss drops its hull's blueprint.
 - GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
 - Each ship flies at its GoF3 speed with its class's GoF3 booster built in; ships with GoF3's revive device have the

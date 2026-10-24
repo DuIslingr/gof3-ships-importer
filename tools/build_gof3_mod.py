@@ -103,45 +103,113 @@ REVIVE_DEVICE, REVIVE_ITEM = "Device_Revive_Cloak", 185
 # instead (ships.json "traffic": { "boss": true }), every turret mount armed (npcTurrets) with their race's heavy turret.
 BOSS_TURRET = {1: 49}   # by race: the Vossk L'ksaar; the others the Hammerhead D2A2 (48)
 
-# Blueprints (blueprints.json): GoF3 builds its ships from blueprint parts it drops (a ship's Blueprint 722713: 1.2-1.3 %,
-# the Dragon Ship 22 %, the Retro 100 %), and hides three in exploration (BlueprintPart_Explore_argus / scorpion /
-# shaanragrth). As the remake's blueprints: each ship (not the bosses) made from five GoF2 goods worth BLUEPRINT_SHARE of its
-# price (like the game's own: the T'yol's goods are its price), its race's ships dropping it at GoF3's chance (at most
-# BLUEPRINT_DROP_MAX %), a lounge visitor of its race selling it now and then, the explored ones also a derelict to hack. A
-# boss hull's blueprint has one source: the boss itself, destroyed by the player as a pirate boss, always drops it
-# (blueprints.json "drops" naming its "ship"), once (a known blueprint drops no more).
-BLUEPRINT_SHARE, BLUEPRINT_DROP_MAX, BLUEPRINT_LOUNGE, BLUEPRINT_DERELICT = 0.6, 5.0, 3, 2
-RECIPES = {   # by race: (GoF2 good, share of the value)
-    0: [(157, 0.15), (118, 0.2), (130, 0.15), (129, 0.2), (122, 0.3)],    # Orichalzine, Electronics, Hydraulics, Optics, Energy Cells
-    1: [(155, 0.15), (125, 0.2), (166, 0.15), (118, 0.2), (122, 0.3)],    # Titanium, Mechanical Supplies, Titanium Core, Electronics
-    2: [(154, 0.15), (121, 0.2), (127, 0.15), (165, 0.2), (122, 0.3)],    # Gold, Nanotech, Microchips, Golden Core
-    8: [(164, 0.15), (121, 0.2), (175, 0.15), (127, 0.2), (122, 0.3)],    # (the Inouac) Void Crystals, Nanotech, Void Essence
+# Blueprints (blueprints.json), in Galaxy on Fire 2's own way (its 25 item blueprints, Reference/research/blueprints_mods.md
+# in the remake): the recipe is the product's lower tier (the Wolverine needs a Wolf, the Archimedes two H'nookks: here
+# the hull's own GoF3 gun, from GOF3_WEAPONS, its race's families, the mark by the ship's price, two for the dearest), the
+# race's goods and ores (energy cells in most of GoF2's), a few ore cores (GoF2 asks 1-40) and for the dearest a Void
+# Essence (the Disruptor's), worth BLUEPRINT_VALUE of the ship's price (GoF2's: 0.6-1.0, most 0.7-0.8), in odd amounts
+# (up to GoF2's ~1000). Each is sold by one visitor at one fixed station of its race for a fixed price (GoF2's sellers:
+# 0.2-0.75 of the product, prices like 59 999), once the campaign is past step 16 (GoF2's story agents); the three GoF3
+# hides in exploration (BlueprintPart_Explore_argus / scorpion / shaanragrth) also lie in a derelict at a fixed spot of a
+# fixed orbit (GoF2's hidden-blueprint wrecks). Kept from GoF3: its race's ships drop it at GoF3's chance (its Blueprint
+# 722713, at most BLUEPRINT_DROP_MAX %). A boss hull's blueprint has one source: the boss itself, destroyed as a pirate
+# boss, always drops it (blueprints.json "drops" { "ship" }). A blueprint is handed out once: known, no source offers it.
+BLUEPRINT_VALUE, BLUEPRINT_SELLER, BLUEPRINT_DROP_MAX = (0.62, 0.80), (0.35, 0.55), 5.0
+BLUEPRINT_GUNS = {0: ["000", "004", "006"], 1: ["005", "003", "001"], 2: ["002", "008", "007"], 3: ["001", "002"]}
+BLUEPRINT_GOODS = {   # by race (the Inouac as Midorian, 3): GoF2 goods and ores of that race's trade
+    0: [118, 129, 127, 120, 125, 157, 155],   # Electronics, Optics, Microchips, Plastics, Mech. Supplies, Orichalzine, Titanium
+    1: [125, 155, 130, 124, 114, 156, 119],   # Mech. Supplies, Titanium, Hydraulics, Radioactive Goods, Explosives, Iron, Chemicals
+    2: [121, 154, 127, 129, 126, 163, 119],   # Nanotech, Gold, Microchips, Optics, Noble Gas, Hypanium, Chemicals
+    3: [164, 121, 126, 128, 163, 158],        # Void Crystals, Nanotech, Noble Gas, Com. Devices, Hypanium, Pyresium
 }
-DROP_RACE = {0: "terran", 1: "vossk", 2: "nivelian", 3: "midorian", 8: "any"}
+BLUEPRINT_CORES = {0: [168, 166], 1: [166, 172], 2: [165, 174], 3: [169, 175]}   # Orichalzin / Titanium / Cesogen / Golden / Hypanium / Pyresium core, Void Essence
+ENERGY_CELLS, VOID_ESSENCE = 122, 175
+# stations no seller or derelict uses: the pirate bases (unmanned), the Kaamo Club, the battlestation, deep science, the
+# empty and supernova orbits; and systems: Loma (the black market), Ginoya (the supernova), the pirate systems 32 / 33
+NO_BLUEPRINT_STATIONS = {1, 33, 47, 86, 100, 101, 102, 103, 104, 108, 109, 110, 111, 112, 113, 132, 133, 134}
+NO_BLUEPRINT_SYSTEMS = {25, 27, 32, 33}
+DROP_RACE = {0: "terran", 1: "vossk", 2: "nivelian", 3: "midorian"}
 EXPLORED = {"argus": "terran_001", "scorpion": "vossk_109", "shaanragrth": "vossk_103"}
 
 
+def odd_amount(x):
+    """An amount as GoF2's recipes write them: exact under 30, else in fives; at least 1."""
+    x = max(1, int(round(x)))
+    return x if x < 30 else int(round(x / 5.0)) * 5
+
+
+def blueprint_stations():
+    """By race (0-3): the stations a blueprint seller or derelict may use, in systems visible from a new game first."""
+    stations = json.load(open(os.path.join(REMAKE, "Assets/Resources/GoF2Data/stations.json"), encoding="utf-8-sig"))
+    systems = {s["index"]: s for s in json.load(open(os.path.join(REMAKE, "Assets/Resources/GoF2Data/systems.json"), encoding="utf-8-sig"))}
+    out = {r: [] for r in range(4)}
+    for st in stations:
+        sy = systems.get(st["system"])
+        if not sy or st["index"] in NO_BLUEPRINT_STATIONS or sy["index"] in NO_BLUEPRINT_SYSTEMS: continue
+        r = sy["raceId"]
+        if r in out: out[r].append((0 if sy.get("initiallyVisible") else 1, st["index"]))
+    return {r: [i for _, i in sorted(v)] for r, v in out.items()}
+
+
 def blueprints(ships, info, D):
-    """blueprints.json: a blueprint for each GoF3 ship; a boss's dropped only by the boss."""
+    """blueprints.json: a blueprint for each GoF3 ship (GoF2's way, see above)."""
+    import random, zlib
     items = {it["index"]: it for it in json.load(open(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json"), encoding="utf-8-sig"))}
+    weapon_price = {f"{MOD_ID}:{weapon_id(f, mk)}": int(WEAPON_PRICE[mk] * 1.05) for f in GOF3_WEAPONS for mk in (1, 2, 3)}
+    stations = blueprint_stations()
+    used = {r: [] for r in stations}   # the stations given out, so the sellers spread over the race's bars
     out = []
-    for e in ships:
-        boss = e.get("traffic", {}).get("boss")
-        recipe = RECIPES.get(e["race"], RECIPES[0])
-        value = e["price"] * BLUEPRINT_SHARE
-        ingredients = [{"item": i, "amount": max(5, int(round(value * share / items[i]["maxPrice"] / 5.0)) * 5)} for i, share in recipe]
-        rid = D.R.p.byname[info[e["id"]]["record"]][0]
-        chance = D.num(rid, "Blueprint", 722713) or 0.0
+    for e in sorted(ships, key=lambda x: x["price"]):
+        rng = random.Random(zlib.crc32(e["id"].encode()))
+        race = e["race"] if e["race"] in BLUEPRINT_GOODS else 3
+        price = e["price"]
+        target = price * rng.uniform(*BLUEPRINT_VALUE)
+        mk = 1 if price < 1500000 else 2 if price < 3500000 else 3
+        gun = f"{MOD_ID}:{weapon_id(rng.choice(BLUEPRINT_GUNS[race]), mk)}"
+        guns = 2 if price < 2500000 else max(2, e["slots"]["primary"])   # (the hull's guns: two, or all of them)
+        cores = BLUEPRINT_CORES[race][:2 if price >= 2500000 else 1]
+        core_amount = max(5, min(40, int(price / 120000)))
+        essence = (1 + (price >= 4500000)) if price >= 4000000 and VOID_ESSENCE not in cores else 0
+        fixed = guns * weapon_price[gun] + sum(core_amount * items[c]["maxPrice"] for c in cores) + essence * items[VOID_ESSENCE]["maxPrice"]
+        goods = rng.sample(BLUEPRINT_GOODS[race], 4 if price >= 2500000 else 3)
+        # GoF2's amounts: ores 40-215, goods 10-150 a recipe; more for a dearer ship; energy cells carry the rest of the value
+        scale = min(2.5, max(0.6, price / 1000000.0))
+        amounts = {g: rng.uniform(60, 180 if items[g]["maxPrice"] < 200 else 140) * scale for g in goods}
+        value = fixed + sum(a * items[g]["maxPrice"] for g, a in amounts.items())
+        amounts[ENERGY_CELLS] = min(990, max(20 * scale, (target - value) / items[ENERGY_CELLS]["maxPrice"]))
+        value += amounts[ENERGY_CELLS] * items[ENERGY_CELLS]["maxPrice"]
+        if value < target * 0.9:   # still short: the goods a little more, at most 600 of one
+            f = min((target * 0.9 - fixed - amounts[ENERGY_CELLS] * items[ENERGY_CELLS]["maxPrice"])
+                    / max(1, sum(amounts[g] * items[g]["maxPrice"] for g in goods)), 600 / max(amounts[g] for g in goods))
+            for g in goods: amounts[g] *= max(1.0, f)
+        goods.append(ENERGY_CELLS)
+        ingredients = [{"item": gun, "amount": guns}]
+        ingredients += [{"item": g, "amount": odd_amount(amounts[g])} for g in goods if g != ENERGY_CELLS]
+        ingredients += [{"item": c, "amount": core_amount} for c in cores]
+        ingredients.append({"item": ENERGY_CELLS, "amount": odd_amount(amounts[ENERGY_CELLS])})
+        if essence: ingredients.append({"item": VOID_ESSENCE, "amount": essence})
         bp = {"id": e["id"], "ship": f"{MOD_ID}:{e['id']}", "ingredients": ingredients}
-        if boss:
+        if e.get("traffic", {}).get("boss"):
             bp["drops"] = [{"ship": f"{MOD_ID}:{e['id']}", "chance": 100}]
             out.append(bp); continue
-        bp["lounge"] = {"chance": BLUEPRINT_LOUNGE, "systemRace": e["race"] if e["race"] in (0, 1, 2, 3) else -1}
-        if 0 < chance < 1: bp["drops"] = [{"race": DROP_RACE.get(e["race"], "any"), "chance": round(min(BLUEPRINT_DROP_MAX, chance * 100), 2)}]
+        bp["available"] = "campaign < 0 or campaign > 16"   # (free play and sessions: -1)
+        pool = [s for s in stations[race] if s not in used[race]] or stations[race]
+        at = pool[rng.randrange(min(len(pool), 8))]   # (the first eight: the systems a new game sees first)
+        used[race].append(at)
+        bp["lounge"] = {"stations": [at], "price": int(round(price * rng.uniform(*BLUEPRINT_SELLER) / 10000.0)) * 10000 - rng.choice((1, 1, 2))}
+        rid = D.R.p.byname[info[e["id"]]["record"]][0]
+        chance = D.num(rid, "Blueprint", 722713) or 0.0
+        if 0 < chance < 1:
+            bp["drops"] = [{"race": DROP_RACE[race], "chance": round(min(BLUEPRINT_DROP_MAX, chance * 100), 2)}]
         if e["id"] in EXPLORED.values():
-            bp["derelict"] = {"chance": BLUEPRINT_DERELICT, "race": DROP_RACE.get(e["race"], "any").replace("any", "terran")}
+            far = [s for s in reversed(stations[race]) if s != at]
+            bp["derelict"] = {"race": DROP_RACE[race], "stations": [far[rng.randrange(min(len(far), 4))]],
+                              "position": [rng.choice((-1, 1)) * rng.randrange(20, 80) * 1000, rng.choice((-1, 1)) * rng.randrange(20, 80) * 1000,
+                                           rng.randrange(80, 140) * 1000]}
         out.append(bp)
     return out
+
+
 MOD_ID = "gof3_ships"
 
 

@@ -79,11 +79,16 @@ Bosses: the Khador Boss, the Krotac, the Snotch, the Sh'Gaal and the Bl'Arek (da
 pirate bosses' hulls when a pirate event brings a boss (ships.json "traffic": { "boss": true }), every turret mount armed
 with their race's heavy turret (the Vossk the L'ksaar, the others the Hammerhead D2A2). Destroying a boss drops its hull's
 blueprint in a data container, once (blueprints.json "drops" { "ship" }): the only way to get one.
-Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, from five goods of its race's
-trade (Orichalzine / Titanium / Gold / Void Crystals and electronics, energy cells, ...) worth 60 % of its price. You find a
-blueprint as GoF3 hands its blueprint parts out: a ship of its race you destroy drops it at GoF3's own chance (its
-Blueprint record, at most 5 %), a lounge visitor of its race sells it now and then (3 %), and the three GoF3 hides in
-exploration (the Argus, the K'Ssshar Ka, the Shaan'Ra-Grth) also lie in derelict freighters to hack (2 % an orbit).
+Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, in Galaxy on Fire 2's own way
+(its blueprints are items only, so the GoF3 ships follow those): the recipe starts with the product's lower tier, as GoF2's
+Wolverine needs a Wolf, here the hull's own GoF3 guns (two, all four for the dearest hulls, of a family of its race, the
+mark by its price), then goods and ores of its race's trade, a few ore cores, energy cells and for the dearest a Void
+Essence, worth 0.5-0.8 of the ship in odd amounts as GoF2 writes them. Each blueprint is sold by one Space Lounge visitor
+at one station of its race (always there, at about 0.35-0.55 of the ship's price, like GoF2's own blueprint sellers) once
+the story is past step 16 (any time in free play and multiplayer); the three GoF3 hides in exploration (the Argus, the
+K'Ssshar Ka, the Shaan'Ra-Grth) also lie in a derelict to hack at a fixed spot of one orbit. As in GoF3, its race's ships
+also drop it now and then (GoF3's chance, at most 5 %), and a boss always drops its own hull's. A blueprint is obtained
+once: once you know it, no seller, ship or derelict hands it out again; you can build from it as often as you like.
 Weapons (items.json): GoF3's nine gun families in their three marks are shop items of their own (27 guns: Berger Burst,
 Nirai Scatter, Nirai Focus, Loma Dismantler, XCY M-Driver, Nirai P-Blast, Rhoda Auto-L, AMR Railgun, KAT. Beam), named and
 described as GoF3 names them. Mark 1 is tech level 3, mark 2 tech level 6, mark 3 tech level 9 (GoF3's mark 3s that share
