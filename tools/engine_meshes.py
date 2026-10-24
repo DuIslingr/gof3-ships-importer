@@ -153,6 +153,18 @@ def _anims(scene_path, assets):
     return out
 
 
+# How much brighter than its formula GoF3's ship viewer shows each part (the remake's _Intensity: the fragment's addition x
+# this before the 8-bit clamp; GoF3's frame looks bloomed, which none of its effect shaders holds), matched by eye against
+# clips of the Argus (Terran), Moornta (Nivelian) and Shamash (Vossk) rotating in GoF3's ship viewer: the Terran engine's
+# parts and the capital engines 4; the Nivelian (and the Inouac, on its textures) flare 1.5, plume 2 and helix 5 (at 4 its
+# flare and plume blew out to white); the Vossk flare 1.5 and its thin tendril plumes 5.
+# By the engine's name and the part's last word (its node "vfx_engine_nivelian_000_spiral").
+INTENSITY = {("engine_nivelian", "mesh"): 1.5, ("engine_nivelian", "exhaust"): 2.0, ("engine_nivelian", "spiral"): 5.0,
+             ("engine_inouac", "mesh"): 1.5, ("engine_inouac", "exhaust"): 2.0,
+             ("engine_vossk", "mesh"): 1.5, ("engine_vossk", "exhaust"): 5.0}
+DEFAULT_INTENSITY = 4.0
+
+
 def build(out_dir, assets, merged, scene_rel, name, tex_cache=None, root_filter=None):
     """fx/engines/<name>.json in out_dir from the engine scene 'scene_rel' (under assets), the mod's path to it; None when
     the scene has no drawable part. 'root_filter': only the parts under the scene's root node of that name (the large
@@ -201,6 +213,7 @@ def build(out_dir, assets, merged, scene_rel, name, tex_cache=None, root_filter=
         if feat["flow"] and tex.get("FlowMap"): part["flowMap"] = _texture(tex["FlowMap"], out_dir, tex_cache)
         elif feat["flow"]: feat["flow"] = False
         part.update(feat)
+        part["intensity"] = INTENSITY.get((name, n["name"].rsplit("_", 1)[-1]), DEFAULT_INTENSITY)
         if n["name"] in anims: part["anims"] = anims[n["name"]]
         parts.append(part)
     if not parts: return None
