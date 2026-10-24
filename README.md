@@ -109,7 +109,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   Terran and Vossk systems now and then instead of the game's battleships, in Nivelian systems on their own), the
   freighters cruising among the orbit's freighters ("Mod ships in traffic" option).
 - The Manticore, GoF3's Hades, is a moving station in the Magnetar system (Dis): it cruises past one of the system's
-  stations for 20 minutes, then the next. Find it in that orbit, lock it and dock into its own hangar and bar.
+  stations for 20 minutes, then the next. Find it in that orbit, lock it and dock into its own hangar (GoF3's Hades hangar,
+  `tools/hangar_room.py`) and bar.
 - The mod's own `README.txt` lists where every value comes from.
 
 ## When something goes wrong

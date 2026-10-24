@@ -8,14 +8,15 @@ cruising among the orbits' freighters. Never sold. At GoF3's own scale (K), so t
 
 The Hades (structures/terran/geometry/props/hades) becomes the Manticore, stations.json's mobile station (Modding.
 MobileStations): no planet, it cruises through the orbits of MANTICORE_SYSTEM's stations and is docked at where it is, into
-its own hangar and bar (interiors.json, on the game's Terran rooms, lit cooler; their markers the game's own, read from
-StationLevel.GameRoomMarkers). At HADES_SCALE of GoF3's (12.6 km would reach past the flight level's 15 km far plane).
+its own hangar and bar (interiors.json): the hangar GoF3's own Hades hangar (hangar_room: the ShipSelectionB room, GoF3's
+lighting baked in, at GoF3's scale like the ships), the bar the game's Terran bar lit cooler (its markers the game's own, read
+from StationLevel.GameRoomMarkers). At HADES_SCALE of GoF3's (12.6 km would reach past the flight level's 15 km far plane).
 
 build(out_dir, assets) -> (ships, stations, interiors): the ships.json, stations.json and interiors.json entries."""
 import math, os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
-import structures
+import structures, hangar_room
 
 K = 1231.49 / 23.02                       # game units per GoF3 unit (build_gof3_mod.K)
 MAX_TURRETS = 8
@@ -37,9 +38,13 @@ CAPITALS = [   # race, model number, role, name, description
 ]
 HADES_SCALE = 0.5
 MANTICORE_SYSTEM = 14                     # Magnetar (Dis, where every multiplayer pilot starts, and four more Terran stations)
-HANGAR_MARKERS = {"pad": [0, 0, 0], "camera": [53.8, 57.5, 113.65], "camera_target": [25.911, 21.878, -12.004],
-                  "parked_1": [0, 0, -144.55], "parked_2": [0, 0, -289.05], "parked_3": [272.95, 0, -144.55],
-                  "parked_4": [272.95, 0, -289.05], "parked_5": [0, 0, 144.55], "gate": [0, 55, -549], "gate_out": [0, 55, -849]}
+ROOM_SCALE = K * 0.05                     # metres per GoF3 unit: the hangar at the ships' scale
+# The Hades hangar's markers in GoF3 units (glTF space: the pad at the origin, the open front +z, the back wall -78): the pad's
+# deck, the camera in front of the room looking past the pad (the ship right of centre, like the game's hangars), the two lit
+# bays beside the pad, and the flights' way in through the open front right of the camera (under the front beam, y 19).
+HANGAR_MARKERS_GOF3 = {"pad": [0, -5, 0], "camera": [12, 13, 42], "camera_target": [-4, 0, 0],
+                       "parked_1": [150, -4, 5], "parked_2": [-150, -4, 5],
+                       "gate": [100, 10, 50], "gate_out": [100, 10, 150]}
 BAR_MARKERS = {"camera": [-90, 31, -90.25], "camera_target": [-92.399, 31, -30.298], "camera_start": [-65.75, 58, 136.4],
                "camera_start_target": [-67.55, 58, 196.373], "visitor_1": [-116.25, 0, 48.2], "visitor_2": [-51.15, 10.6, -37.25],
                "visitor_3": [-54.9, 10.6, -21.35], "visitor_4": [-58.2, 10.6, 11.35], "visitor_5": [-98.95, 0, 5.4],
@@ -106,9 +111,14 @@ def build(out_dir, assets, log=print):
         "interior": "terran", "hangar": "manticore_hangar", "bar": "manticore_bar",
         "mobile": {"stayMinutes": 20, "speed": 0.15},
     }]
+    room = hangar_room.convert(assets, os.path.join(out_dir, "structures/manticore_hangar.glb"), 4096, log)
+    log(f"Manticore hangar: {room['triangles']} triangles")
+    # Room metres, Unity's frame (glTFast mirrors x).
+    markers = {k: [round(-v[0] * ROOM_SCALE, 2), round(v[1] * ROOM_SCALE, 2), round(v[2] * ROOM_SCALE, 2)]
+               for k, v in HANGAR_MARKERS_GOF3.items()}
     interiors = [
-        {"id": "manticore_hangar", "type": "hangar", "model": "gof2:hangar_terran", "ambient": [0.16, 0.2, 0.27],
-         "lightIntensity": 1.15, "markers": HANGAR_MARKERS},
+        {"id": "manticore_hangar", "type": "hangar", "model": "structures/manticore_hangar.glb", "scale": round(ROOM_SCALE, 4),
+         "ambient": [0.1, 0.1, 0.12], "lightIntensity": 0.8, "markers": markers},
         {"id": "manticore_bar", "type": "bar", "model": "gof2:bar_terran", "ambient": [0.18, 0.21, 0.28],
          "lightIntensity": 1.0, "markers": BAR_MARKERS},
     ]
