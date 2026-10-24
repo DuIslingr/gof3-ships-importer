@@ -95,6 +95,53 @@ BOOSTERS = {
     "gunship": {"device": "Device_Special_EngineBooster_Gunship", "boostSpeed": 100, "factor": 200},
 }
 BOOSTER_BASE, BOOSTER_DURATION, BOOSTER_RECHARGE = 73, 2857, 12000
+# GoF3's Device_Revive_Cloak (24 of the 32 player ships): when the ship is destroyed it comes back cloaked for a moment
+# (DeviceConfigurationCloak: 4 and 10 s). GoF2's own Emergency System (185) is that: the hull's end turned into 10 s of
+# invulnerability, once a sortie (a built-in one used up is back at the next docking).
+REVIVE_DEVICE, REVIVE_ITEM = "Device_Revive_Cloak", 185
+# GoF3's bosses (a BossInfo component: Khador, Rh'ash, Snotch, Sh'gaal, Bl'Arek): not sold, the pirate bosses' hulls
+# instead (ships.json "traffic": { "boss": true }), every turret mount armed (npcTurrets) with their race's heavy turret.
+BOSS_TURRET = {1: 49}   # by race: the Vossk L'ksaar; the others the Hammerhead D2A2 (48)
+
+# Blueprints (blueprints.json): GoF3 builds its ships from blueprint parts it drops (a ship's Blueprint 722713: 1.2-1.3 %,
+# the Dragon Ship 22 %, the Retro 100 %), and hides three in exploration (BlueprintPart_Explore_argus / scorpion /
+# shaanragrth). As the remake's blueprints: each ship (not the bosses) made from five GoF2 goods worth BLUEPRINT_SHARE of its
+# price (like the game's own: the T'yol's goods are its price), its race's ships dropping it at GoF3's chance (at most
+# BLUEPRINT_DROP_MAX %), a lounge visitor of its race selling it now and then, the explored ones also a derelict to hack. A
+# boss hull's blueprint has one source: the boss itself, destroyed by the player as a pirate boss, always drops it
+# (blueprints.json "drops" naming its "ship"), once (a known blueprint drops no more).
+BLUEPRINT_SHARE, BLUEPRINT_DROP_MAX, BLUEPRINT_LOUNGE, BLUEPRINT_DERELICT = 0.6, 5.0, 3, 2
+RECIPES = {   # by race: (GoF2 good, share of the value)
+    0: [(157, 0.15), (118, 0.2), (130, 0.15), (129, 0.2), (122, 0.3)],    # Orichalzine, Electronics, Hydraulics, Optics, Energy Cells
+    1: [(155, 0.15), (125, 0.2), (166, 0.15), (118, 0.2), (122, 0.3)],    # Titanium, Mechanical Supplies, Titanium Core, Electronics
+    2: [(154, 0.15), (121, 0.2), (127, 0.15), (165, 0.2), (122, 0.3)],    # Gold, Nanotech, Microchips, Golden Core
+    8: [(164, 0.15), (121, 0.2), (175, 0.15), (127, 0.2), (122, 0.3)],    # (the Inouac) Void Crystals, Nanotech, Void Essence
+}
+DROP_RACE = {0: "terran", 1: "vossk", 2: "nivelian", 3: "midorian", 8: "any"}
+EXPLORED = {"argus": "terran_001", "scorpion": "vossk_109", "shaanragrth": "vossk_103"}
+
+
+def blueprints(ships, info, D):
+    """blueprints.json: a blueprint for each GoF3 ship; a boss's dropped only by the boss."""
+    items = {it["index"]: it for it in json.load(open(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json"), encoding="utf-8-sig"))}
+    out = []
+    for e in ships:
+        boss = e.get("traffic", {}).get("boss")
+        recipe = RECIPES.get(e["race"], RECIPES[0])
+        value = e["price"] * BLUEPRINT_SHARE
+        ingredients = [{"item": i, "amount": max(5, int(round(value * share / items[i]["maxPrice"] / 5.0)) * 5)} for i, share in recipe]
+        rid = D.R.p.byname[info[e["id"]]["record"]][0]
+        chance = D.num(rid, "Blueprint", 722713) or 0.0
+        bp = {"id": e["id"], "ship": f"{MOD_ID}:{e['id']}", "ingredients": ingredients}
+        if boss:
+            bp["drops"] = [{"ship": f"{MOD_ID}:{e['id']}", "chance": 100}]
+            out.append(bp); continue
+        bp["lounge"] = {"chance": BLUEPRINT_LOUNGE, "systemRace": e["race"] if e["race"] in (0, 1, 2, 3) else -1}
+        if 0 < chance < 1: bp["drops"] = [{"race": DROP_RACE.get(e["race"], "any"), "chance": round(min(BLUEPRINT_DROP_MAX, chance * 100), 2)}]
+        if e["id"] in EXPLORED.values():
+            bp["derelict"] = {"chance": BLUEPRINT_DERELICT, "race": DROP_RACE.get(e["race"], "any").replace("any", "terran")}
+        out.append(bp)
+    return out
 MOD_ID = "gof3_ships"
 
 
@@ -167,6 +214,45 @@ TURRET_GUNS = [("006", 1, [47]), ("006", 2, [48]), ("005", 2, [49]), ("004", 1, 
                ("004", 3, [182]), ("000", 3, [224]), ("002", 1, [198]), ("002", 2, [199]), ("002", 3, [200])]
 TURRET_CATEGORIES = [("002", 2, 35)]
 TURRET_DEFAULT = ("006", 2)
+
+# GoF3's own guns as items of their own (items.json), sold in the shops beside GoF2's: each of the nine families in its three
+# marks, named and described as GoF3 names them (GuiAttribute), on its own GoF3 gun model and shot sound (the kit rules put
+# them first), its projectile, muzzle flash and impact the GoF2 base item's recoloured in the family's GoF3 projectile colour
+# (Colorize_Color1 / 2 of its effect material: the textures are named by GUID only), a short tracer of that colour.
+# GoF3's numbers don't carry over (its damage is per upgrade level and rises with the player's level), so what does: the
+# family's range class (CR 1000 / MR 1500 / LR 2000 m, the gun's reach as a GoF2 projectile's lifetime at its speed), its
+# projectile speed (GoF3 m/s / 75 = GoF2 units per ms: 1500 -> 20, GoF2's lasers), its shots per trigger (the Scatter
+# Plasma's spread, side by side; the Burst Laser's three-shot salvo) and its character in the table below (a slow heavy
+# Plasma Focus, a fast Auto Laser). The damage per second is GoF2's own by tech level: mark 1 at tech 3 like GoF2's tech 3-6
+# weapons (12), mark 2 at 6 (24), mark 3 at 9 (45, below the Mimung / Mass Driver MD 12's 70), x1.25 at close range and
+# x0.85 at long range; each shot's damage is the table's, its reload what gives that rate.
+#   family: (data.pdb name, GoF2 base item (behaviour, look, icon), range m, GoF3 speed m/s (None: a beam), damage per shot by
+#            mark, extra stats, colour material, colour key)
+GOF3_WEAPONS = {
+    "000": ("MR3_BurstLaser", 7, 1500, 1800, (3, 5, 9), {"salvoCount": 3, "salvoGapMs": 70},
+            "unique/burstlaser/vfx_projectile_burstlaser_000_sprite", "Colorize_Color1"),
+    "001": ("CR1_ScatterPlasma", 12, 1000, 1500, (2, 4, 7), {"salvoShots": 4},
+            "unique/scattercannon/vfx_projectile_scattercannon_000_core", "Colorize_Color1"),
+    "002": ("LR2_PlasmaFocus", 19, 2000, 2000, (9, 18, 32), {},
+            "unique/ioncannon/vfx_projectile_ioncannon_000_sprite", "Colorize_Color1"),
+    "003": ("CR3_Dismantler", 24, 1000, 1500, (2, 4, 7), {},
+            "unique/ricochetweapon/vfx_projectile_ricochetweapon_000_sprite", "Colorize_Color1"),
+    "004": ("MR2_MassDriver", 27, 1500, 1800, (2, 3, 6), {},
+            "unique/autocannon/vfx_projectile_autocannon_000_sprite", "Colorize_Color2"),
+    "005": ("MR1_PlasmaBlast", 19, 1500, 1700, (4, 7, 12), {},
+            "unique/plasmasprayer/vfx_projectile_plasmasprayer_000_sprite", "Colorize_Color1"),
+    "006": ("CR2_AutoLaser", 0, 1000, 1500, (2, 3, 6), {},
+            "unique/machinegun/vfx_projectile_machinegun_000_sprite", "Colorize_Color2"),
+    "007": ("LR3_Railgun", 10, 2000, None, (16, 30, 55), {},
+            "unique/railgun/vfx_projectile_railgun_000_sprite", "Colorize_Color1"),
+    "008": ("LR1_BeamLaser", 9, 2000, None, (10, 20, 36), {},
+            "unique/pulselaser/vfx_projectile_pulselaser_000_p", "Colorize_Color1"),
+}
+WEAPON_DPS = {1: 12.0, 2: 24.0, 3: 45.0}
+WEAPON_TECH = {1: 3, 2: 6, 3: 9}
+WEAPON_PRICE = {1: 9000, 2: 32000, 3: 140000}      # (GoF2's weapons of those tech levels and rates)
+WEAPON_OCCURRENCE = {1: 25, 2: 15, 3: 8}            # (below GoF2's own: 27 more guns in the shops)
+RANGE_DPS = {1000: 1.25, 1500: 1.0, 2000: 0.85}
 
 # The kit's weapon colours (the Customize screen's Weapon colour; the remake's palette "weapons"): GoF3's own projectile colours,
 # Colorize_Color1 of each weapon effect's material (assets_best/vfx/projectiles), named after the GoF3 weapon it belongs to.
@@ -951,8 +1037,65 @@ def with_sounds(rules, snd):
     return rules
 
 
+def weapon_id(family, mk):
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", "_", GOF3_WEAPONS[family][0].split("_", 1)[1]).lower() + f"_{mk}"
+
+
+def weapon_name(raw):
+    """GoF3's all-caps weapon names in GoF2's way: brands and words written in capitals stay so when they are short (AMR,
+    XCY, SR, LR, II, XN, KAT.), the others mixed case per hyphen part (P-BLAST -> P-Blast, AUTO-L -> Auto-L)."""
+    def word(w):
+        if len(re.sub(r"[^A-Za-z]", "", w)) <= 3: return w
+        return "-".join(p if len(p) <= 1 else p[:1] + p[1:].lower() for p in w.split("-"))
+    return " ".join(word(w) for w in raw.split())
+
+
+def weapon_items(D, snd):
+    """items.json: GoF3's guns (GOF3_WEAPONS), each mark its own item."""
+    import ae4_material
+    out = []
+    for fam, (rec, base, rng, speed, dmg, extra, mat, key) in GOF3_WEAPONS.items():
+        v, _ = ae4_material.read(os.path.join(VFX, mat + ".ae4material"))
+        c = v.get(key)
+        if not c: sys.exit(f"weapon {rec}: no {key} in {mat}")
+        colour = "#" + "".join(f"{round(min(1.0, max(0.0, x)) * 255):02X}" for x in c[:3])
+        shot = snd.item_shot(fam) if snd else None
+        names = {}
+        for mk in (1, 2, 3):
+            rn = next((n for n in (f"PW_{rec}_{mk}", f"PW_{rec}_{mk}_DuplicateActive", f"PW_{rec}_{mk}_DuplicateOff",
+                                   f"PW_{rec}_{mk}_Original") if n in D.R.p.byname), None)
+            if rn is None: sys.exit(f"weapon {rec} mark {mk}: no record")
+            rid = D.R.p.byname[rn][0]
+            name = weapon_name(D.gui_text(rid, 4067579) or rec)
+            if mk == 3 and name == names.get(2):   # (GoF3 names several mark 3s as their mark 2: its XN marks those it tells apart)
+                name = re.sub(r"\s+II$", "", name) + " XN"
+            names[mk] = name
+            dps = WEAPON_DPS[mk] * RANGE_DPS[rng]
+            per_shot = dmg[mk - 1] * extra.get("salvoShots", 1) * extra.get("salvoCount", 1)
+            reload = per_shot * 1000.0 / dps - (extra.get("salvoCount", 1) - 1) * extra.get("salvoGapMs", 0)
+            stats = {"damage": dmg[mk - 1], "loadingTimeMs": int(round(reload / 10.0)) * 10}
+            if speed:
+                u = round(speed / 75.0)
+                stats["projectileSpeed"] = u
+                stats["range"] = int(round(rng / (u * 0.05) / 50.0)) * 50   # (the lifetime that reaches it)
+            stats.update(extra)
+            fx = {"projectile": {"color": colour}, "muzzle": {"color": colour}, "impact": {"color": colour}}
+            if speed: fx["trail"] = {"color": colour, "width": 18, "length": 110}
+            if shot: fx["shot"] = shot
+            item = {"id": weapon_id(fam, mk), "base": base, "name": name, "techLevel": WEAPON_TECH[mk],
+                    "occurrence": WEAPON_OCCURRENCE[mk], "price": [WEAPON_PRICE[mk], int(WEAPON_PRICE[mk] * 1.05)],
+                    "stats": stats, "fx": fx}
+            desc = D.gui_text(rid, 9934023)
+            if desc: item["description"] = re.sub(r"\s+", " ", desc).strip()
+            out.append(item)
+    return out
+
+
 def weapon_rules():
-    rules = [{"slot": "primary", "model": gun_file(f, mk), "items": items} for f, mk, items in PRIMARY_GUNS]
+    # GoF3's own guns first (the rules below match items based on theirs too)
+    rules = [{"slot": "primary", "model": gun_file(f, mk), "items": [f"{MOD_ID}:{weapon_id(f, mk)}"]}
+             for f in GOF3_WEAPONS for mk in (1, 2, 3)]
+    rules += [{"slot": "primary", "model": gun_file(f, mk), "items": items} for f, mk, items in PRIMARY_GUNS]
     rules += [{"slot": "primary", "model": gun_file(f, mk), "categories": [cat]} for f, mk, cat in PRIMARY_CATEGORIES]
     rules.append({"slot": "primary", "model": gun_file(*PRIMARY_DEFAULT)})
     # the launchers have no model; GoF2's rockets (4) and its missiles and cluster missiles (5, 40) get GoF3's launch sounds
@@ -1256,6 +1399,8 @@ def main():
         top = round((cruise[2] / CRUISE_BASE - 1) * 100) if cruise and cruise[2] > 0 else 0
         devices = [D.R.name(D.R.sub(x).get(1)) for x in D.comp(rid, "DeviceEquip").get(5883687, [])]
         booster = next((c for c, b in BOOSTERS.items() if b["device"] in devices), None)
+        built_in = ([f"{MOD_ID}:engine_booster_{booster}"] if booster else []) + ([REVIVE_ITEM] if REVIVE_DEVICE in devices else [])
+        boss = bool(D.comp(rid, "BossInfo"))
         entry = {
             "id": sid, "name": None, "description": desc, "race": race,
             "armor": armor, "cargo": cargo, "handling": handling, "price": price, "priceDefault": price_default,
@@ -1268,12 +1413,14 @@ def main():
             "mounts": mounts,
             **({"engineFx": fx} if (fx := nozzle_tinted(locked_engine_fx(fx_name, trail_name), ship_colour)) else {}),
             **({"flight": {"topSpeed": top}} if top else {}),
-            **({"integrated": {"items": [f"{MOD_ID}:engine_booster_{booster}"]}} if booster else {}),
+            **({"integrated": {"items": built_in}} if built_in else {}),
+            **({"traffic": {"boss": True}, "npcTurrets": [BOSS_TURRET.get(race, 48)] * len(turrets)} if boss else {}),
             "lounge": {"systemRace": race if race in (0, 1, 2, 3) and ident != 5 else -1,
                        "minCampaign": round(lc["minCampaign"][0] + (lc["minCampaign"][1] - lc["minCampaign"][0]) * tt),
                        "minRank": round(lc["minRank"][0] + (lc["minRank"][1] - lc["minRank"][0]) * tt),
                        "chance": lc["chance"]},
         }
+        if boss: del entry["lounge"]   # (not sold: no seller in the lounges)
         info_item = {"folder": folder, "record": rec, "raw_name": name, "class": cls, "identity": ident, "engine": fx_name,
                      "engines_measured": sum(1 for m in measured if m["color"]), "engines": len(measured), "hull": hull,
                      "shield": shield, "steering": steer, "deviceEquip": dev, "length": round(length),
@@ -1331,7 +1478,7 @@ def main():
         return p["id"]
     with ThreadPoolExecutor(jobs()) as ex: list(ex.map(slim, parts))
     guns = sorted({(f, mk) for f, mk, _ in PRIMARY_GUNS + TURRET_GUNS} | {(f, mk) for f, mk, _ in PRIMARY_CATEGORIES + TURRET_CATEGORIES}
-                  | {PRIMARY_DEFAULT, TURRET_DEFAULT})
+                  | {PRIMARY_DEFAULT, TURRET_DEFAULT} | {(f, mk) for f in GOF3_WEAPONS for mk in (1, 2, 3)})
     phase("hull models written")
     for f, mk in guns: build_gun(f, mk)
     build_turret(os.path.join(OUT, "turret", "turret.glb"))
@@ -1382,9 +1529,11 @@ def main():
     json.dump([kit], open(os.path.join(OUT, "shipkits.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(info, open(os.path.join(OUT, "source.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
-    json.dump(booster_items(), open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    json.dump(booster_items() + weapon_items(D, snd), open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
+        json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump({
-        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.0", "author": "DuIslingr",
+        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.1", "author": "DuIslingr",
         "description": f"{len(ships)} ships from Galaxy on Fire 3: Manticore as customizable ships, sold by visitors in the Space "
                        f"Lounges of their race's systems: {len(skins)} GoF3 paint schemes to pick in the hangar's Customize "
                        "screen, GoF3 guns that follow the weapons mounted, and GoF3 turrets. Names, descriptions, races and "

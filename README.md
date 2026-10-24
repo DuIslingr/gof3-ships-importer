@@ -90,7 +90,12 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 ## In the game
 
 - The ships are sold by visitors in the Space Lounges of their race's systems, from a story step (or rank) that grows with
-  the ship's strength.
+  the ship's strength. Their blueprints can be found too (dropped by ships of their race, sold in the lounges, a few in
+  hackable derelicts) and built in the hangar's Blueprints tab.
+- The five boss hulls aren't sold: pirate bosses fly them, and a destroyed boss drops its hull's blueprint.
+- GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
+- Each ship flies at its GoF3 speed with its class's GoF3 booster built in; ships with GoF3's revive device have the
+  Emergency System built in.
 - In the hangar, **Customize ship** (under Inspect ship) picks the hull's paint scheme (Skin: GoF3's numbered schemes and
   its special paints like Gold or Dragon) and the colour of the energy weapons' shots, in GoF3's colours.
 - The mounted guns show as GoF3 guns on the hull's hardpoints, a turret as a GoF3 turret. The Customize screen's

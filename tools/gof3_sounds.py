@@ -171,6 +171,17 @@ class Sounds:
         w = self.find(SHOTS.get(family, "^$"))
         return {"shot": self.one(w, SHOT_LEVEL, pitch=[0.95, 1.05])} if w else None
 
+    def item_shot(self, family):
+        """An item's fx "shot" (files only: the game plays them at its shots' 0.7): the family's shot waves (a beam's
+        ignition) written at the game's shot loudness at that volume; None without waves."""
+        if not self: return None
+        w = self.find("^" + BEAM[family][0] + r"\d+$") if family in BEAM else self.find(SHOTS.get(family, "^$"))
+        if not w: return None
+        lv = float(np.mean([loudness(os.path.join(self.dir, n + ".wav")) for n in w]))
+        peak = max(float(np.abs(read_wav(os.path.join(self.dir, n + ".wav"))[0]).max()) for n in w)
+        gain = round(min(SHOT_LEVEL / 0.7 / lv, 0.98 / max(peak, 1e-6)), 2)
+        return [self.write(n, gain) for n in w]
+
     def launcher(self, kind):
         w = self.find(LAUNCHERS[kind])
         return {"shot": self.one(w, SHOT_LEVEL, pitch=[0.95, 1.05])} if w and self else None

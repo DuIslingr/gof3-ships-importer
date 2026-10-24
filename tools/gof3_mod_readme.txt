@@ -1,8 +1,9 @@
-Galaxy on Fire 3 Ships (mod id gof3_ships), version 2
+Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.1
 
 The ships of Galaxy on Fire 3: Manticore for the Galaxy on Fire 2 Unity Remake, as customizable ships (the remake's ship
 kits, like the EVERSPACE 2 ships). One ship per GoF3 hull; they are sold by visitors in the Space Lounges (ships.json
 "lounge"): in systems of the ship's race, from a story step / rank that grows with the ship's strength, 3 % per bar visit.
+The five boss hulls are never sold: pirate bosses fly them, and each drops its own blueprint (below).
 
 Built by gof3_ships_importer (import.py) from the player's own Galaxy on Fire 3 files: the hulls, their paint schemes, the
 guns and the game's data.pdb; run it again to rebuild the whole folder (--max-texture 2048 for full-size textures).
@@ -71,6 +72,26 @@ ships the Nivelian one), and the GoF3 guns, rockets and missiles their GoF3 shot
 Speed and boost: each ship flies at GoF3's cruising speed against a fighter's (scouts up to 14 % faster, gunships up to 14 %
 slower) and has its class's GoF3 engine booster built in (scouts x3, fighters x2.5, gunships x2 their top speed for
 2.9 s, every 12 s); a booster you fit takes its place. The bosses have none, as in GoF3.
+Emergency system: the 24 ships GoF3 gives its revive device (Device_Revive_Cloak: destroyed, the ship comes back cloaked
+for a moment) have Galaxy on Fire 2's Emergency System built in: the hull's end turns into 10 s of invulnerability, once a
+sortie (used up, it is back at the next docking).
+Bosses: the Khador Boss, the Krotac, the Snotch, the Sh'Gaal and the Bl'Arek (data.pdb's BossInfo records) are the
+pirate bosses' hulls when a pirate event brings a boss (ships.json "traffic": { "boss": true }), every turret mount armed
+with their race's heavy turret (the Vossk the L'ksaar, the others the Hammerhead D2A2). Destroying a boss drops its hull's
+blueprint in a data container, once (blueprints.json "drops" { "ship" }): the only way to get one.
+Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, from five goods of its race's
+trade (Orichalzine / Titanium / Gold / Void Crystals and electronics, energy cells, ...) worth 60 % of its price. You find a
+blueprint as GoF3 hands its blueprint parts out: a ship of its race you destroy drops it at GoF3's own chance (its
+Blueprint record, at most 5 %), a lounge visitor of its race sells it now and then (3 %), and the three GoF3 hides in
+exploration (the Argus, the K'Ssshar Ka, the Shaan'Ra-Grth) also lie in derelict freighters to hack (2 % an orbit).
+Weapons (items.json): GoF3's nine gun families in their three marks are shop items of their own (27 guns: Berger Burst,
+Nirai Scatter, Nirai Focus, Loma Dismantler, XCY M-Driver, Nirai P-Blast, Rhoda Auto-L, AMR Railgun, KAT. Beam), named and
+described as GoF3 names them. Mark 1 is tech level 3, mark 2 tech level 6, mark 3 tech level 9 (GoF3's mark 3s that share
+the mark 2's name are called XN, as GoF3 calls some). On a GoF3 hull each shows its own GoF3 gun; it fires with its GoF3
+shot sound, its shots, flash and impact in its GoF3 projectile colour with a short tracer. What carries over from GoF3: the
+range class (close 1000 m, medium 1500, long 2000), the projectile speed, the Scatter Plasma's four-shot spread and the Burst
+Laser's three-shot burst; the damage per second is GoF2's for the tech level (12 / 24 / 45, more at close range, less at
+long range), since GoF3's own damage rises with its upgrade levels and the player's level.
 Exhaust styles (exhausts.json): the three GoF3 drives (Nivelian with its helix, Terran, Vossk) on any ship, the game's own
 included: the hangar's Customize screen gets an Exhaust row with the drive's two colours (the flare and cone, the trails and
 helix), offered in GoF3's engine colours. They sit on the ship's own exhausts and take each nozzle's shape. Each GoF3
