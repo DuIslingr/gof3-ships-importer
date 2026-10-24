@@ -40,7 +40,7 @@ Every stat comes from the hull's data.pdb record (templates merged field by fiel
   cargo                GoF3 ships have no hold: by class and hull length
 Scale: the kit's 53.5 game units per GoF3 unit (GoF2's Groza is 1231 units long, GoF3's 23.02), yaw 180 (the GoF3 models face
 -Z); the Nunam's model is turned round first (TURN: GoF3 models it backwards against its concept art). Hulls without engine
-helpers (the Inouac ships) get thin exhausts at their contrail helpers, the Nunam also at its spike tips (TIP_EXHAUSTS). Exhaust glows: each engine's colour and nozzle size from the hull's emissive texture around its helper (engine_glows.py),
+helpers (the Inouac ships) get thin exhausts at their wing tips (one per contrail helper), the Nunam also at its spike tips (TIP_EXHAUSTS). Exhaust glows: each engine's colour and nozzle size from the hull's emissive texture around its helper (engine_glows.py),
 the flame's length from the GoF3 engine effect's plume. Hulls without a ship record (manifest note "no ship record") are left
 out."""
 import functools, glob, time, hashlib, io, json, math, os, re, shutil, struct, subprocess, sys, threading, unicodedata
@@ -1156,8 +1156,16 @@ def main():
             if turn: ex["rotation"] = turn   # the engine helper's turn: the way the engineFx blows (the Vossk engines angle out)
             mounts.append(ex)
         if not measured:
-            # no engine helpers: thin exhausts at the contrail helpers and the hull's own tips (TIP_EXHAUSTS)
-            tips = [W[i][:3, 3] for i, nd in enumerate(j["nodes"]) if i in W and re.search(r"_contrail_\d{3}$", nd["name"])]
+            # no engine helpers: thin exhausts at the wing tips (one per contrail helper: the hull's outermost point on
+            # its side) and the hull's own tips (TIP_EXHAUSTS). Not at the helpers themselves: the Nunam's sit 3.5 units
+            # ahead of its wing tips once it is turned round, so the plumes streamed back over the wings (the user's
+            # report, 2026-10-24); the Kinac's sit on its tips (0.7 units off)
+            helpers = [W[i][:3, 3] for i, nd in enumerate(j["nodes"]) if i in W and re.search(r"_contrail_\d{3}$", nd["name"])]
+            hull_pts = surface_points(glb) if helpers else np.zeros((0, 3))
+            tips = []
+            for h in helpers:
+                side = hull_pts[np.sign(hull_pts[:, 0]) == np.sign(h[0])]
+                tips.append(side[np.argmax(np.abs(side[:, 0]))] if len(side) else h)
             R = trs({"rotation": [0.0, math.sin(math.radians(TURN.get(base, 0)) / 2), 0.0, math.cos(math.radians(TURN.get(base, 0)) / 2)]})
             tips += [(R @ np.array([*p, 1.0]))[:3] for p in TIP_EXHAUSTS.get(base, [])]
             for p in tips:

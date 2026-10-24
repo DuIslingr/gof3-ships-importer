@@ -63,8 +63,8 @@ deep blue of GoF3's materials, with the streams a dim blue wake under them (the 
 material names its textures by GUID only). The Terran engines burn in their textures' own amber, as GoF3 shows them (a bright spike with a thin straight streak, no
 wavering streams); the Vossk engines the same in teal with lime flares in the nozzles' own colour, their streak as short and
 straight as the Terran one. Every exhaust churns as GoF3's do (its exhaust material's flow, at each engine's own
-speed: the Terran fast, the Nivelian slow). Nunam and Kinac have no engine helpers: thin cyan exhausts trail from their wing tips (GoF3's
-contrail helpers) instead, the Nunam's also from its two spike tips, as its concept art shows them. The Nunam flies canopy
+speed: the Terran fast, the Nivelian slow). Nunam and Kinac have no engine helpers: thin cyan exhausts trail from their wing tips
+instead, the Nunam's also from its two spike tips, as its concept art shows them. The Nunam flies canopy
 first, its spikes trailing, as Fishlabs' concept art draws it (GoF3's model has it the other way round).
 Exhaust styles (exhausts.json): the three GoF3 drives (Nivelian with its helix, Terran, Vossk) on any ship, the game's own
 included: the hangar's Customize screen gets an Exhaust row with the drive's two colours (the flare and cone, the trails and
