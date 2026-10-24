@@ -1,4 +1,4 @@
-Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.1
+Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.2
 
 The ships of Galaxy on Fire 3: Manticore for the Galaxy on Fire 2 Unity Remake, as customizable ships (the remake's ship
 kits, like the EVERSPACE 2 ships). One ship per GoF3 hull; they are sold by visitors in the Space Lounges (ships.json
@@ -89,6 +89,11 @@ the story is past step 16 (any time in free play and multiplayer); the three GoF
 K'Ssshar Ka, the Shaan'Ra-Grth) also lie in a derelict to hack at a fixed spot of one orbit. As in GoF3, its race's ships
 also drop it now and then (GoF3's chance, at most 5 %), and a boss always drops its own hull's. A blueprint is obtained
 once: once you know it, no seller, ship or derelict hands it out again; you can build from it as often as you like.
+The view (ships.json "camera", "cockpit", "smoke", "explosionScale"): the cockpit view (F2, or hold the camera button)
+sits at GoF3's own cockpit camera point on each hull; a damaged ship smokes and burns from GoF3's two damage points; it
+explodes at its GoF3 size (GoF3's fighters as big as GoF2's, the scouts smaller, the gunships and bosses bigger); and the
+chase camera is GoF2's for a hull up to 1400 units long, pulled back with a longer hull, and a little further out for the
+gunships, as GoF3 places its camera.
 Weapons (items.json): GoF3's nine gun families in their three marks are shop items of their own (27 guns: Berger Burst,
 Nirai Scatter, Nirai Focus, Loma Dismantler, XCY M-Driver, Nirai P-Blast, Rhoda Auto-L, AMR Railgun, KAT. Beam), named and
 described as GoF3 names them. Mark 1 is tech level 3, mark 2 tech level 6, mark 3 tech level 9 (GoF3's mark 3s that share

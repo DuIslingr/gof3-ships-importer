@@ -78,6 +78,9 @@ K = 1231.49 / 23.02                      # game units per GoF3 unit (the two Gro
 KIT = "gof3"
 RACE = {3: 0, 4: 1, 6: 2, 7: 8, 5: 3}
 CLASS = {2: "fighter", 3: "gunship", None: "scout"}
+CAMERA_FIT_LENGTH = 1400.0                 # ships.json "camera": GoF2's chase camera fits a hull this long (game units)
+CAMERA_BASE_DISTANCE = 7.0                 # GoF3's CameraThirdPerson distance for its scouts and fighters (gunships 8)
+EXPLOSION_BASE = 1.5                       # GoF3's EffectScale of most fighters = a GoF2 fighter's explosion (1)
 
 # Speeds: GoF3's cruising speed (Steering 6741857: scouts 190-200, fighters 175-180, gunships 150-185, the bosses 170) against
 # a fighter's 175, as ships.json "flight" "topSpeed" in % (both flight styles); the remake's ships all fly 2 u/ms otherwise.
@@ -1335,6 +1338,34 @@ def main():
     def locked_engine_fx(fx_name, trail_name):
         with fx_lock: return engine_fx(fx_name, os.path.join(OUT, ".fx_tmp"), trail_name)   # (writes the fx/ PNGs once)
 
+    def ship_view(rid, j, W, length, L):
+        """How the ship is seen (the remake's ModShipView): the chase camera, the cockpit seat, the damage smoke's points
+        and the explosion's size, from the hull's helpers and its record."""
+        out = {}
+        # the chase camera: GoF2's (1338 behind, 600 up, looking at 600 up 650 behind the pivot) for a ship of up to
+        # CAMERA_FIT_LENGTH units, pulled back with the hull past it, and a gunship's further out, as GoF3's
+        # CameraThirdPerson distance (field 89702: 7 scouts and fighters, 8 gunships). Its other fields can't be read
+        # with any confidence (unnamed), so only that ratio is taken.
+        cls_dist = D.num(rid, "CameraThirdPerson", 89702) or CAMERA_BASE_DISTANCE
+        s = max(1.0, length / CAMERA_FIT_LENGTH)
+        d = cls_dist / CAMERA_BASE_DISTANCE
+        if s > 1.01 or abs(d - 1) > 0.01:
+            out["camera"] = {"distance": round(1338 * s * d), "height": round(600 * s), "lookHeight": round(600 * s),
+                             "lookAhead": round(-650 * s)}
+        # the cockpit seat: GoF3's own first-person camera helper (ship_X_cam, on the canopy near the nose)
+        named = {nd.get("name", ""): i for i, nd in enumerate(j["nodes"]) if i in W}
+        cam = next((i for n, i in named.items() if re.search(r"^ship_[a-z]+_\d{3}_cam$", n)), None)
+        # (not behind the hull's middle: a hull the builder turned round (TURN) has it at its stern)
+        middle = -0.5 * (L["min"][2] + L["max"][2]) * K
+        if cam is not None and game(W[cam][:3, 3])[2] > middle: out["cockpit"] = game(W[cam][:3, 3])
+        # the damage smoke: GoF3's damage helpers (ship_X_damaged_000 / 001)
+        smoke = [game(W[i][:3, 3]) for n, i in sorted(named.items()) if re.search(r"_damaged_\d{3}$", n)]
+        if smoke: out["smoke"] = smoke[:4]
+        # the explosion: GoF3's EffectScale against its fighters' (1.5 = a GoF2 fighter's 1)
+        eff = D.num(rid, "EffectScale", 7443144)
+        if eff and abs(eff / EXPLOSION_BASE - 1) > 0.01: out["explosionScale"] = round(eff / EXPLOSION_BASE, 2)
+        return out
+
     def build_one(folder, e):
         """One hull's ships.json entry, source.json record, kit part, skins and log line; None for a paint scheme's
         folder or a hull without a ship record."""
@@ -1469,6 +1500,7 @@ def main():
         booster = next((c for c, b in BOOSTERS.items() if b["device"] in devices), None)
         built_in = ([f"{MOD_ID}:engine_booster_{booster}"] if booster else []) + ([REVIVE_ITEM] if REVIVE_DEVICE in devices else [])
         boss = bool(D.comp(rid, "BossInfo"))
+        view = ship_view(rid, j, W, length, L)
         entry = {
             "id": sid, "name": None, "description": desc, "race": race,
             "armor": armor, "cargo": cargo, "handling": handling, "price": price, "priceDefault": price_default,
@@ -1483,6 +1515,7 @@ def main():
             **({"flight": {"topSpeed": top}} if top else {}),
             **({"integrated": {"items": built_in}} if built_in else {}),
             **({"traffic": {"boss": True}, "npcTurrets": [BOSS_TURRET.get(race, 48)] * len(turrets)} if boss else {}),
+            **view,
             "lounge": {"systemRace": race if race in (0, 1, 2, 3) and ident != 5 else -1,
                        "minCampaign": round(lc["minCampaign"][0] + (lc["minCampaign"][1] - lc["minCampaign"][0]) * tt),
                        "minRank": round(lc["minRank"][0] + (lc["minRank"][1] - lc["minRank"][0]) * tt),
@@ -1601,7 +1634,7 @@ def main():
     if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump({
-        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.1", "author": "DuIslingr",
+        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.2", "author": "DuIslingr",
         "description": f"{len(ships)} ships from Galaxy on Fire 3: Manticore as customizable ships, sold by visitors in the Space "
                        f"Lounges of their race's systems: {len(skins)} GoF3 paint schemes to pick in the hangar's Customize "
                        "screen, GoF3 guns that follow the weapons mounted, and GoF3 turrets. Names, descriptions, races and "

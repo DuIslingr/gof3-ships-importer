@@ -94,6 +94,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   race, the recipe the hull's GoF3 guns plus goods, ores and cores; a few also lie in hackable derelicts, and ships of the
   race drop them now and then as in GoF3. A blueprint is obtained once, then built in the hangar's Blueprints tab.
 - The five boss hulls aren't sold: pirate bosses fly them, and a destroyed boss drops its hull's blueprint.
+- Each hull has its GoF3 cockpit seat for the cockpit view, smokes from GoF3's damage points when hurt, explodes at its
+  GoF3 size, and the bigger hulls (and the gunships) get a chase camera pulled back to fit them.
 - GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
 - Each ship flies at its GoF3 speed with its class's GoF3 booster built in; ships with GoF3's revive device have the
   Emergency System built in.
