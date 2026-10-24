@@ -66,6 +66,11 @@ straight as the Terran one. Every exhaust churns as GoF3's do (its exhaust mater
 speed: the Terran fast, the Nivelian slow). Nunam and Kinac have no engine helpers: thin cyan exhausts trail from their wing tips
 instead, the Nunam's also from its two spike tips, as its concept art shows them. The Nunam flies canopy
 first, its spikes trailing, as Fishlabs' concept art draws it (GoF3's model has it the other way round).
+Sounds: each ship has GoF3's own engine and boost sounds of its race (the gunships GoF3's shared Asura set, the Inouac
+ships the Nivelian one), and the GoF3 guns, rockets and missiles their GoF3 shots and launches.
+Speed and boost: each ship flies at GoF3's cruising speed against a fighter's (scouts up to 14 % faster, gunships up to 14 %
+slower) and has its class's GoF3 engine booster built in (scouts x3, fighters x2.5, gunships x2 their top speed for
+2.9 s, every 12 s); a booster you fit takes its place. The bosses have none, as in GoF3.
 Exhaust styles (exhausts.json): the three GoF3 drives (Nivelian with its helix, Terran, Vossk) on any ship, the game's own
 included: the hangar's Customize screen gets an Exhaust row with the drive's two colours (the flare and cone, the trails and
 helix), offered in GoF3's engine colours. They sit on the ship's own exhausts and take each nozzle's shape. Each GoF3

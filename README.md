@@ -32,6 +32,10 @@ It runs on **Windows, macOS and Linux**.
     `python3 -m pip install numpy pillow texture2ddecoder scipy pyzstd`
   - Linux: `python3 -m pip install numpy pillow texture2ddecoder scipy pyzstd` (in a virtual environment if your distribution
     asks for one: `python3 -m venv venv` and use `venv/bin/python`)
+- **For the sounds (optional): vgmstream and ffmpeg.** GoF3's engine, boost and gun sounds are FMOD FADPCM waves only
+  vgmstream decodes: `vgmstream-cli` on the PATH (or `GOF3_VGMSTREAM=<path>`), else FModel's own Windows copy
+  (`~/Downloads/FModel/Output/.data/vgmstream-cli.exe`, through Wine off Windows). ffmpeg makes them Ogg Vorbis (without
+  it they go in as .wav). Without vgmstream the mod is built without sounds and the ships keep the game's.
 - **Blender 4.2 or newer** (blender.org): it builds the models. It is found by itself on the PATH, in Program Files
   (Windows; also Steam's copy) or in Applications (macOS); else give its path with `--blender`.
 - **Disk space** for the work folder: about 11 GB with the Android files, 21 GB with the Switch and Android files together

@@ -53,6 +53,7 @@ from PIL import Image, ImageDraw, ImageFont
 from ae4_pdb_arming import Records
 from glb_layout import layout, read, trs
 from engine_glows import engines as measure_engines, _accessor
+import gof3_sounds
 
 args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not sys.argv[i - 1] in ("--max-texture", "--icons-from", "--jobs")]
 OUT = os.path.abspath(args[0] if args else os.path.expanduser("~/GOF2UnityRemakeMods/gof3_ships"))
@@ -77,6 +78,35 @@ K = 1231.49 / 23.02                      # game units per GoF3 unit (the two Gro
 KIT = "gof3"
 RACE = {3: 0, 4: 1, 6: 2, 7: 8, 5: 3}
 CLASS = {2: "fighter", 3: "gunship", None: "scout"}
+
+# Speeds: GoF3's cruising speed (Steering 6741857: scouts 190-200, fighters 175-180, gunships 150-185, the bosses 170) against
+# a fighter's 175, as ships.json "flight" "topSpeed" in % (both flight styles); the remake's ships all fly 2 u/ms otherwise.
+CRUISE_BASE = 175.0
+# The built-in booster: every GoF3 player ship carries its class's Device_Special_EngineBooster (the bosses none), whose
+# configuration boosts x3 (scout), x2.5 (fighter) or x2 (gunship) (DeviceConfigurationEngineBooster_* field 1475543). As
+# the mod's own booster items (items.json, built in through ships.json "integrated"): GoF2's boost speed int(2b / 100) + 2
+# u/ms gives those factors at b = 200 / 150 / 100 (the Me'al's, the Synchrotron's and between), free flight's boost the
+# same factor (freeBoostFactor). A booster the player fits takes the built-in one's place. Duration 2857 ms (the
+# configuration's 485920), recharge 12 s (a remake pick between GoF2's boosters: the configuration's 60 is seconds of a
+# special device's cooldown in GoF3's own flight). Look and sound: the Synchrotron's (73).
+BOOSTERS = {
+    "scout":   {"device": "Device_Special_EngineBooster_Scout", "boostSpeed": 200, "factor": 300},
+    "fighter": {"device": "Device_Special_EngineBooster_Fighter", "boostSpeed": 150, "factor": 250},
+    "gunship": {"device": "Device_Special_EngineBooster_Gunship", "boostSpeed": 100, "factor": 200},
+}
+BOOSTER_BASE, BOOSTER_DURATION, BOOSTER_RECHARGE = 73, 2857, 12000
+MOD_ID = "gof3_ships"
+
+
+def booster_items():
+    """items.json: the three built-in boosters (never sold: occurrence 0)."""
+    return [{"id": f"engine_booster_{cls}", "base": BOOSTER_BASE, "name": f"{cls.title()} Engine Booster",
+             "description": f"Galaxy on Fire 3's engine booster, built into every {cls}: it briefly lifts the ship to "
+                            f"{b['factor'] / 100:g} times its top speed.",
+             "occurrence": 0,
+             "stats": {"boostSpeed": b["boostSpeed"], "boostDurationMs": BOOSTER_DURATION, "boostRechargeMs": BOOSTER_RECHARGE,
+                       "freeBoostFactor": b["factor"]}}
+            for cls, b in BOOSTERS.items()]
 CONVERT = {
     # power = GoF3 hull + shield; log-mapped from [P_LO, P_HI] onto the GoF2 ranges below
     "P_LO": 1500.0, "P_HI": 33000.0,
@@ -909,10 +939,25 @@ def weapon_palette():
     return out
 
 
+def with_sounds(rules, snd):
+    """The kit's rules with GoF3's gun and launcher sounds (gof3_sounds), by each rule's gun family."""
+    for r in rules:
+        kind = r.pop("_launcher", None)
+        if not snd or r["slot"] == "turret" and (set(r.get("items", [])) & {198, 199, 200} or 35 in r.get("categories", [])):
+            continue   # (the plasma collectors fire nothing)
+        m = re.search(r"weapon_generic_(\d{3})", r.get("model", ""))
+        sound = snd.launcher(kind) if kind else snd.weapon(m.group(1)) if m else None
+        if sound: r["sound"] = sound
+    return rules
+
+
 def weapon_rules():
     rules = [{"slot": "primary", "model": gun_file(f, mk), "items": items} for f, mk, items in PRIMARY_GUNS]
     rules += [{"slot": "primary", "model": gun_file(f, mk), "categories": [cat]} for f, mk, cat in PRIMARY_CATEGORIES]
     rules.append({"slot": "primary", "model": gun_file(*PRIMARY_DEFAULT)})
+    # the launchers have no model; GoF2's rockets (4) and its missiles and cluster missiles (5, 40) get GoF3's launch sounds
+    rules.append({"slot": "secondary", "model": "", "categories": [4], "_launcher": "rocket"})
+    rules.append({"slot": "secondary", "model": "", "categories": [5, 40], "_launcher": "homing"})
     rules.append({"slot": "secondary", "model": ""})
     rules += [{"slot": "turret", "model": gun_file(f, mk), "items": items} for f, mk, items in TURRET_GUNS]
     rules += [{"slot": "turret", "model": gun_file(f, mk), "categories": [cat]} for f, mk, cat in TURRET_CATEGORIES]
@@ -1207,6 +1252,10 @@ def main():
             p = math.exp(float(np.dot(w, price_features(equip, n_prim, n_sec, len(turrets), armor, cargo, handling))))
             return int(round(min(max(p, CONVERT["price_clamp"][0]), CONVERT["price_clamp"][1]), -3))
         price, price_default = fitted(price_fits["android"]), fitted(price_fits["default"])
+        cruise = D.vec(rid, "Steering", 6741857)
+        top = round((cruise[2] / CRUISE_BASE - 1) * 100) if cruise and cruise[2] > 0 else 0
+        devices = [D.R.name(D.R.sub(x).get(1)) for x in D.comp(rid, "DeviceEquip").get(5883687, [])]
+        booster = next((c for c, b in BOOSTERS.items() if b["device"] in devices), None)
         entry = {
             "id": sid, "name": None, "description": desc, "race": race,
             "armor": armor, "cargo": cargo, "handling": handling, "price": price, "priceDefault": price_default,
@@ -1218,6 +1267,8 @@ def main():
             "engineGlowColor": ship_colour,
             "mounts": mounts,
             **({"engineFx": fx} if (fx := nozzle_tinted(locked_engine_fx(fx_name, trail_name), ship_colour)) else {}),
+            **({"flight": {"topSpeed": top}} if top else {}),
+            **({"integrated": {"items": [f"{MOD_ID}:engine_booster_{booster}"]}} if booster else {}),
             "lounge": {"systemRace": race if race in (0, 1, 2, 3) and ident != 5 else -1,
                        "minCampaign": round(lc["minCampaign"][0] + (lc["minCampaign"][1] - lc["minCampaign"][0]) * tt),
                        "minRank": round(lc["minRank"][0] + (lc["minRank"][1] - lc["minRank"][0]) * tt),
@@ -1241,6 +1292,17 @@ def main():
     sw.finish(skins)
 
     phase("hulls measured, skins written")
+    # the sounds (one pass: a wave is written once, whichever hulls share it)
+    snd = gof3_sounds.Sounds(os.path.join(MERGED, "sound", "sfx.bank"), OUT)
+    if snd:
+        for e in ships:
+            rid = D.R.p.byname[info[e["id"]]["record"]][0]
+            names = [D.R.name(D.R.sub(x).get(1)) for x in D.comp(rid, "SoundList").get(754122, [])]
+            sounds = snd.ship(names, info[e["id"]]["identity"], info[e["id"]]["class"])
+            if sounds: e["sounds"] = sounds
+    else:
+        print("no sounds: sfx.bank not found or vgmstream missing (GOF3_VGMSTREAM, vgmstream-cli on the PATH, or FModel's copy with Wine)")
+    phase("sounds")
     # names: mixed case, the same name told apart (a boss / retro hull)
     for s in ships: s["name"] = mixed_case(info[s["id"]]["raw_name"])
     def fold(n): return unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode().lower()
@@ -1316,10 +1378,11 @@ def main():
     phase("icons and preview")
     kit = {"id": KIT, "name": "Galaxy on Fire 3 hulls", "slots": ["hull"], "scale": round(K * 0.05, 5), "yaw": 180,
            "parts": parts, "skins": skins, "palettes": {"weapons": weapon_palette()},
-           "hardpoints": {"turret": "turret/turret.glb", "toggle": True, "weapons": weapon_rules()}}
+           "hardpoints": {"turret": "turret/turret.glb", "toggle": True, "weapons": with_sounds(weapon_rules(), snd)}}
     json.dump([kit], open(os.path.join(OUT, "shipkits.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(info, open(os.path.join(OUT, "source.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    json.dump(booster_items(), open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump({
         "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.0", "author": "DuIslingr",
         "description": f"{len(ships)} ships from Galaxy on Fire 3: Manticore as customizable ships, sold by visitors in the Space "
