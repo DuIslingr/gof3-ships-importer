@@ -115,9 +115,10 @@ the orbits' capital ship special (Terran and Vossk systems now and then instead 
 which have none, in a third of the orbits with freighters), up to 8 of their GoF3 turret points armed with the race's heavy
 turret; the freighters Morpheus, Ashnan and Varuna cruise among the orbits' freighters. They come at the Gameplay option
 "Mod ships in traffic" (off: none). Never sold.
-The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's story, as a moving station in the Magnetar
-system (Dis): it cruises past one of the system's five stations for 20 minutes, then moves on to the next (by the real clock,
-so it has moved on when you come back). It has no planet: find it in the orbit it is in, lock it like a station and dock
+The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's story, as a moving station touring the Terran
+systems (Magnetar, Union, Aquila, Prospero, Vulpes, Augmenta, Buntta, Pescal Inartu, two orbits each): it cruises past one
+station for 20 minutes, then moves on to the next (by the real clock, so it has moved on when you come back). Docked, the
+system shown is the one it is in; it stays a Terran ship wherever it goes. It has no planet: find it in the orbit it is in, lock it like a station and dock
 (the autopilot does too) into its own hangar and bar. The hangar is GoF3's own Hades hangar (the round launch pad, the
 "PMC HADES" walls, the parking bays; GoF3's baked lighting, ships fly in through its open front); the bar is the game's
 Terran bar, lit cooler. Its shop sells up to tech level 10. A launch comes out beside it. Half GoF3's size (6.3 km), since the flight level only draws 15 km far.

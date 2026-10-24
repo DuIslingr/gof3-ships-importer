@@ -7,7 +7,8 @@ special with their turret helpers armed (npcTurrets, at most MAX_TURRETS: the mu
 cruising among the orbits' freighters. Never sold. At GoF3's own scale (K), so the Nemesis is 4.4 km long.
 
 The Hades (structures/terran/geometry/props/hades) becomes the Manticore, stations.json's mobile station (Modding.
-MobileStations): no planet, it cruises through the orbits of MANTICORE_SYSTEM's stations and is docked at where it is, into
+MobileStations): no planet, it tours the Terran systems (MANTICORE_ROUTE, a Terran ship wherever it is) and is docked at where
+it is, its system the one of the orbit it is in, into
 its own hangar and bar (interiors.json): the hangar GoF3's own Hades hangar (hangar_room: the ShipSelectionB room, GoF3's
 lighting baked in, at GoF3's scale like the ships), the bar the game's Terran bar lit cooler (its markers the game's own, read
 from StationLevel.GameRoomMarkers). At HADES_SCALE of GoF3's (12.6 km would reach past the flight level's 15 km far plane).
@@ -37,7 +38,10 @@ CAPITALS = [   # race, model number, role, name, description
     ("nivelian", "002", "frigate", "Agni", "A Nivelian frigate, fast for its size and heavily armed."),
 ]
 HADES_SCALE = 0.5
-MANTICORE_SYSTEM = 14                     # Magnetar (Dis, where every multiplayer pilot starts, and four more Terran stations)
+MANTICORE_SYSTEM = 14                     # its home, Magnetar (Dis, where every multiplayer pilot starts)
+# Its tour of the Terran systems along their gates, two orbits each (a stay of 20 minutes: 5 h 20 min round): Magnetar,
+# Union, Aquila, Prospero, Vulpes, Augmenta, Buntta, Pescal Inartu. A Terran ship wherever it is ("race").
+MANTICORE_ROUTE = [70, 73, 55, 57, 36, 38, 81, 83, 66, 68, 98, 95, 40, 43, 91, 93]
 ROOM_SCALE = K * 0.05                     # metres per GoF3 unit: the hangar at the ships' scale
 # The Hades hangar's markers in GoF3 units (glTF space: the pad at the origin, the open front +z, the back wall -78): the pad's
 # deck, the camera in front of the room looking past the pad (the ship right of centre, like the game's hangars), the two lit
@@ -109,7 +113,7 @@ def build(out_dir, assets, log=print):
         "id": "manticore", "system": MANTICORE_SYSTEM, "name": "Manticore", "techLevel": 10, "planet": 0, "looksLike": 70,
         "model": "structures/hades.glb", "modelSize": round(float(size.max()) * K * HADES_SCALE), "modelYaw": 180,
         "interior": "terran", "hangar": "manticore_hangar", "bar": "manticore_bar",
-        "mobile": {"stayMinutes": 20, "speed": 0.15},
+        "mobile": {"route": MANTICORE_ROUTE, "stayMinutes": 20, "speed": 0.15, "race": "terran"},
     }]
     room = hangar_room.convert(assets, os.path.join(out_dir, "structures/manticore_hangar.glb"), 4096, log)
     log(f"Manticore hangar: {room['triangles']} triangles")
@@ -122,7 +126,7 @@ def build(out_dir, assets, log=print):
         {"id": "manticore_bar", "type": "bar", "model": "gof2:bar_terran", "ambient": [0.18, 0.21, 0.28],
          "lightIntensity": 1.0, "markers": BAR_MARKERS},
     ]
-    log(f"Manticore: {round(float(size.max()) * K * HADES_SCALE * 0.05)} m, mobile in system {MANTICORE_SYSTEM}")
+    log(f"Manticore: {round(float(size.max()) * K * HADES_SCALE * 0.05)} m, mobile through {len(MANTICORE_ROUTE)} orbits")
     return ships, stations, interiors
 
 
