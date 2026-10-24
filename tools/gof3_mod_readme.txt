@@ -1,4 +1,4 @@
-Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.2
+Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.3
 
 The ships of Galaxy on Fire 3: Manticore for the Galaxy on Fire 2 Unity Remake, as customizable ships (the remake's ship
 kits, like the EVERSPACE 2 ships). One ship per GoF3 hull; they are sold by visitors in the Space Lounges (ships.json
@@ -107,6 +107,19 @@ included: the hangar's Customize screen gets an Exhaust row with the drive's two
 helix), offered in GoF3's engine colours. They sit on the ship's own exhausts and take each nozzle's shape. Each GoF3
 hull's exhausts carry their nozzle's outline where it was measured cleanly ("outline", from the glowing nozzle surface), so
 other mods' exhausts fit them too.
+
+Capital ships (ships.json "traffic": { "capital" }, the remake's mod capital ships): GoF3's nine large ships at GoF3's own
+size, baked from GoF3's structure files (their tiled plating and baked light maps into one texture each, structures/): the
+battleships Nemesis (Terran, 4.4 km), Tiamat (Vossk) and Garuda (Nivelian) and the frigates Proteus, Absu and Agni park in
+the orbits' capital ship special (Terran and Vossk systems now and then instead of the game's battleships, Nivelian systems,
+which have none, in a third of the orbits with freighters), up to 8 of their GoF3 turret points armed with the race's heavy
+turret; the freighters Morpheus, Ashnan and Varuna cruise among the orbits' freighters. They come at the Gameplay option
+"Mod ships in traffic" (off: none). Never sold.
+The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's story, as a moving station in the Magnetar
+system (Dis): it cruises past one of the system's five stations for 20 minutes, then moves on to the next (by the real clock,
+so it has moved on when you come back). It has no planet: find it in the orbit it is in, lock it like a station and dock
+(the autopilot does too) into its own hangar and bar (the game's Terran rooms, lit cooler); its shop sells up to tech level
+10. A launch comes out beside it. Half GoF3's size (6.3 km), since the flight level only draws 15 km far.
 
 From version 1: the paint variants (Groza Gold, Atlas II, ...) are skins of their hull now, not ships: a saved game flying
 one gets the remake's usual treatment of a ship that no longer exists (a Phantom and the ship's price back). Their stats
