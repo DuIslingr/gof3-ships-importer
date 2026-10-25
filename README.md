@@ -110,7 +110,7 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   freighters cruising among the orbit's freighters ("Mod ships in traffic" option).
 - The Manticore, GoF3's Hades, is a moving station that roams every system, two hours in each (half an hour per orbit); the
   star map marks where it is and when it leaves. Find it in that orbit, lock it and dock into its own hangar (GoF3's Hades hangar,
-  `tools/hangar_room.py`) and bar.
+  `tools/hangar_room.py`); it has no Space Lounge.
 - The mod's own `README.txt` lists where every value comes from.
 
 ## When something goes wrong

@@ -9,9 +9,8 @@ cruising among the orbits' freighters. Never sold. At GoF3's own scale (K), so t
 The Hades (structures/terran/geometry/props/hades) becomes the Manticore, stations.json's mobile station (Modding.
 MobileStations): no planet, it roams every system (two hours in each, a Terran ship wherever it is, GoF3's capital ship engines lit at its stern)
 and is docked at where it is, its system the one of the orbit it is in, into
-its own hangar and bar (interiors.json): the hangar GoF3's own Hades hangar (hangar_room: the ShipSelectionB room, GoF3's
-lighting baked in, at GoF3's scale like the ships), the bar the game's Terran bar lit cooler (its markers the game's own, read
-from StationLevel.GameRoomMarkers). At HADES_SCALE of GoF3's (12.6 km would reach past the flight level's 15 km far plane).
+its own hangar (interiors.json), no Space Lounge ("bar": "none"): GoF3's own Hades hangar (hangar_room: the ShipSelectionB
+room, GoF3's lighting baked in, at GoF3's scale like the ships). At HADES_SCALE of GoF3's (12.6 km would reach past the flight level's 15 km far plane).
 
 build(out_dir, assets) -> (ships, stations, interiors): the ships.json, stations.json and interiors.json entries."""
 import math, os, sys
@@ -52,10 +51,6 @@ ROOM_SCALE = K * 0.05                     # metres per GoF3 unit: the hangar at 
 HANGAR_MARKERS_GOF3 = {"pad": [0, -5, 0], "camera": [12, 13, 42], "camera_target": [-4, 0, 0],
                        "parked_1": [150, -4, 5], "parked_2": [-150, -4, 5],
                        "gate": [100, 10, 50], "gate_out": [100, 10, 150]}
-BAR_MARKERS = {"camera": [-90, 31, -90.25], "camera_target": [-92.399, 31, -30.298], "camera_start": [-65.75, 58, 136.4],
-               "camera_start_target": [-67.55, 58, 196.373], "visitor_1": [-116.25, 0, 48.2], "visitor_2": [-51.15, 10.6, -37.25],
-               "visitor_3": [-54.9, 10.6, -21.35], "visitor_4": [-58.2, 10.6, 11.35], "visitor_5": [-98.95, 0, 5.4],
-               "visitor_6": [-127.8, 0, -32.3], "visitor_7": [-71.95, 10.6, 43]}
 
 
 def game(p, scale=1.0):
@@ -153,7 +148,7 @@ def build(out_dir, assets, log=print):
     stations = [{
         "id": "manticore", "system": MANTICORE_SYSTEM, "name": "Manticore", "techLevel": 10, "planet": 0, "looksLike": 70,
         "model": "structures/hades.glb", "modelSize": round(float(size.max()) * K * HADES_SCALE), "modelYaw": 180,
-        "interior": "terran", "hangar": "manticore_hangar", "bar": "manticore_bar",
+        "interior": "terran", "hangar": "manticore_hangar", "bar": "none",   # (no Space Lounge aboard)
         "mobile": {"route": "any", "stayMinutes": MANTICORE_STAY, "systemMinutes": MANTICORE_SYSTEM_MINUTES, "speed": 0.15,
                    "race": "terran", "engines": engines, "engineColor": ENGINE_COLOUR[0],
                    "engineFx": large_engine_fx(out_dir, assets, "terran")},
@@ -166,8 +161,6 @@ def build(out_dir, assets, log=print):
     interiors = [
         {"id": "manticore_hangar", "type": "hangar", "model": "structures/manticore_hangar.glb", "scale": round(ROOM_SCALE, 4),
          "ambient": [0.1, 0.1, 0.12], "lightIntensity": 0.8, "markers": markers},
-        {"id": "manticore_bar", "type": "bar", "model": "gof2:bar_terran", "ambient": [0.18, 0.21, 0.28],
-         "lightIntensity": 1.0, "markers": BAR_MARKERS},
     ]
     log(f"Manticore: {round(float(size.max()) * K * HADES_SCALE * 0.05)} m, {len(engines)} engines, roaming every system")
     return ships, stations, interiors

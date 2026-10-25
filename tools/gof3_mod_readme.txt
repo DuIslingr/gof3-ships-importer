@@ -119,9 +119,8 @@ The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's st
 system: two hours in one (half an hour past each of its stations, so you can leave and come back to it), then another (by the
 real clock, so it moves on while you're away). The star map marks where it is and when it leaves. Docked, the system shown is
 the one it is in; it stays a Terran ship wherever it goes, its GoF3 engines lit. It has no planet: find it in the orbit it is in, lock it like a station and dock
-(the autopilot does too) into its own hangar and bar. The hangar is GoF3's own Hades hangar (the round launch pad, the
-"PMC HADES" walls, the parking bays; GoF3's baked lighting, ships fly in through its open front); the bar is the game's
-Terran bar, lit cooler. Its shop sells up to tech level 10. A launch comes out beside it. Half GoF3's size (6.3 km), since the flight level only draws 15 km far.
+(the autopilot does too) into its own hangar; it has no Space Lounge. The hangar is GoF3's own Hades hangar (the round
+launch pad, the "PMC HADES" walls, the parking bays; GoF3's baked lighting, ships fly in through its open front). Its shop sells up to tech level 10. A launch comes out beside it. Half GoF3's size (6.3 km), since the flight level only draws 15 km far.
 
 From version 1: the paint variants (Groza Gold, Atlas II, ...) are skins of their hull now, not ships: a saved game flying
 one gets the remake's usual treatment of a ship that no longer exists (a Phantom and the ship's price back). Their stats

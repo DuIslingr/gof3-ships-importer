@@ -1511,8 +1511,8 @@ def main():
            "parts": parts, "skins": skins, "palettes": {"weapons": weapon_palette()},
            "hardpoints": {"turret": "turret/turret.glb", "toggle": True, "weapons": with_sounds(weapon_rules(), snd)}}
     json.dump([kit], open(os.path.join(OUT, "shipkits.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
-    # GoF3's capital ships in the orbits' traffic and the Hades as the Manticore, a mobile station with its own hangar and
-    # bar (capitals.py; the remake's ships.json "traffic": { "capital" } and stations.json "mobile").
+    # GoF3's capital ships in the orbits' traffic and the Hades as the Manticore, a mobile station with its own hangar, no
+    # Space Lounge (capitals.py; the remake's ships.json "traffic": { "capital" } and stations.json "mobile").
     cap_ships, cap_stations, cap_interiors = ([], [], [])
     if os.path.isdir(os.path.join(ASSETS, "structures")):
         cap_ships, cap_stations, cap_interiors = capitals.build(OUT, ASSETS, log=phase)
@@ -1530,7 +1530,7 @@ def main():
                        "screen, GoF3 guns that follow the weapons mounted, and GoF3 turrets. Names, descriptions, races and "
                        "stats come from the game's own data (data.pdb), scaled to Galaxy on Fire 2's ranges. "
                        f"{len(cap_ships)} GoF3 capital ships (battleships, frigates, freighters) in the orbits' traffic, and the "
-                       "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar and bar.",
+                       "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge).",
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",
         "preview": "preview.png"}, open(os.path.join(OUT, "mod.json"), "w", encoding='utf-8'), indent=4, ensure_ascii=False)
     shutil.copy(os.path.join(HERE, "gof3_mod_readme.txt"), os.path.join(OUT, "README.txt"))
