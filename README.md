@@ -113,6 +113,22 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   `tools/hangar_room.py`); it has no Space Lounge.
 - The mod's own `README.txt` lists where every value comes from.
 
+## GoF3's star systems (a second mod)
+
+`tools/build_gof3_systems.py` makes a separate mod, `gof3_systems`, from GoF3's galaxy map:
+
+```
+python tools/build_gof3_systems.py --pdb <Android data.pdb> --assets <merged GoF3 assets> --out <Mods>/gof3_systems
+```
+
+- Every sector of GoF3's map (Trim, Porros, Rigant: 24) is a system below EVERSPACE 2's sectors on the star map, every
+  level of a sector one of its station orbits, with GoF3's own station models, jumpgates, skies, suns and lore. Gates link
+  each cluster's neighbours, the clusters to each other, and Trim's Anchorage to GoF2's Me'enkk (GoF3 itself travels by
+  its Khador drive alone).
+- None of the stations can be docked at, as in GoF3: its missions start from the galaxy map and "docking" only ever
+  means the Manticore, which roams these systems too (the GoF3 ships mod).
+- Kaamo's MKKT BKKT Club sector is left out (GoF2 has its own Kaamo Club).
+
 ## When something goes wrong
 
 - Each hull's steps are logged in `work/logs/<hull>.log`, the other stages in `work/logs/*.log`. A hull that fails is left
