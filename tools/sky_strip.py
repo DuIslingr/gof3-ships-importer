@@ -41,9 +41,19 @@ def faces(path):
     fmt = struct.unpack_from("<I", d, 0x0c)[0]
     w = struct.unpack_from("<H", d, 0x1a)[0]; h = struct.unpack_from("<H", d, 0x1e)[0]
     per = {16: w * h // 2, 17: w * h, 1: w * h * 4}[fmt]
+    # A cube with its mip chain (the header's word 9: the mip count << 16; the gates' sky window has 10) stores each face's
+    # whole chain, face after face (ETC2's small mips a whole 4 x 4 block; the file's spare bytes come after the last face);
+    # the skies have one mip.
+    mips = max(1, struct.unpack_from("<I", d, 0x24)[0] >> 16)
+    stride = per
+    if mips > 1:
+        bpp = {16: 0.5, 17: 1.0, 1: 4.0}[fmt]
+        block = 1 if fmt == 1 else 4
+        chain = sum(int(max(block, w >> k) * max(block, h >> k) * bpp) for k in range(mips))
+        stride = chain
     out = []
     for f in range(6):
-        raw = d[0x4000 + f * per:0x4000 + (f + 1) * per]
+        raw = d[0x4000 + f * stride:0x4000 + f * stride + per]
         if fmt == 1: out.append(Image.frombytes("RGBA", (w, h), raw, "raw", "RGBA"))
         else:
             px = t.decode_etc2(raw, w, h) if fmt == 16 else t.decode_etc2a8(raw, w, h)

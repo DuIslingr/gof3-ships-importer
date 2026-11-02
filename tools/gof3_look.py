@@ -18,12 +18,13 @@ From each level (field ids from the protobuf schema in libgofm.so: Location, Lig
   image, the level's fog over both;
 - the sun's sprite: the level's sun sprite nearest the main light, tinted by its entity's Colorize the way GoF3's sun
   shader does (t (t + c (1 - t)), c = mix(C1, C2, t)).
-- the sky's turn: each station's orbit "skyRotation" from its level's sky entity (sky_rotation; the system's sky image is
-  its first level's, so a level of another sky turns that one);
+- each station's orbit its own level's sky ("skybox", shared where two levels' skies look the same; the system's sky is
+  its first level's), with the level's distant scenery painted in (sky_scenery: a copy per station that has any) and its turn ("skyRotation" from the level's sky entity, sky_rotation);
 Left as they were: the second light, ambient and planets (the remake has no fields for them)."""
-import argparse, json, math, os, re, sys
+import argparse, json, math, os, re, shutil, struct, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
+import sky_scenery
 from PIL import Image
 import ae4_ids, ae4_material, ae4_texture, gof3_galaxy, sky_strip
 
@@ -93,6 +94,17 @@ def sky_rotation(rot):
     return [round(a, 3), round(b, 3), round(c, 3)]
 
 
+def station_shape(out, st):
+    """The scene file name the orbit's station model was made from (its .glb's root node), for sky_scenery's camera."""
+    try:
+        d = open(f"{out}/{st['model']}", "rb").read()
+        n = struct.unpack_from("<I", d, 12)[0]
+        j = json.loads(d[20:20 + n])
+        return j["nodes"][j["scenes"][j.get("scene", 0)]["nodes"][0]].get("name", "") + ".ae4scene"
+    except Exception:
+        return None
+
+
 def fog_entry(fog):
     """The remake's orbit "fog" for GoF3's (rgb, density, offset): 1 at "end", so GoF3's cap at the same distance."""
     rgb, density, offset = fog
@@ -131,6 +143,7 @@ def apply(out, pdb, assets, log=print):
     by_st = {s["id"]: s for s in stations}
     G = gof3_galaxy.Galaxy(pdb)
     import build_gof3_systems as b
+    skies, made = {}, {}
     for s in G.sectors():
         sid = "gof3_" + slug(s["name"]) if s["name"] else None
         e = by_sys.get(sid)
@@ -148,14 +161,37 @@ def apply(out, pdb, assets, log=print):
                 if look["fog"]: orbit["fog"] = fog_entry(look["fog"])
                 else: orbit.pop("fog", None)
             sky = next((x for x in lv["entities"] if "/skyboxes/" in x["shape"]), None)
-            if sky_done or not sky: continue
-            png, spng = f"sky/{sid}.png", f"sky/{sid}_stars.png"
+            if not sky: continue
+            # each level's own sky (GoF3's levels of one sector differ), shared by the levels it looks the same in; the
+            # system's sky is its first level's
             colors = look["colorize"].get(sky["name"])
             fog = (look["fog"][0], look["fog"][1]) if look["fog"] else None
-            if any(sky_strip.convert_gof3(m, f"{out}/{png}", assets, colors, fog, f"{out}/{spng}") for m in b.sky_materials(sky["shape"], assets)):
-                e["skybox"] = {"nebula": png, "nebulaBrightness": 1.0}
-                if os.path.exists(f"{out}/{spng}"): e["skybox"].update({"stars": spng, "starsBrightness": 1.0})
-                else: e["skybox"]["stars"] = 1
+            key = (sky["shape"], json.dumps(colors), json.dumps(fog))
+            if key not in skies:
+                k = made.get(sid, 0); made[sid] = k + 1
+                png = f"sky/{sid}.png" if k == 0 else f"sky/{sid}_{k}.png"
+                spng = png[:-4] + "_stars.png"
+                skies[key] = None
+                if any(sky_strip.convert_gof3(m, f"{out}/{png}", assets, colors, fog, f"{out}/{spng}") for m in b.sky_materials(sky["shape"], assets)):
+                    skies[key] = {"nebula": png, "nebulaBrightness": 1.0}
+                    if os.path.exists(f"{out}/{spng}"): skies[key].update({"stars": spng, "starsBrightness": 1.0})
+                    else: skies[key]["stars"] = 1
+            if skies[key] is None: continue
+            if st is not None:
+                own = dict(skies[key])
+                # the level's distant scenery painted into a copy of its sky, seen from this orbit's station (sky_scenery)
+                # (the stars stay shared: masked per orbit they cost ~20 MB for specks the size of a few stars)
+                png = f"sky/{st['id']}.png"
+                shutil.copyfile(f"{out}/{own['nebula']}", f"{out}/{png}")
+                n = sky_scenery.paint(lv, look, sky.get("rot"), station_shape(out, st), f"{out}/{png}", None, assets)
+                if n:
+                    own["nebula"] = png
+                    log(f"  {st['id']}: {n} pieces of scenery in its sky")
+                else:
+                    os.remove(f"{out}/{png}")
+                st.setdefault("orbit", {})["skybox"] = own
+            if sky_done: continue
+            e["skybox"] = dict(skies[key])
             if look["light"]:
                 e["sunColor"] = [round(min(1.0, max(0.05, c / LIGHT0)), 3) for c in look["light"]["rgb"]]
             suns = [x for x in lv["entities"] if "/suns/" in x["shape"] and x.get("pos")]

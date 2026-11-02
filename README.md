@@ -187,7 +187,7 @@ python tools/build_gof3_systems.py --pdb <Android data.pdb> --assets <merged GoF
 - What moves in GoF3 moves here: the Terran gates' rotator, the Vossk gates' two rings, the stations' turning and sliding
   parts (their looping clips; the cutscenes, damage and docking clips are left out).
 - The gates glow as in GoF3: their energy ring, glow and scrolling electricity in the race's colours (additive layers;
-  needs a remake with `"additive"` materials). The sky window through the gate isn't drawn yet.
+  needs a remake with `"additive"` materials), and the sky window inside the ring.
 - Each level's own look: its main light (the sun's direction and colour), its fog, its sky with GoF3's colours, stars and
   fog, and its sun (`tools/gof3_look.py`, which also runs on its own over a built mod).
 

@@ -17,7 +17,7 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 | A3 | Planets with atmosphere, rim and corona, aimed as GoF3's levels do | `planets/` (1294 files), level entities on the background camera | per-orbit `planetTexture`, `orbit.planet` | done in the importer (`gof3_planets.py`): 46 orbits, rendered with GoF3's planet shader; horizon-sized planets (over 60 degrees) and partial caps left out |
 | A4 | Asteroid fields and ores | data `Field`, `FieldItems`, `OreDistribution`, `OreSpot`, `MiningField`; `asteroids/` | `orbit.asteroids` (count, centre, spread, type, ores) | done in the importer: 48 orbits; one field per orbit, ores by family (Anchorage H4's from GoF3's data) |
 | A5 | Music and ambience | `sound/music_hub.bank`, `ambience_stream_*.bank` (FMOD, vgmstream) | the systems' music | done in the importer: each cluster's calm layer (area_arrival1-5) as its systems' `spaceMusic`; combat music and ambience need remake fields |
-| A6 | Level dressing: the gates' sky window, glow and electricity; beacons, satellites, signal lights, billboards, comets, space junk, wrecks; the sky's turn matched to the sun | `structures/*/props/jumpgates/*` (skywindow, glow, add, electricity), `scenery/`, level entities | gate and station models, stations.json orbit `skyRotation` | gates' glow, add and electricity done (2026-11-02: `scene_glb` effects=True, the remake's additive `materials` entries, GoF2/ModGlow); the sky window (a fixed cubemap through the gate) and the scenery props open; the sky's turn done (every orbit's `skyRotation`, the strips no longer mirrored) |
+| A6 | Level dressing: the gates' sky window, glow and electricity; beacons, satellites, signal lights, billboards, comets, space junk, wrecks; the sky's turn matched to the sun | `structures/*/props/jumpgates/*` (skywindow, glow, add, electricity), `scenery/`, level entities | gate and station models, stations.json orbit `skyRotation` | gates' glow, add, electricity and sky window done (2026-11-02: `scene_glb` effects=True, the remake's additive `materials` entries, GoF2/ModGlow; the window's cube, a mip-chained one, baked as GoF3 samples it); the scenery: painted into each orbit's own sky (the user: the skybox only), see below; the sky's turn done (every orbit's `skyRotation`, the strips no longer mirrored) |
 | A7 | Loot crates, lore images and texts, boss portraits | `collectables/crates`, `loreimages/` (175), data `LoreElement`, `swf/*Boss*` | crate models, descriptions, portraits | open |
 
 ## Gameplay (from the decompilation; each needs remake support)
@@ -45,6 +45,19 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
   seeing the shots, beams and waves; the deflector against other players; GoF3's device upgrades (levels 1-5).
 - NPC / boss devices (teleport, front / back shields, radar jammer, flash grenade, mind control, clones, minions,
   carrier, bomb spreader, wormhole) need an NPC device AI and the bosses as enemies first (G3).
+
+## Level scenery (surveyed 2026-11-02)
+
+GoF3's levels hold 1025 scenery entities beside the stations and gates: border tubes (298), the level's other stations in
+the distance (441, scenery/stations), background asteroid rings and clusters (~300), the Mkkt Bkkt entrance gate (111),
+parked capital ships as props (57: Hades, the Vossk engineer ships), moons, fog fields, background traffic; small pieces
+are few: 5 wrecks, 5 comet groups, 7 armaments, 1 freight container. Decided (the user): no big scenery in the orbits
+(GoF3's 20-60 km levels in the remake's ~10 km orbits, and the meshes' cost on phones); then (the user) the skybox only. Done
+2026-11-02: each orbit has its GoF3 level's own sky (the remake's orbit "skybox") with the level's scenery beyond 4000
+GoF3 units, and what GoF3 hangs on the camera, painted in as seen from the station (sky_scenery: a numpy point-splat
+render of each part's diffuse texture, the level's light and fog, at S R^-1 d so it turns with the sky); 59 of 68 orbits
+have some, the mod +88 MB. Fog banks, atmospheres, borders, gates, the moons and what lies within 4000 units are left out.
+Not seen in game yet; the faces are 512 px, so a distant station is a few pixels.
 
 ## Also open from earlier work
 

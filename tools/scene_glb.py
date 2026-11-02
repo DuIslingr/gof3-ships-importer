@@ -15,7 +15,8 @@ Asteroids keep their family's tiled diffuse texture on UV0 (gof3_rock_<key>). Ef
 lights), collision and lower LODs are left out; with effects=True (the jumpgates) the gate's own effect layers come in
 (_add, _glow, _glows, _electricity: GoF3's BlendMode 2 materials), each a gof3[fx_<material>] material that stations.json
 draws additive (its texture x DiffuseColor x Opacity x the vertex colours, scrolling by UVAnim). The sky window (a fixed
-cubemap seen through the gate) is still left out.
+cubemap seen through the gate) comes in too: GoF3's shader samples its cube with each vertex's own (x, y, -z), which on
+the flat disc in the ring is the cube's horizon band fanned out from the centre, a fixed picture, baked (fx_values).
 
 scene_glb.convert(scene_path, out_glb, assets) -> {"min", "max", "groups": {key: {...}}, "nodes", "parts", "triangles"}
 (glTF space: Y up, 1 unit = 1 GoF3 unit). bake_group(key, info, models, out_dir) writes the group's textures."""
@@ -27,7 +28,7 @@ import structure_materials as sm
 
 _INDEX = {}
 PLATING_GAIN = 2.6           # the baked colour x this (GoF3's platings are dark: its shader brightens them)
-FX = re.compile(r"_(add|glows?(_\d+)?|electricity)$")   # a gate's effect layers (convert's effects=True)
+FX = re.compile(r"_(add|glows?(_\d+)?|electricity|skywindow)$")   # a gate's effect layers (convert's effects=True)
 SKIP = re.compile(r"(?i)collision|_lod_0*[1-9]\d*_|glow|sprite|beam|streak|steam|_fx|lights?_|flare|holo|spotlight|_shadow|decal")
 
 
@@ -67,14 +68,21 @@ def fx_split(mg, assets):
     """An effect meshgroup's sections by their additive material: {key: (Material, [section])}."""
     out = {}
     for s, m in zip(_sections(mg), sm.section_materials(mg, assets)):
-        if m is None or not m.effect or "a_texCoord0" not in s: continue
+        window = m is not None and m.name.endswith("_skywindow")
+        if m is None or not (m.effect or window) or ("a_texCoord0" not in s and not window): continue
         out.setdefault("fx_" + m.name.replace("structure_", ""), (m, []))[1].append(s)
     return out
 
 
 def _fx_prim(secs, material):
     P = np.concatenate([np.asarray(s["a_position"], np.float32) for s in secs])
-    T = np.concatenate([np.asarray(s["a_texCoord0"], np.float32) for s in secs])
+    def uv(s):
+        if "a_texCoord0" in s: return np.asarray(s["a_texCoord0"], np.float32)
+        # (the sky window has none: its x / y across the disc, as fx_values bakes it, image top = +y)
+        p = np.asarray(s["a_position"], np.float32)
+        r = max(float(np.abs(p[:, :2]).max()), 1e-6)
+        return np.stack([(p[:, 0] / r + 1) / 2, (1 - p[:, 1] / r) / 2], 1).astype(np.float32)   # (glTF's v 0 = the top row)
+    T = np.concatenate([uv(s) for s in secs])
     C = np.concatenate([np.asarray(s["a_vtxColor"], np.float32)[:, :4] if "a_vtxColor" in s and np.asarray(s["a_vtxColor"]).ndim == 2
                         else np.ones((s["count"], 4), np.float32) for s in secs])
     I, base = [], 0
@@ -365,6 +373,28 @@ def fx_values(key, material, out_dir):
         sp, k = v.get("UVAnim_Speed", (0, 0, 0)), float(v.get("UVAnim_SpeedMultiplier", 1.0))
         out["values"]["scroll"] = [round(float(sp[0]) * k, 4), round(float(sp[1]) * k, 4)]
     tex = slots.get("Diffuse") or slots.get("T1")
+    env = slots.get("EnvironmentMap")
+    if not tex and env and os.path.exists(env):
+        # the sky window: the cube at (x, y, -0) across the disc (u = x, v = y; GL's cube lookup, the file's faces as the
+        # engine uploads them: sky_strip.STRIP), opaque (GoF3 blends it by the cube's alpha, 1)
+        import sky_strip
+        fs = sky_strip.faces(env)
+        gl = [np.asarray(fs[f].convert("RGB")).astype(np.float32) for f in sky_strip.STRIP]
+        n, W = gl[0].shape[0], 256
+        img = np.zeros((W, W, 3), np.float32)
+        for py in range(W):
+            for px in range(W):
+                x, y, z = (px + 0.5) / W * 2 - 1, (py + 0.5) / W * 2 - 1, -1e-4
+                ax, ay, az = abs(x), abs(y), abs(z)
+                if ax >= ay and ax >= az: f, sc, tc, ma = (0, -z, -y, ax) if x > 0 else (1, z, -y, ax)
+                elif ay >= az: f, sc, tc, ma = (2, x, z, ay) if y > 0 else (3, x, -z, ay)
+                else: f, sc, tc, ma = (4, x, -y, az) if z > 0 else (5, -x, -y, az)
+                img[W - 1 - py, px] = gl[f][min(n - 1, int((tc / ma + 1) / 2 * n)), min(n - 1, int((sc / ma + 1) / 2 * n))]
+        from PIL import Image
+        Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(f"{out_dir}/{key}.png")
+        out["diffuse"] = f"{key}.png"
+        out["values"].update({"color": [1.0, 1.0, 1.0], "intensity": round(float(v.get("Alpha_Value", 1.0)), 3), "vertexColors": False})
+        return out
     if tex and os.path.exists(tex):
         im = structures.ae4_texture.decode(tex).convert("RGBA")
         if max(im.size) > 512: im = im.resize((min(im.width, 512), min(im.height, 512)))
