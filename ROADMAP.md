@@ -70,5 +70,6 @@ Not seen in game yet; the faces are 512 px, so a distant station is a few pixels
   decompile cleanly). Checked offline only (the Euler decomposition rebuilds S R S; the strip equals a GL lookup at S u);
   not seen in game. Earlier, fitting the skies' brightest spots to the levels' lights or sun sprites found no relation
   (GoF3's lights don't follow its skies), so the lights stay as GoF3 places them.
-- The second light, ambient colour and planets per level (the remake has no fields for them yet).
+- The second light and ambient per level: done 2026-11-02 (the remake's orbit "light2" / "ambient"; 49 orbits have a second
+  light, GoF3's light values are already on GoF2's gamma scale). Planets beyond the main one: open (the moons aren't painted).
 - In-game check of the structures' shine (specular strength, normal map orientation) and of Survey Main's foggy sky.

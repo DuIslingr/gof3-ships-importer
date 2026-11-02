@@ -20,7 +20,9 @@ From each level (field ids from the protobuf schema in libgofm.so: Location, Lig
   shader does (t (t + c (1 - t)), c = mix(C1, C2, t)).
 - each station's orbit its own level's sky ("skybox", shared where two levels' skies look the same; the system's sky is
   its first level's), with the level's distant scenery painted in (sky_scenery: a copy per station that has any) and its turn ("skyRotation" from the level's sky entity, sky_rotation);
-Left as they were: the second light, ambient and planets (the remake has no fields for them)."""
+- the second light and the ambient: the level's second light of group 1 as the orbit's "light2" (none: false) and its
+  lights' ambient summed as "ambient";
+Left as they were: the planets beyond the main one (scenery, see sky_scenery)."""
 import argparse, json, math, os, re, shutil, struct, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
@@ -39,7 +41,8 @@ def slug(s): return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
 
 
 def level_look(G, lid):
-    """{"fog": (rgb, density, offset) | None, "light": {rgb, pos} | None, "colorize": {entity name: (C1, C2)}}."""
+    """{"fog": (rgb, density, offset) | None, "light": {rgb, pos, ambient} | None (the brightest), "lights": the level's
+    lights of group 1 (the ones on ships and stations), brightest first, "colorize": {entity name: (C1, C2)}}."""
     R = G.R
     _, lf = G.level_fields(lid)
     def one(f, k, default=None): return f[k][0] if k in f else default
@@ -65,9 +68,10 @@ def level_look(G, lid):
             pos = G.vec(tr[gof3_galaxy.POS][0]) if gof3_galaxy.POS in tr else [0, 0, 1]
             d = col(one(f, L_DIFFUSE)) if L_DIFFUSE in f else [1, 1, 1, 1]
             i = float(one(f, L_INTENSITY, 1.0))
-            lights.append({"rgb": [c * i for c in d[:3]], "pos": pos, "name": name})
+            amb = col(one(f, L_AMBIENT))[:3] if L_AMBIENT in f else [0.0, 0.0, 0.0]
+            lights.append({"rgb": [c * i for c in d[:3]], "pos": pos, "name": name, "ambient": amb})
     lights.sort(key=lambda l: -sum(l["rgb"]))
-    return {"fog": fog, "light": lights[0] if lights else None, "colorize": colorize}
+    return {"fog": fog, "light": lights[0] if lights else None, "lights": lights, "colorize": colorize}
 
 
 def direction(pos):
@@ -155,6 +159,15 @@ def apply(out, pdb, assets, log=print):
             if st is not None:
                 orbit = st.setdefault("orbit", {})
                 if look["light"]: orbit["sun"] = direction(look["light"]["pos"])
+                # the second light (GoF2's LIGHT1: GoF3's light values are already on its gamma scale, see LIGHT0) and the
+                # ambient, the group's lights' ambient summed as GoF3's shader adds them
+                if len(look["lights"]) > 1:
+                    l2 = look["lights"][1]
+                    yaw, pitch = direction(l2["pos"])
+                    orbit["light2"] = {"color": [round(min(2.0, c), 3) for c in l2["rgb"]], "yaw": yaw, "pitch": pitch}
+                elif look["light"]: orbit["light2"] = False
+                if look["lights"]:
+                    orbit["ambient"] = [round(min(1.0, sum(l["ambient"][k] for l in look["lights"])), 3) for k in range(3)]
                 lsky = next((x for x in lv["entities"] if "/skyboxes/" in x["shape"]), None)
                 if lsky is not None: orbit["skyRotation"] = sky_rotation(lsky.get("rot") or [0, 0, 0])
                 else: orbit.pop("skyRotation", None)
