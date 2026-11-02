@@ -24,7 +24,7 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 
 | # | What | GoF3 (data / systems) | Remake | Status |
 |---|---|---|---|---|
-| G1 | Devices, about 40: Carom Deflector, EMP generator and projectile, Shield Disruptor, Shield Overcharger (front, sphere), Cluster Module, Proximity Mine, Radar Jammer, Teleport, Engine Booster, Flash Grenade, Loot Magnet, Spark Collector, Mind Control, Cloak, Front Shield, Super Charger, Blast Amplifier, Bomb Spreader, Dynamic Wormhole Generator, wingman devices | `DeviceConfiguration*`, `DeviceBehaviorConfiguration*`, `DeviceUpgradeLevel`, `DeviceSystem`, `DeviceAgentSystem`, `EffectZoneSystem` | equipment items; the analogues the remake has (cloak, EMP, shield injector, echo blast, mines), new ones where it has none | researched (8 player devices; the rest NPC / boss only); the engine booster's factor fixed (x2 for every class); most need a remake "active device" system |
+| G1 | Devices, about 40: Carom Deflector, EMP generator and projectile, Shield Disruptor, Shield Overcharger (front, sphere), Cluster Module, Proximity Mine, Radar Jammer, Teleport, Engine Booster, Flash Grenade, Loot Magnet, Spark Collector, Mind Control, Cloak, Front Shield, Super Charger, Blast Amplifier, Bomb Spreader, Dynamic Wormhole Generator, wingman devices | `DeviceConfiguration*`, `DeviceBehaviorConfiguration*`, `DeviceUpgradeLevel`, `DeviceSystem`, `DeviceAgentSystem`, `EffectZoneSystem` | the remake's active devices (`device` 136, `Flight.Device`, `PlayerDevices`) and `cloakCooldownMs` | the 8 player devices done: the remake's device system (quick menu, keys 4-6, HUD slots, the NPC slow over multiplayer) and the importer's items (`device_items`: GoF3's sounds, lore-image icons); untested in Play mode; the NPC / boss devices open (G3) |
 | G2 | Weapon abilities and buffs: armour piercing, burst hit, shield bypass, chain effect, slowdown; damage / shield drain over time | `Ability*`, `Buff*`, `StrengthAndWeakness` | gun traits | open |
 | G3 | Bosses: info and difficulty, weak points, minions, taunts, portraits | `BossInfo`, `BossSetting`, `BossDifficulty`, `Weakpoint`, `Minion`, `TauntTable` | Most Wanted, capital ship subsystems | open |
 | G4 | Missions: side missions, contracts, distress calls, freelance challenges and seasons (task types kill, escort, find, escape, scan area, protect NPC); story dialogue and actors | `Sidemission`, `ContractSpawnSchedule`, `DistressCallSchedule`, `Freelance*`, `*Task`, `Story*` | bar missions, event graphs | open |
@@ -38,9 +38,11 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
   units), Berger EMP Projectile (homing, the same slow in 300), DS Shield Disruptor (-2000 shield), Telta S-Wave Area and
   Overcharger Beam (66 % of the shield spent for 0.4 / 0.3 x that as damage), AMR Strike Charge (filled by the ship's
   own hits, then 5 s of x1.75 damage); cooldown 60 s each; the wingmen's First Aid, Ammo Supply and Charged Shots.
-- In the remake: the Hiroto Cloak maps onto the cloak items (it needs a `cloakCooldownMs` stat); the rest need an
-  "active device" system (an equipment kind fired from the quick menu or a key, its own cooldown and HUD ready state),
-  then each device on top of it. Remake work, with Play mode testing.
+- Done (2026-11-02): the remake's active device system (Modding/README.md "Devices", combat-equipment.md "Devices") and the
+  importer's eight items (`DEVICES` in build_gof3_mod.py: GoF3's distances x 11.4, its shield and damage numbers in GoF2's
+  scale, the Hiroto Cloak as a cloak with `cloakCooldownMs`). To check in Play mode: each device's feel and numbers (the
+  EMP wave's size, the overchargers' damage, the strike charge's 150), the icons' crops. Not done: the other players
+  seeing the shots, beams and waves; the deflector against other players; GoF3's device upgrades (levels 1-5).
 - NPC / boss devices (teleport, front / back shields, radar jammer, flash grenade, mind control, clones, minions,
   carrier, bomb spreader, wormhole) need an NPC device AI and the bosses as enemies first (G3).
 

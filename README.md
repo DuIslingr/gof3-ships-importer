@@ -143,6 +143,11 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 - Each hull has its GoF3 cockpit seat for the cockpit view, smokes from GoF3's damage points when hurt, explodes at its
   GoF3 size, and the bigger hulls (and the gunships) get a chase camera pulled back to fit them.
 - GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
+- GoF3's seven player missiles are secondaries, and its eight player devices are equipment: the Berger Area EMP and EMP
+  Projectile, the DS Shield Disruptor, the Telta S-Wave Area and Overcharger Beam, the AMR Strike Charge and the Carom
+  Deflector as the remake's active devices (fired from the quick menu or the keys 4-6, a 60 s cooldown each, GoF3's
+  sounds), and the Hiroto Cloak as a cloak with GoF3's 60 s cooldown and no energy cells. They need a remake with the
+  device system (Modding/README.md "Devices").
 - Each ship flies at its GoF3 speed with its class's GoF3 booster built in; ships with GoF3's revive device have the
   Emergency System built in.
 - In the hangar, **Customize ship** (under Inspect ship) picks the hull's paint scheme (Skin: GoF3's numbered schemes and

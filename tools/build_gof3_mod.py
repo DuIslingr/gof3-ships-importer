@@ -1154,6 +1154,85 @@ def secondary_items(D, snd):
     return out
 
 
+# GoF3's eight player devices (DeviceConfig_Active_*, the 2026-11-02 research in ROADMAP.md) as the remake's active
+# devices (Modding/README.md "Devices": a seatless cabin, 91 with cabinSize 0, with "device" 1-7), the Hiroto Cloak as a
+# cloak (94) with its own 60 s cooldown and no energy cells (GoF3's recharges by itself). GoF3's distances x 11.4 for
+# GoF2's units (its Area EMP's 800 = 9120 units, 456 m; K would make them ~4x, too wide for GoF2's tighter fights), its
+# shield and damage numbers in GoF2's scale (shields 50-380): the Shield Disruptor's 2000 (most of a GoF3 shield) is 300,
+# a third of it on the NPCs (no shields in GoF2) as damage; the Strike Charge's 875 damage dealt is 150 (GoF2's guns deal
+# ~1/6 of GoF3's per second). Prices: GoF3's blueprint completion x 3; tech levels by GoF3's unlock order.
+# key: (record, base, device type (0 = the cloak), stats, tech level, occurrence, price, sound waves, lore image, crop centre)
+DEVICE_UNITS = 11.4
+DEVICE_BASE, DEVICE_COOLDOWN = 91, 60000
+DEVICE_SPEED = round(1000 * DEVICE_UNITS / 1000.0)   # GoF3's 1000 units a second in units a ms (stats are whole numbers)
+DEVICES = {
+    "area_emp": ("Device_Active_EMP", DEVICE_BASE, 1,
+                 {"deviceDurationMs": 8000, "deviceRadius": round(800 * DEVICE_UNITS), "deviceGrowMs": 2500, "deviceSlowPercent": 25},
+                 6, 25, 64000, r"^MC_sfx_device_emp_generator_0\d$", "EMP", 0.42),
+    "emp_projectile": ("Device_Active_EMP_Projectile", DEVICE_BASE, 2,
+                       {"deviceDurationMs": 8000, "deviceRadius": round(300 * DEVICE_UNITS), "deviceSlowPercent": 25,
+                        "projectileSpeed": DEVICE_SPEED, "lifetimeMs": 5000},
+                       5, 25, 45000, r"^MC_sfx_device_emp_generator_impact_0\d$", "EMPProjectile", 0.62),
+    "shield_disruptor": ("Device_Active_Shield_Disruptor", DEVICE_BASE, 3,
+                         {"damage": 300, "deviceDamagePercent": 33, "projectileSpeed": DEVICE_SPEED, "lifetimeMs": 5000},
+                         5, 20, 40000, r"^MC_sfx_device_shield_disruptor_0\d$", "ShieldDisruptor", 0.36),
+    "s_wave_area": ("Device_Active_ShieldOvercharger_FrontArea", DEVICE_BASE, 4,
+                    {"deviceRadius": round(750 * DEVICE_UNITS), "deviceShieldCost": 66, "deviceDamagePercent": 40},
+                    7, 20, 92000, r"^MC_sfx_shield_overcharge_area_0\d$", "ShieldOverchargerArea", 0.55),
+    "overcharger_beam": ("Device_Active_ShieldOvercharger_Sphere", DEVICE_BASE, 5,
+                         {"deviceRadius": round(1200 * DEVICE_UNITS), "deviceShieldCost": 66, "deviceDamagePercent": 30, "deviceConeDeg": 30},
+                         6, 20, 80000, r"^MC_sfx_(device_shield_overcharge_beam|active_device_telta_overcharger_beam)_0\d$",
+                         "ShieldOverchargerBeam", 0.4),
+    "strike_charge": ("Device_Active_Strike_Charge", DEVICE_BASE, 6,
+                      {"deviceDurationMs": 5000, "deviceDamagePercent": 175, "deviceCharge": 150},
+                      5, 25, 55000, r"^MC_sfx_device_strike_charge_0\d$", "StrikeCharge", 0.5),
+    "carom_deflector": ("Device_Active_Carom_Deflector", DEVICE_BASE, 7, {"deviceDurationMs": 8000, "deviceDamagePercent": 200},
+                        8, 15, 70000, r"^MC_sfx_device_carom_deflector_in_0\d$", "CaromDeflector", 0.45),
+    "hiroto_cloak": ("Device_Active_Cloak", 94, 0,
+                     {"cloakDurationMs": 10000, "cloakChargeMs": 500, "energyCells": 0, "cloakCooldownMs": 60000},
+                     7, 15, 116000, r"^MC_sfx_device_cloak_in_0\d$", "Cloak", 0.55),
+}
+
+
+def device_icon(key, lore, centre, plate):
+    """A lore banner of the device (loreimages/Lore_DeviceSystems_*.jpg, 1800 x 500: a scene; GoF3 has no item art for its
+    devices) cut to the plate's window around 'centre' (a fraction of its width), on GoF2's item plate of its base."""
+    art = os.path.join(MERGED, "loreimages", f"Lore_DeviceSystems_{lore}.jpg")
+    plate_png = os.path.join(REMAKE, "Assets", "Resources", "GoF2Icons", f"item_{plate:03d}.png")
+    if not os.path.exists(art) or not os.path.exists(plate_png): return None
+    base = Image.open(plate_png).convert("RGBA")
+    im = Image.open(art).convert("RGBA")
+    w = int(im.height * 156 / 72)
+    x = int(min(max(centre * im.width - w / 2, 0), im.width - w))
+    im = im.crop((x, 0, x + w, im.height)).resize((156, 72), Image.LANCZOS)
+    base.paste(im, (12, 8))
+    rel = f"icons/device_{key}.png"
+    os.makedirs(os.path.join(OUT, "icons"), exist_ok=True)
+    base.save(os.path.join(OUT, rel))
+    return rel
+
+
+def device_items(D, snd):
+    """items.json: GoF3's player devices (DEVICES); weaponfx.json: their activation sounds, effects on the Dia EMP's look
+    (item 18, which the EMP shots fly as)."""
+    items, effects = [], []
+    for key, (rec, base, kind, stats, tl, occ, price, waves, lore, centre) in DEVICES.items():
+        rid = next((r for r in D.R.p.byname.get(rec, []) if D.gui_text(r, 4067579)), None)
+        if kind: stats = {"device": kind, "deviceCooldownMs": DEVICE_COOLDOWN, "cabinSize": 0, **stats}
+        item = {"id": f"gof3_{key}", "base": base, "name": weapon_name((D.gui_text(rid, 4067579) if rid else None) or rec),
+                "techLevel": tl, "occurrence": occ, "price": [price, int(price * 1.05)], "stats": stats}
+        desc = D.gui_text(rid, 9934023) if rid else None
+        if desc: item["description"] = re.sub(r"\s*Entry #\d+.*$", "", re.sub(r"\s+", " ", desc).strip())   # (the codex's signature)
+        shot = snd.shot_files(waves) if snd and kind else None   # (the cloak plays the game's own cloak sound)
+        if shot:
+            effects.append({"id": f"device_{key}", "name": item["name"], "base": 18, "shot": shot})
+            item["fx"] = f"device_{key}"
+        icon = device_icon(key, lore, centre, base)
+        if icon: item["icon"] = icon
+        items.append(item)
+    return items, effects
+
+
 def weapon_rules():
     # GoF3's own guns first (the rules below match items based on theirs too)
     rules = [{"slot": "primary", "model": gun_file(f, mk), "items": [f"{MOD_ID}:{weapon_id(f, mk)}"]}
@@ -1666,7 +1745,9 @@ def main():
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(info, open(os.path.join(OUT, "source.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
-    json.dump(booster_items() + weapon_items(D, snd) + secondary_items(D, snd), open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    devices, device_fx = device_items(D, snd)
+    json.dump(booster_items() + weapon_items(D, snd) + secondary_items(D, snd) + devices, open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    if device_fx: json.dump(device_fx, open(os.path.join(OUT, "weaponfx.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump({
