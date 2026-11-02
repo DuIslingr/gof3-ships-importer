@@ -1069,8 +1069,8 @@ def weapon_items(D, snd):
 # waves, tech level, occurrence, price, extra stats). On the guns' conventions: speed / 75 game units per ms, the
 # lifetime that reaches the range, damage x SECONDARY_DAMAGE (GoF3's KETAR I-JET at GoF2's Edo, 70). GoF3 fires them
 # once a second (fireRate 1). Its "auto" missiles find their own target in flight (400 m, +-45 deg); the remake's home
-# on the lock. The Slowdeath's slow (-50 % speed for 6 s) is an EMP hit here, the Hunter-XT goes through shields in
-# GoF3 (AbilityBypassShield), which the remake can't. Their launchers have no model of their own (the hardpoint is
+# on the lock. Their abilities (Buffable.onCreationBuffs): the Slowdeath's AbilitySlowdown (-50 % speed for 6 s) as the
+# remake's slowMs / slowPercent, the Hunter-XT's AbilityBypassShield as shieldBypass (both remake stats, 2026-11-02). Their launchers have no model of their own (the hardpoint is
 # a muzzle).
 SECONDARY_DAMAGE = 0.2
 SECONDARIES = {
@@ -1078,8 +1078,8 @@ SECONDARIES = {
     "crhoming": ("SW_CR_Homing_1", "crhoming", 36, 343.4, 1, 750, 1300, r"^MC_sfx_weapon_cr_homing_\d+$", 3, 60, 92, {}),
     "lrturretschreck": ("SW_LR_Turretschreck_1", "lrturretschreck", 36, 303.9, 2, 500, 1250, r"^MC_sfx_weapon_lr_turretschreck_\d+$", 4, 40, 185, {}),
     "mrcluster": ("SW_MR_Cluster_1", "mrcluster", 214, 129.4, 6, 500, 1000, r"^MC_sfx_weapon_cr_rocket_\d+$", 5, 30, 310, {}),
-    "mrslowdown": ("SW_MR_Slowdown_1", "mrslowdown", 36, 991.6, 1, 800, 1300, r"^MC_sfx_weapon_cr_homing_\d+$", 6, 20, 360, {"empDamage": 60}),
-    "lrhuntdown": ("SW_LR_HuntDown_1", "lrhuntdown", 36, 1491.0, 1, 800, 2000, r"^MC_sfx_weapon_lr_huntdown_\d+$", 8, 15, 620, {}),
+    "mrslowdown": ("SW_MR_Slowdown_1", "mrslowdown", 36, 991.6, 1, 800, 1300, r"^MC_sfx_weapon_cr_homing_\d+$", 6, 20, 360, {"slowMs": 6000, "slowPercent": 50}),
+    "lrhuntdown": ("SW_LR_HuntDown_1", "lrhuntdown", 36, 1491.0, 1, 800, 2000, r"^MC_sfx_weapon_lr_huntdown_\d+$", 8, 15, 620, {"shieldBypass": 1}),
     "redtail": ("SW_CR_Rocket_redTail_1", "redtail", 36, 106.9, 3, 500, 1000, r"^MC_sfx_weapon_cr_rocket_\d+$", 3, 30, 60, {}),
 }
 SECONDARY_ICONS = {"crrocket": "SW_CR_Rocket_MK1", "crhoming": "SW_CR_Homing_MK1", "lrturretschreck": "SW_LR_Turretschreck_MK1",
