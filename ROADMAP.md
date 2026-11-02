@@ -56,7 +56,8 @@ are few: 5 wrecks, 5 comet groups, 7 armaments, 1 freight container. Decided (th
 2026-11-02: each orbit has its GoF3 level's own sky (the remake's orbit "skybox") with the level's scenery beyond 4000
 GoF3 units, and what GoF3 hangs on the camera, painted in as seen from the station (sky_scenery: a numpy point-splat
 render of each part's diffuse texture, the level's light and fog, at S R^-1 d so it turns with the sky); 59 of 68 orbits
-have some, the mod +88 MB. Fog banks, atmospheres, borders, gates, the moons and what lies within 4000 units are left out.
+have some, the mod +88 MB. Fog banks, atmospheres, borders, gates and what lies within 4000 units are left out (the moons and other planets:
+gof3_world.paint_planets).
 Not seen in game yet; the faces are 512 px, so a distant station is a few pixels.
 
 ## Also open from earlier work
@@ -71,5 +72,6 @@ Not seen in game yet; the faces are 512 px, so a distant station is a few pixels
   not seen in game. Earlier, fitting the skies' brightest spots to the levels' lights or sun sprites found no relation
   (GoF3's lights don't follow its skies), so the lights stay as GoF3 places them.
 - The second light and ambient per level: done 2026-11-02 (the remake's orbit "light2" / "ambient"; 49 orbits have a second
-  light, GoF3's light values are already on GoF2's gamma scale). Planets beyond the main one: open (the moons aren't painted).
+  light, GoF3's light values are already on GoF2's gamma scale). Planets beyond the main one: painted into the
+  orbit's sky 2026-11-02 (gof3_world.paint_planets: GoF3's planet shader, a disc at its direction and size; 31 orbits).
 - In-game check of the structures' shine (specular strength, normal map orientation) and of Survey Main's foggy sky.

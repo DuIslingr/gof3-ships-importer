@@ -306,6 +306,85 @@ def orbit_patch(world, lv, st, out, merged, ores_by_level):
     return patch, sorted(pl, key=lambda p: (p["moon"], -_angular(p)))
 
 
+def _sky_turn(orbit):
+    """R, the level's sky turn, back from the orbit's "skyRotation" (Q = S R S as Unity's Euler: Ry Rx Rz)."""
+    a, b, c = [math.radians(v) for v in (orbit.get("skyRotation") or [0, 0, 0])]
+    def R(axis, t):
+        cs, sn = math.cos(t), math.sin(t)
+        return {"x": np.array([[1, 0, 0], [0, cs, -sn], [0, sn, cs]]), "y": np.array([[cs, 0, sn], [0, 1, 0], [-sn, 0, cs]]),
+                "z": np.array([[cs, -sn, 0], [sn, cs, 0], [0, 0, 1]])}[axis]
+    S = np.diag([-1.0, 1.0, 1.0])
+    return S @ (R("y", b) @ R("x", a) @ R("z", c)) @ S
+
+
+def paint_planets(out, st, planets, assets, world, lv, log=print):
+    """Each planet rendered with GoF3's shader (gof3_planets.render, its view: forward f the planet's direction, right
+    r = up x f, up u = f x r) and pasted into the orbit's sky strip: a strip pixel p looks along d = R S p in the level, its
+    place on the disc (d.r / d.f, d.u / d.f) / tan(angular radius). The orbit gets its own sky and stars copies (no stars in
+    front of a planet)."""
+    import gof3_planets, tempfile
+    from PIL import Image
+    orbit = st["orbit"]; sky = orbit["skybox"]
+    neb_rel = f"sky/{st['id']}.png"
+    if sky["nebula"] != neb_rel: shutil.copyfile(f"{out}/{sky['nebula']}", f"{out}/{neb_rel}")
+    neb = np.asarray(Image.open(f"{out}/{neb_rel}").convert("RGB")).astype(np.float32) / 255
+    n = neb.shape[0]
+    g = (np.arange(n) + 0.5) / n
+    U, V = np.meshgrid(g, g)
+    Rt = _sky_turn(orbit); S = np.diag([-1.0, 1.0, 1.0])
+    cover = np.zeros(neb.shape[:2], np.float32)
+    painted = 0
+    for p in planets:
+        tmp = tempfile.mktemp(suffix=".png")
+        try:
+            if not gof3_planets.render(p, assets, tmp, world, lv): continue
+            disc = np.asarray(Image.open(tmp).convert("RGBA")).astype(np.float32) / 255
+        finally:
+            if os.path.exists(tmp): os.remove(tmp)
+        f = np.array(p["pos"], float); f /= np.linalg.norm(f)
+        up = np.array([0.0, 1.0, 0.0]) if abs(f[1]) < 0.99 else np.array([0.0, 0.0, 1.0])
+        r = np.cross(up, f); r /= np.linalg.norm(r); u = np.cross(f, r)
+        t = math.tan(math.radians(_angular(p)))
+        size = disc.shape[0]; half = size * gof3_planets.FILL / 2
+        for face in range(6):
+            pts = sky_strip_points(face, U, V)                       # strip-frame directions (n, n, 3)
+            d = pts.reshape(-1, 3) @ (Rt @ S).T
+            fd = d @ f
+            ok = fd > 1e-6
+            x = np.where(ok, (d @ r) / np.where(ok, fd, 1), 9e9) / t
+            y = np.where(ok, (d @ u) / np.where(ok, fd, 1), 9e9) / t
+            inside = (x * x + y * y) <= 1.05
+            if not inside.any(): continue
+            ix = np.clip((size / 2 + x * half).astype(int), 0, size - 1); iy = np.clip((size / 2 - y * half).astype(int), 0, size - 1)
+            px = disc[iy, ix]; a = np.where(inside, px[:, 3], 0.0).reshape(n, n)
+            sl = neb[:, face * n:(face + 1) * n]
+            sl[:] = sl * (1 - a[..., None]) + px[:, :3].reshape(n, n, 3) * a[..., None]
+            cover[:, face * n:(face + 1) * n] = np.maximum(cover[:, face * n:(face + 1) * n], a)
+        painted += 1
+    if not painted:
+        if sky["nebula"] != neb_rel: os.remove(f"{out}/{neb_rel}")
+        return 0
+    Image.fromarray((np.clip(neb, 0, 1) * 255 + 0.5).astype(np.uint8)).save(f"{out}/{neb_rel}")
+    sky["nebula"] = neb_rel
+    if isinstance(sky.get("stars"), str):
+        stars_rel = f"sky/{st['id']}_stars.png"
+        s_im = Image.open(f"{out}/{sky['stars']}").convert("RGB")
+        m = Image.fromarray((cover * 255).astype(np.uint8)).resize(s_im.size, Image.BILINEAR)
+        s = np.asarray(s_im).astype(np.float32) * (1 - np.asarray(m).astype(np.float32)[..., None] / 255)
+        Image.fromarray(s.astype(np.uint8)).save(f"{out}/{stars_rel}")
+        sky["stars"] = stars_rel
+    log(f"  {st['id']}: {painted} planets / moons in its sky")
+    return painted
+
+
+def sky_strip_points(face, U, V):
+    """The strip face's directions (Unity's axes, the strip's frame) at (u, v) 0..1, v down (sky_strip._face_points)."""
+    a, b = U - 0.5, V - 0.5
+    h = np.full_like(a, 0.5)
+    return [np.stack([h, -b, -a], -1), np.stack([-h, -b, a], -1), np.stack([a, h, b], -1),
+            np.stack([a, -h, -b], -1), np.stack([a, -b, h], -1), np.stack([-a, -b, -h], -1)][face]
+
+
 def planet_entry(p):
     """The orbit's "planet" for a GoF3 planet: its direction, and its size against the remake's planet quad (up to 60
     degrees of angular radius; a bigger one is a horizon the remake can't show)."""
@@ -399,9 +478,13 @@ def apply(out, pdb, assets, log=print, world=None, music_too=True):
         else: orbit.pop("asteroids", None)
         orbit.pop("planet", None); st.pop("planetTexture", None)
         rel = f"textures/planets/{st['id']}.png"
+        main = None
         for p in candidates[:6]:
             if gof3_planets.render(p, assets, f"{out}/{rel}", world, lv):
-                orbit["planet"] = planet_entry(p); st["planetTexture"] = rel; break
+                orbit["planet"] = planet_entry(p); st["planetTexture"] = rel; main = p; break
+        # the level's other planets and moons, painted into the orbit's own sky (the remake shows one planet)
+        others = [p for p in candidates if p is not main and 0.2 < _angular(p) <= 60.0]
+        if others and orbit.get("skybox"): paint_planets(out, st, others, assets, world, lv, log)
     hulls_file = f"{out}/ships.json"
     hulls = [(s["id"][:-len("_hull")],) for s in json.load(open(hulls_file, encoding="utf-8"))] if os.path.exists(hulls_file) else []
     ships = npcships(world, set(by_id), hulls)
