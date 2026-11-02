@@ -18,8 +18,9 @@ From each level (field ids from the protobuf schema in libgofm.so: Location, Lig
   image, the level's fog over both;
 - the sun's sprite: the level's sun sprite nearest the main light, tinted by its entity's Colorize the way GoF3's sun
   shader does (t (t + c (1 - t)), c = mix(C1, C2, t)).
-Left as they were: the sky's rotation (GoF3 turns each sky entity; the axes into the remake's frame aren't checked yet) and
-the second light, ambient and planets (the remake has no fields for them)."""
+- the sky's turn: each station's orbit "skyRotation" from its level's sky entity (sky_rotation; the system's sky image is
+  its first level's, so a level of another sky turns that one);
+Left as they were: the second light, ambient and planets (the remake has no fields for them)."""
 import argparse, json, math, os, re, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
@@ -73,6 +74,25 @@ def direction(pos):
     return [round(math.degrees(math.atan2(x, z)), 1), round(math.degrees(math.asin(max(-1.0, min(1.0, y / n)))), 1)]
 
 
+def sky_rotation(rot):
+    """stations.json orbit "skyRotation" (Unity Euler degrees) for a GoF3 sky entity's Transform rotation (degrees): GoF3
+    turns the sky by R = Rz Ry Rx (glm::quat of the radians, x first) in its level frame, which is Unity's with x mirrored
+    (S); with sky_strip's mirrored strip the remake's turn is Q = S R S, given as Unity's Quaternion.Euler (Ry Rx Rz)."""
+    def R(axis, deg):
+        c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+        return {"x": np.array([[1, 0, 0], [0, c, -s], [0, s, c]]), "y": np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]]),
+                "z": np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])}[axis]
+    x, y, z = (list(rot) + [0, 0, 0])[:3]
+    S = np.diag([-1.0, 1.0, 1.0])
+    Q = S @ (R("z", z) @ R("y", y) @ R("x", x)) @ S
+    a = math.degrees(math.asin(max(-1.0, min(1.0, -Q[1, 2]))))
+    if abs(Q[1, 2]) < 0.9999:
+        b = math.degrees(math.atan2(Q[0, 2], Q[2, 2])); c = math.degrees(math.atan2(Q[1, 0], Q[1, 1]))
+    else:   # x at +-90: only y - z (or y + z) is fixed
+        b = math.degrees(math.atan2(-Q[2, 0], Q[0, 0])); c = 0.0
+    return [round(a, 3), round(b, 3), round(c, 3)]
+
+
 def fog_entry(fog):
     """The remake's orbit "fog" for GoF3's (rgb, density, offset): 1 at "end", so GoF3's cap at the same distance."""
     rgb, density, offset = fog
@@ -122,6 +142,9 @@ def apply(out, pdb, assets, log=print):
             if st is not None:
                 orbit = st.setdefault("orbit", {})
                 if look["light"]: orbit["sun"] = direction(look["light"]["pos"])
+                lsky = next((x for x in lv["entities"] if "/skyboxes/" in x["shape"]), None)
+                if lsky is not None: orbit["skyRotation"] = sky_rotation(lsky.get("rot") or [0, 0, 0])
+                else: orbit.pop("skyRotation", None)
                 if look["fog"]: orbit["fog"] = fog_entry(look["fog"])
                 else: orbit.pop("fog", None)
             sky = next((x for x in lv["entities"] if "/skyboxes/" in x["shape"]), None)

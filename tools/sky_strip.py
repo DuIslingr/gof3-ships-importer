@@ -18,6 +18,13 @@ import texture2ddecoder as t
 
 
 STRIP = [3, 1, 0, 5, 2, 4]
+# The file's faces are GL's targets (libgofm's ae::render::opengl::loadTexture uploads face i to +Y, -X, +Z, +X, -Z, -Y), and
+# GoF3's sky shader samples them with the sky mesh's own position (textureCube(EnvironmentMap, normalize(a_position))) in
+# its level frame, which is the remake's with x mirrored (glTFast's way, the sun's, the station models'). So the remake's
+# strip at Unity direction u must hold the cube at (-u.x, u.y, u.z): the X faces swapped and every face mirrored left to
+# right (convert_gof3); then a level's sky turn is a rotation (gof3_look.sky_rotation). STRIP alone showed GoF3's skies
+# mirrored.
+MIRRORED = [1, 3, 0, 5, 2, 4]
 
 
 def cubemap_of(material_path, assets):
@@ -111,8 +118,8 @@ def convert_gof3(material_path, out_png, assets, colors=None, fog=None, stars_pn
             import ae4_texture
             stex = ae4_texture.decode(sp).convert("RGB").resize((stars_face, stars_face), Image.LANCZOS)
     neb = Image.new("RGB", (n * 6, n)); stars = Image.new("RGB", (stars_face * 6, stars_face)) if stex else None
-    for i, src in enumerate(STRIP):
-        rgb = np.asarray(fs[src].convert("RGB")).astype(np.float32) / 255
+    for i, src in enumerate(MIRRORED):
+        rgb = np.asarray(fs[src].convert("RGB")).astype(np.float32)[:, ::-1] / 255   # (STRIP's note: the cube at x mirrored)
         raw = rgb
         if on:
             if v.get("Colorize_Gradient"):
