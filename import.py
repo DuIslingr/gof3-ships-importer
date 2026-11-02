@@ -30,10 +30,12 @@ PY = sys.executable
 sys.path.insert(0, TOOLS)
 import build_cache as cache
 
-# The order the archives are layered in, the later winning a file several hold: the Android files first, the Switch's over
-# them (its textures and materials win where both have a file; the Android OBB fills what the Switch romfs lacks: the
-# materials of Terran 021 / 022 and Vossk 121, the gold guns). Switch: what the reference build used (its data.pdb is
-# patch_1_0_1's; patch_1_0_2 holds an older data set than 1_0_1); unknown archives after these.
+# The order the archives are layered in, the later winning a file several hold: the iOS files first, the Android files over
+# them, the Switch's over those (its textures and materials win where both have a file; the Android OBB fills what the
+# Switch romfs lacks: the materials of Terran 021 / 022 and Vossk 121, the gold guns). Switch: what the reference build
+# used (its data.pdb is patch_1_0_1's; patch_1_0_2 holds an older data set than 1_0_1); unknown archives after these.
+# Each build on its own works too: they store the same assets, only their shaders differently (ae4_shaders).
+IOS_ORDER = ["ios"]
 ANDROID_ORDER = ["android_main", "android_patch", "android_game"]
 SWITCH_ORDER = ["patch", "game", "gfx", "patch_1_0_2", "patch_1_0_1"]
 NUMBERED = {"000", "001", "002", "003", "pirate", "huawei"}   # paint schemes that are skins only (no model of their own)
@@ -181,27 +183,46 @@ def place(src, dst):
 
 # ---------------------------------------------------------------- 1 the game files
 
+def ios_tree(d):
+    """d is an iOS build's assets folder: "assets" with ships/ in it and its materials' shaders in folders beside them
+    (<material>.ae4material_, which the Android and Switch builds don't have)."""
+    if os.path.basename(d.rstrip("/\\")).lower() != "assets" or not os.path.isdir(os.path.join(d, "ships")): return False
+    for sub, dirs, _ in os.walk(d):
+        if any(x.endswith(".ae4material_") for x in dirs): return True
+        if sub.count(os.sep) - d.count(os.sep) >= 4: dirs[:] = []
+    return False
+
+
 def find_sources(paths, work, verified=None):
     """The archives to extract: [(name, path, platform)]. Folders are searched (four levels down); an .apk / .xapk / .apks
-    gives up its game.jet (and an .xapk its .obb files), copied into the work folder."""
+    gives up its game.jet (and an .xapk its .obb files), copied into the work folder. iOS: an .ipa, or its unpacked app
+    (a folder holding its "assets" tree)."""
     verified = {} if verified is None else verified
     files = []
     for p in paths:
         p = os.path.abspath(os.path.expanduser(p))
         if not os.path.exists(p): fail(f"{p} doesn't exist")
-        if os.path.isdir(p):   # four levels down: an unpacked .xapk keeps its OBBs in Android/obb/<package>/
+        if os.path.isdir(p) and ios_tree(p):   # an iOS app's assets folder given itself
+            files.append(p)
+        elif os.path.isdir(p):   # four levels down: an unpacked .xapk keeps its OBBs in Android/obb/<package>/
             base = p.rstrip("/\\").count(os.sep)
             for d, dirs, fs in os.walk(p):
                 if d.count(os.sep) - base >= 4: dirs[:] = []
                 dirs[:] = [x for x in dirs if x.lower() not in ("work", "converted", "extracted", "merged")]   # (not our own work folder)
-                files += [os.path.join(d, f) for f in fs if f.lower().endswith((".tin", ".obb", ".jet", ".apk", ".xapk", ".apks"))]
+                files += [os.path.join(d, f) for f in fs if f.lower().endswith((".tin", ".obb", ".jet", ".apk", ".xapk", ".apks", ".ipa"))]
+                for x in list(dirs):
+                    if ios_tree(os.path.join(d, x)): files.append(os.path.join(d, x)); dirs.remove(x)
         else:
             files.append(p)
     out, seen = [], set()
     unpacked = os.path.join(work, "sources")
     for f in sorted(set(files)):
         low = f.lower()
-        if low.endswith(".tin"):
+        if os.path.isdir(f):   # an unpacked iOS app's assets: the folder holding it is the layer
+            out.append(("ios", os.path.dirname(f), "ios"))
+        elif low.endswith(".ipa"):
+            out.append(("ios", f, "ios"))
+        elif low.endswith(".tin"):
             out.append((os.path.splitext(os.path.basename(f))[0], f, "switch"))
         elif low.endswith(".obb"):
             out.append((obb_name(f), f, "android"))
@@ -217,7 +238,7 @@ def find_sources(paths, work, verified=None):
         seen.add(name); unique.append((name, f, plat))
     out = unique
     if not out:
-        fail("no Galaxy on Fire 3 game files found (the Switch romfs' .tin files, or the Android .obb files and APK)")
+        fail("no Galaxy on Fire 3 game files found (the Switch romfs' .tin files, the Android .obb files and APK, or the iOS .ipa)")
     names = {n for n, _, _ in out}
     plats = {p for _, _, p in out}
     if plats == {"android"}:
@@ -237,10 +258,54 @@ def obb_name(path):
 
 
 def source_hash(path, verified):
-    """A hash already computed from full contents in this invocation, never a persisted shortcut."""
+    """A hash already computed from full contents in this invocation, never a persisted shortcut (a folder: of every file's
+    path and contents)."""
     path = os.path.abspath(path)
-    if path not in verified: verified[path] = cache.file_hash(path)
+    if path not in verified:
+        if os.path.isdir(path):
+            verified[path] = cache.digest(sorted((os.path.relpath(f, path).replace(os.sep, "/"), cache.file_hash(f)) for f in tree_files(path)))
+        else: verified[path] = cache.file_hash(path)
     return verified[path]
+
+
+def tree_files(root):
+    return [os.path.join(d, f) for d, _, fs in os.walk(root) for f in fs]
+
+
+def source_size(path):
+    return sum(os.path.getsize(f) for f in tree_files(path)) if os.path.isdir(path) else os.path.getsize(path)
+
+
+def extract_ios(path, dest):
+    """An iOS build into dest: an .ipa's app (Payload/<name>.app/...), or an unpacked app's folder (hard links, no extra
+    space). A game.jet in it (the game data, as in the Android APK) is unpacked into it too."""
+    import tinextract
+    os.makedirs(dest, exist_ok=True)
+    if os.path.isdir(path):
+        for f in tree_files(path):
+            rel = os.path.relpath(f, path)
+            top = rel.split(os.sep)[0].lower()
+            # the app's game folders, and its game data beside them (not whatever else shares the folder)
+            if top not in ("assets", "particles", "shaders", "sound", "swf", "videos", "cache.field") \
+                    and not (os.sep not in rel and rel.lower().endswith((".pdb", ".jet"))): continue
+            dst = os.path.join(dest, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            place(f, dst)
+    else:
+        try:
+            with zipfile.ZipFile(path) as z:
+                apps = sorted({m.group(1) for n in z.namelist() if (m := re.match(r"(Payload/[^/]+\.app/)", n))})
+                if not apps: fail(f"{path} has no app (Payload/<name>.app)")
+                for n in z.namelist():
+                    if not n.startswith(apps[0]) or n.endswith("/"): continue
+                    dst = os.path.join(dest, n[len(apps[0]):])
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    cache.materialize_member(z, n, dst)
+        except zipfile.BadZipFile:
+            fail(f"{path} isn't a readable .ipa")
+    for jet in [f for f in tree_files(dest) if f.lower().endswith(".jet")]:
+        if not tinextract.extract(jet, None, dest=dest): fail(f"{jet} didn't extract cleanly (see the errors above)")
+    return True
 
 
 def from_bundle(path, unpacked, verified=None):
@@ -284,13 +349,14 @@ def extract(sources, work, fingerprints):
     sys.path.insert(0, TOOLS)
     import tinextract
     ex = os.path.join(work, "extracted")
-    for name, path, _ in sources:
+    for name, path, plat in sources:
         dest = os.path.join(ex, name)
         if cache.done(dest, fingerprints[name]): continue
         remove_tree(lp(dest))
         part = os.path.join(ex, name + ".partial")   # renamed once complete, so a stopped run starts that archive over
         remove_tree(lp(part))
-        if not tinextract.extract(path, None, dest=lp(part)): fail(f"{path} didn't extract cleanly (see the errors above)")
+        if plat == "ios": extract_ios(path, lp(part))
+        elif not tinextract.extract(path, None, dest=lp(part)): fail(f"{path} didn't extract cleanly (see the errors above)")
         os.replace(lp(part), lp(dest))
         cache.mark(dest, fingerprints[name])
 
@@ -301,7 +367,7 @@ def merge(sources, work, fingerprint):
     merged = os.path.join(work, "merged")
     if cache.done(merged, fingerprint): return merged
     names = [n for n, _, _ in sources]
-    known = ANDROID_ORDER + SWITCH_ORDER
+    known = IOS_ORDER + ANDROID_ORDER + SWITCH_ORDER
     order = [n for n in known if n in names] + sorted(n for n in names if n not in known)
     log(f"  layering {', '.join(order)}")
     files = {}
@@ -318,7 +384,10 @@ def merge(sources, work, fingerprint):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         place(src, dst)
     for need in ("data.pdb", os.path.join("assets", "ships")):
-        if not os.path.exists(os.path.join(merged, need)): fail(f"the game files have no {need}: are these Galaxy on Fire 3's?")
+        if not os.path.exists(os.path.join(merged, need)):
+            hint = " (an unpacked iOS app's assets alone hold no game data: give the whole app, its .ipa, or another build's files with it)" \
+                if need == "data.pdb" and names == ["ios"] else ": are these Galaxy on Fire 3's?"
+            fail(f"the game files have no {need}{hint}")
     cache.mark(merged, fingerprint)
     return merged
 
@@ -407,7 +476,8 @@ def main():
         try: stream.reconfigure(errors="replace")
         except (AttributeError, ValueError): pass
     ap = argparse.ArgumentParser(description="Builds the gof3_ships mod for the Galaxy on Fire 2 Unity Remake from your own Galaxy on Fire 3 files.")
-    ap.add_argument("sources", nargs="+", help="the Switch romfs folder (.tin files), or the Android .obb files and APK (or their folder)")
+    ap.add_argument("sources", nargs="+", help="the Switch romfs folder (.tin files), the Android .obb files and APK (or their folder), "
+                                               "or the iOS .ipa (or its unpacked app); any of them on its own, or several layered")
     ap.add_argument("--out", default=os.path.join(HERE, MOD_ID), help="where the mod goes (default: gof3_ships next to this script)")
     ap.add_argument("--work", default=os.path.join(HERE, "work"), help="the work folder (default: work next to this script; "
                                                                      "needs about 15 GB for the Switch files, 8 GB for Android)")
@@ -442,7 +512,7 @@ def main():
     log("  " + ", ".join(f"{os.path.basename(p)} ({plat})" for _, p, plat in sources))
     log("  hashing source archives (SHA-256) ...")
     source_info = [{"name": n, "file": os.path.basename(p), "platform": plat,
-                    "bytes": os.path.getsize(p), "sha256": source_hash(p, verified)} for n, p, plat in sources]
+                    "bytes": source_size(p), "sha256": source_hash(p, verified)} for n, p, plat in sources]
     stages = {}
     extract_keys = {}
     for src in source_info:
@@ -452,7 +522,8 @@ def main():
         extract_keys[src["name"]] = recipe["fingerprint"]
     extract(sources, work, extract_keys)
     names = set(extract_keys)
-    order = [n for n in ANDROID_ORDER + SWITCH_ORDER if n in names] + sorted(names - set(ANDROID_ORDER + SWITCH_ORDER))
+    known = IOS_ORDER + ANDROID_ORDER + SWITCH_ORDER
+    order = [n for n in known if n in names] + sorted(names - set(known))
     stages["merge"] = cache.stage(HERE, [], [(n, extract_keys[n]) for n in order])
     merged = merge(sources, work, stages["merge"]["fingerprint"])
     assets = os.path.join(merged, "assets")
@@ -555,7 +626,9 @@ def main():
     stages["mod"] = cache.stage(HERE, [name for name in os.listdir(TOOLS) if name.endswith((".py", ".json", ".txt"))],
         [loadouts_key, converted, remake_inputs], dict(conversion_options, **options))
     with open(mod_log, encoding="utf-8", errors="replace") as f:
-        builder_notes = [line.strip() for line in f if any(word in line.lower() for word in ("skipped", "no sounds", "not found"))]
+        builder_notes = [line.strip() for line in f if any(word in line.lower() for word in ("skipped", "no sounds", "not found", "warning:"))]
+    for note in builder_notes:   # what the mod lacks (an engine effect falling back to the remake's exhaust, say) shows here, not only in the log
+        if note.lower().startswith("warning:"): log("  " + note)
     manifest = {"schema": 1, "built_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "importer": {"revision": cache.revision(HERE), "files": importer_code,
                              "sha256": cache.digest(importer_code)},

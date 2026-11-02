@@ -182,6 +182,16 @@ class Sounds:
         gain = round(min(SHOT_LEVEL / 0.7 / lv, 0.98 / max(peak, 1e-6)), 2)
         return [self.write(n, gain) for n in w]
 
+    def shot_files(self, pattern):
+        """An item's fx "shot" files from the waves matching 'pattern' (at the game's shot loudness, like item_shot)."""
+        if not self: return None
+        w = self.find(pattern)
+        if not w: return None
+        lv = float(np.mean([loudness(os.path.join(self.dir, n + ".wav")) for n in w]))
+        peak = max(float(np.abs(read_wav(os.path.join(self.dir, n + ".wav"))[0]).max()) for n in w)
+        gain = round(min(SHOT_LEVEL / 0.7 / lv, 0.98 / max(peak, 1e-6)), 2)
+        return [self.write(n, gain) for n in w]
+
     def launcher(self, kind):
         w = self.find(LAUNCHERS[kind])
         return {"shot": self.one(w, SHOT_LEVEL, pitch=[0.95, 1.05])} if w and self else None

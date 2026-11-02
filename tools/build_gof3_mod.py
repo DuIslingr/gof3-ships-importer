@@ -86,19 +86,21 @@ EXPLOSION_BASE = 1.5                       # GoF3's EffectScale of most fighters
 # Speeds: GoF3's cruising speed (Steering 6741857: scouts 190-200, fighters 175-180, gunships 150-185, the bosses 170) against
 # a fighter's 175, as ships.json "flight" "topSpeed" in % (both flight styles); the remake's ships all fly 2 u/ms otherwise.
 CRUISE_BASE = 175.0
-# The built-in booster: every GoF3 player ship carries its class's Device_Special_EngineBooster (the bosses none), whose
-# configuration boosts x3 (scout), x2.5 (fighter) or x2 (gunship) (DeviceConfigurationEngineBooster_* field 1475543). As
-# the mod's own booster items (items.json, built in through ships.json "integrated"): GoF2's boost speed int(2b / 100) + 2
-# u/ms gives those factors at b = 200 / 150 / 100 (the Me'al's, the Synchrotron's and between), free flight's boost the
-# same factor (freeBoostFactor). A booster the player fits takes the built-in one's place. Duration 2857 ms (the
-# configuration's 485920), recharge 12 s (a remake pick between GoF2's boosters: the configuration's 60 is seconds of a
-# special device's cooldown in GoF3's own flight). Look and sound: the Synchrotron's (73).
+# The built-in booster: every GoF3 player ship carries its class's Device_Special_EngineBooster (the bosses none). Its
+# DeviceConfigurationEngineBooster: maximumSpeedFactor (689299) 1.0 for nearly all of them, which the device's start
+# (libgofm.so 0x108932c) turns into (factor + 1) x the ship's top speed: x2 for every class (field 1475543, once taken for
+# the factor, is the camera shake: 3 / 2.5 / 2); energyCostPerSecond (485920) 2000 against the ship's Energy maxEnergy
+# (9924010; 9300 scout, 7000 fighter, 6000 gunship at the hulls' base tier), so a full boost lasts 4.65 / 3.5 / 3 s; its
+# duration (1866048) of 60 s never ends one first. As the mod's own booster items (items.json, built in through ships.json
+# "integrated"): GoF2's boost speed int(2b / 100) + 2 u/ms is x2 at b = 100, free flight's boost the same factor
+# (freeBoostFactor). A booster the player fits takes the built-in one's place. Recharge 12 s (a remake pick between GoF2's
+# boosters: GoF3 refills the energy over time). Look and sound: the Synchrotron's (73).
 BOOSTERS = {
-    "scout":   {"device": "Device_Special_EngineBooster_Scout", "boostSpeed": 200, "factor": 300},
-    "fighter": {"device": "Device_Special_EngineBooster_Fighter", "boostSpeed": 150, "factor": 250},
-    "gunship": {"device": "Device_Special_EngineBooster_Gunship", "boostSpeed": 100, "factor": 200},
+    "scout":   {"device": "Device_Special_EngineBooster_Scout", "boostSpeed": 100, "factor": 200, "durationMs": 4650},
+    "fighter": {"device": "Device_Special_EngineBooster_Fighter", "boostSpeed": 100, "factor": 200, "durationMs": 3500},
+    "gunship": {"device": "Device_Special_EngineBooster_Gunship", "boostSpeed": 100, "factor": 200, "durationMs": 3000},
 }
-BOOSTER_BASE, BOOSTER_DURATION, BOOSTER_RECHARGE = 73, 2857, 12000
+BOOSTER_BASE, BOOSTER_RECHARGE = 73, 12000
 # GoF3's Device_Revive_Cloak (24 of the 32 player ships): when the ship is destroyed it comes back cloaked for a moment
 # (DeviceConfigurationCloak: 4 and 10 s). GoF2's own Emergency System (185) is that: the hull's end turned into 10 s of
 # invulnerability, once a sortie (a built-in one used up is back at the next docking).
@@ -223,7 +225,7 @@ def booster_items():
              "description": f"Galaxy on Fire 3's engine booster, built into every {cls}: it briefly lifts the ship to "
                             f"{b['factor'] / 100:g} times its top speed.",
              "occurrence": 0,
-             "stats": {"boostSpeed": b["boostSpeed"], "boostDurationMs": BOOSTER_DURATION, "boostRechargeMs": BOOSTER_RECHARGE,
+             "stats": {"boostSpeed": b["boostSpeed"], "boostDurationMs": b["durationMs"], "boostRechargeMs": BOOSTER_RECHARGE,
                        "freeBoostFactor": b["factor"]}}
             for cls, b in BOOSTERS.items()]
 CONVERT = {
@@ -411,14 +413,52 @@ def turned(src, deg, dst):
     return dst
 
 
+SPEC_GLOSS = "KHR_materials_pbrSpecularGlossiness"
+
+
+def spec_gloss(j, binc, m, maxtex, newdata):
+    """A material's specular tint (Blender's KHR_materials_specular colour texture: GoF3's specular map, sRGB) and its
+    roughness (the metallic-roughness map's G) as one KHR_materials_pbrSpecularGlossiness map: RGB the specular colour,
+    A the glossiness (1 - roughness). The remake reads it into URP's specular setup (GoF3's coloured specular over the
+    diffuse); the metallic-roughness map goes. Returns the new texture index, or None."""
+    ks = m.get("extensions", {}).get("KHR_materials_specular", {})
+    pbr = m.get("pbrMetallicRoughness", {})
+    sct, mrt = ks.get("specularColorTexture"), pbr.get("metallicRoughnessTexture")
+    if not sct or not mrt: return None
+    def image(t):
+        im = j["images"][j["textures"][t["index"]]["source"]]
+        bv = j["bufferViews"][im["bufferView"]]; o = bv.get("byteOffset", 0)
+        return Image.open(io.BytesIO(binc[o:o + bv["byteLength"]]))
+    spec = image(sct).convert("RGB")
+    if max(spec.size) > maxtex: spec = spec.resize((max(1, spec.width * maxtex // max(spec.size)), max(1, spec.height * maxtex // max(spec.size))), Image.LANCZOS)
+    rough = np.asarray(image(mrt).convert("RGB").resize(spec.size, Image.BILINEAR))[:, :, 1]
+    f = ks.get("specularColorFactor", [1.0, 1.0, 1.0])
+    rgb = np.asarray(spec).astype(np.float32) * np.array([c ** (1 / 2.2) for c in f[:3]], np.float32)   # (the factor is linear)
+    a = np.dstack([np.clip(rgb + 0.5, 0, 255).astype(np.uint8), (255 - rough)[:, :, None]])
+    out = io.BytesIO(); Image.fromarray(a, "RGBA").save(out, "PNG", optimize=True)
+    j["bufferViews"].append({"buffer": 0, "byteOffset": 0, "byteLength": 0})
+    newdata[len(j["bufferViews"]) - 1] = out.getvalue()
+    j["images"].append({"bufferView": len(j["bufferViews"]) - 1, "mimeType": "image/png", "name": m.get("name", "") + "_specgloss"})
+    j["textures"].append({"source": len(j["images"]) - 1, "sampler": j["textures"][sct["index"]].get("sampler", 0)})
+    ext = {"specularGlossinessTexture": {"index": len(j["textures"]) - 1}, "specularFactor": [1.0, 1.0, 1.0], "glossinessFactor": 1.0}
+    if pbr.get("baseColorTexture"): ext["diffuseTexture"] = dict(pbr["baseColorTexture"])
+    if pbr.get("baseColorFactor"): ext["diffuseFactor"] = pbr["baseColorFactor"]
+    m.setdefault("extensions", {})[SPEC_GLOSS] = ext
+    pbr.pop("metallicRoughnessTexture", None)
+    return len(j["textures"]) - 1
+
+
 def slim_glb(src, dst, maxtex, edit=None):
-    """A converted .glb for the game: textures scaled to maxtex, the specular / iridescence maps and extensions left out (the
-    remake reads base colour, metallic-roughness, normal and emission only); 'edit(j)' may change the JSON (nodes) first."""
+    """A converted .glb for the game: textures scaled to maxtex, GoF3's specular as KHR_materials_pbrSpecularGlossiness
+    (spec_gloss), the iridescence maps and other extensions left out (the remake reads base colour, metallic-roughness or
+    specular-glossiness, normal and emission); 'edit(j)' may change the JSON (nodes) first."""
     j, b, n = read(src)
     binc = b[28 + n:28 + n + struct.unpack_from("<I", b, 20 + n)[0]]
     if edit: edit(j)
-    used = set()
+    used, newdata, made = set(), {}, set()
     for m in j.get("materials", []):
+        sg = spec_gloss(j, binc, m, maxtex, newdata)
+        if sg is not None: used.add(j["textures"][sg]["source"]); made.add(j["textures"][sg]["source"])
         m.get("extensions", {}).pop("KHR_materials_specular", None)
         m.get("extensions", {}).pop("KHR_materials_iridescence", None)
         if "extensions" in m and not m["extensions"]: m.pop("extensions")
@@ -430,8 +470,9 @@ def slim_glb(src, dst, maxtex, edit=None):
         if k in j:
             j[k] = [e for e in j[k] if e not in ("KHR_materials_specular", "KHR_materials_iridescence")]
             if not j[k]: j.pop(k)
-    newdata = {}
+    if made: j["extensionsUsed"] = sorted(set(j.get("extensionsUsed", [])) | {SPEC_GLOSS})
     for i, im in enumerate(j.get("images", [])):
+        if i in made: continue   # (made at its size)
         bv = j["bufferViews"][im["bufferView"]]; o = bv.get("byteOffset", 0)
         raw = binc[o:o + bv["byteLength"]]
         if i not in used:
@@ -1020,6 +1061,99 @@ def weapon_items(D, snd):
     return out
 
 
+# GoF3's secondaries (research 2026-11-02, data.pdb's SW_*_1 records, the mark 1s players earn; libgofm.so: damage =
+# ShootingProjectile.damageOnCollision x the arming factor, attachDamage 0x1544e58; lifetime = Shooting.range / speed,
+# attachLifetime 0x1544c34): (record, rocket scene, GoF2 base, damage per missile, missiles, speed m/s, range m, launch
+# waves, tech level, occurrence, price, extra stats). On the guns' conventions: speed / 75 game units per ms, the
+# lifetime that reaches the range, damage x SECONDARY_DAMAGE (GoF3's KETAR I-JET at GoF2's Edo, 70). GoF3 fires them
+# once a second (fireRate 1). Its "auto" missiles find their own target in flight (400 m, +-45 deg); the remake's home
+# on the lock. The Slowdeath's slow (-50 % speed for 6 s) is an EMP hit here, the Hunter-XT goes through shields in
+# GoF3 (AbilityBypassShield), which the remake can't. Their launchers have no model of their own (the hardpoint is
+# a muzzle).
+SECONDARY_DAMAGE = 0.2
+SECONDARIES = {
+    "crrocket": ("SW_CR_Rocket_1", "crrocket", 36, 174.5, 3, 500, 1000, r"^MC_sfx_weapon_cr_rocket_\d+$", 2, 70, 42, {}),
+    "crhoming": ("SW_CR_Homing_1", "crhoming", 36, 343.4, 1, 750, 1300, r"^MC_sfx_weapon_cr_homing_\d+$", 3, 60, 92, {}),
+    "lrturretschreck": ("SW_LR_Turretschreck_1", "lrturretschreck", 36, 303.9, 2, 500, 1250, r"^MC_sfx_weapon_lr_turretschreck_\d+$", 4, 40, 185, {}),
+    "mrcluster": ("SW_MR_Cluster_1", "mrcluster", 214, 129.4, 6, 500, 1000, r"^MC_sfx_weapon_cr_rocket_\d+$", 5, 30, 310, {}),
+    "mrslowdown": ("SW_MR_Slowdown_1", "mrslowdown", 36, 991.6, 1, 800, 1300, r"^MC_sfx_weapon_cr_homing_\d+$", 6, 20, 360, {"empDamage": 60}),
+    "lrhuntdown": ("SW_LR_HuntDown_1", "lrhuntdown", 36, 1491.0, 1, 800, 2000, r"^MC_sfx_weapon_lr_huntdown_\d+$", 8, 15, 620, {}),
+    "redtail": ("SW_CR_Rocket_redTail_1", "redtail", 36, 106.9, 3, 500, 1000, r"^MC_sfx_weapon_cr_rocket_\d+$", 3, 30, 60, {}),
+}
+SECONDARY_ICONS = {"crrocket": "SW_CR_Rocket_MK1", "crhoming": "SW_CR_Homing_MK1", "lrturretschreck": "SW_LR_Turretschreck_MK1",
+                   "mrcluster": "SW_MR_Cluster_MK1", "mrslowdown": "SW_MR_Slowdown_MK1", "lrhuntdown": "SW_LR_HuntDown_MK1",
+                   "redtail": "SW_CR_Rocket_MK1"}
+
+
+def secondary_model(key):
+    """The rocket as a projectile model: the converted scene's body alone (its exhaust and glow are GoF3's additive
+    effect planes, drawn lit and solid by the remake; it trails its own smoke), turned nose forward in the item's fx;
+    returns (path in the mod, its largest extent in game units) or None."""
+    src = os.path.join(GUNS, f"weapon_rocket_{key}", f"weapon_rocket_{key}.glb")
+    if not os.path.exists(src): return None
+    rel = f"guns/weapon_rocket_{key}.glb"
+    ext = [0.0]
+    def edit(j):
+        keep = [i for i, nd in enumerate(j["nodes"]) if nd.get("name", "").endswith("_body")]
+        root = j["scenes"][j.get("scene", 0)]["nodes"][0]
+        j["nodes"][root]["children"] = keep
+        for i in keep:
+            a = j["accessors"][j["meshes"][j["nodes"][i]["mesh"]]["primitives"][0]["attributes"]["POSITION"]]
+            ext[0] = max(ext[0], max(hi - lo for lo, hi in zip(a["min"], a["max"])))
+    slim_glb(src, os.path.join(OUT, rel), 512, edit)
+    return rel, round(ext[0] * K)
+
+
+def secondary_icon(key):
+    """GoF3's own icon art (swf/SW_*_MK1.png) on GoF2's item plate (the remake's item_036, the Edo Missile's): 180 x 88."""
+    art = os.path.join(MERGED, "swf", SECONDARY_ICONS[key] + ".png")
+    plate = os.path.join(REMAKE, "Assets", "Resources", "GoF2Icons", "item_036.png")
+    if not os.path.exists(art) or not os.path.exists(plate): return None
+    base = Image.open(plate).convert("RGBA")
+    im = Image.open(art).convert("RGBA")
+    box = im.getbbox() or (0, 0, im.width, im.height)
+    im = im.crop(box)
+    s = min(150 / im.width, 72 / im.height)
+    im = im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))), Image.LANCZOS)
+    # the plate's own item art cleared to its background first: the middle filled with its corner colour
+    px = np.asarray(base).copy(); bg = px[44, 8].copy()
+    px[8:80, 12:168] = bg
+    base = Image.fromarray(px)
+    base.alpha_composite(im, ((180 - im.width) // 2, (88 - im.height) // 2))
+    rel = f"icons/{key}.png"
+    os.makedirs(os.path.join(OUT, "icons"), exist_ok=True)
+    base.save(os.path.join(OUT, rel))
+    return rel
+
+
+def secondary_items(D, snd):
+    """items.json: GoF3's player secondaries (SECONDARIES)."""
+    out = []
+    for key, (rec, scene, base, dmg, n, speed, rng, waves, tl, occ, price, extra) in SECONDARIES.items():
+        if rec not in D.R.p.byname: continue
+        rid = D.R.p.byname[rec][0]
+        u = round(speed / 75.0)
+        stats = {"damage": int(round(dmg * SECONDARY_DAMAGE)), "projectileSpeed": u,
+                 "range": int(round(rng / (u * 0.05) / 50.0)) * 50, "loadingTimeMs": 1000}
+        if n > 1: stats["salvoShots"] = n
+        stats.update(extra)
+        fx = {}
+        m = secondary_model(scene)
+        if m: fx["projectile"] = {"model": m[0], "size": m[1], "rotate": [0, 180, 0]}
+        if key == "redtail": fx["trail"] = {"color": [1.0, 0.25, 0.15], "width": 100, "length": 3000}
+        shot = snd.shot_files(waves) if snd else None
+        if shot: fx["shot"] = shot
+        item = {"id": f"gof3_{key}", "base": base, "name": weapon_name(D.gui_text(rid, 4067579) or rec), "techLevel": tl,
+                "occurrence": occ, "price": [price, int(price * 1.05)], "stats": stats}
+        if fx: item["fx"] = fx
+        icon = secondary_icon(key)
+        if icon: item["icon"] = icon
+        desc = D.gui_text(rid, 9934023)
+        if desc: item["description"] = re.sub(r"\s+", " ", desc).strip()
+        out.append(item)
+    return out
+
+
 def weapon_rules():
     # GoF3's own guns first (the rules below match items based on theirs too)
     rules = [{"slot": "primary", "model": gun_file(f, mk), "items": [f"{MOD_ID}:{weapon_id(f, mk)}"]}
@@ -1077,6 +1211,8 @@ class SkinWriter:
             scaled(img.convert("RGB"), MAXTEX).save(dst, "JPEG", quality=90, optimize=True)
         elif kind == "alpha":        # glass / decals: their alpha matters
             scaled(img.convert("RGBA"), MAXTEX).save(dst, "PNG", optimize=True)
+        elif kind == "specgloss":    # a scheme's specular-glossiness (RGBA): half the size, as the structures' (it's 4x a JPG)
+            scaled(img.convert("RGBA"), max(256, MAXTEX // 2)).save(dst, "PNG", optimize=True)
         elif kind == "ms":           # glTF roughness (G) -> URP Lit metallic / smoothness (R 0, A 1 - roughness); metallicFactor 0
             g = np.asarray(scaled(img.convert("RGB"), MAXTEX), dtype=np.uint8)[:, :, 1]
             a = np.zeros(g.shape + (4,), dtype=np.uint8); a[:, :, 3] = 255 - g
@@ -1139,7 +1275,17 @@ def skins_of(base, man, sw, engine_colour):
         body = {"material": f"{base}_body", "diffuse": sw.write(f["basecolor"], "color", f"{d}/{s}_basecolor")}
         if os.path.exists(f["emissive"]) and file_hash(f["emissive"]) != file_hash(plain["emissive"]):
             body["emission"] = sw.write(f["emissive"], "color", f"{d}/{s}_emissive")
-        if os.path.exists(f["roughness"]) and file_hash(f["roughness"]) != file_hash(plain["roughness"]):
+        sp = os.path.join(tex, f"{base}_specular_{s}.png")
+        if os.path.exists(sp) and os.path.exists(f["roughness"]):
+            # a scheme with its own specular look (gold: tint (1, 0.82, 0.29) x 5): its specular colour and gloss, as the
+            # hull's KHR_materials_pbrSpecularGlossiness map is (spec_gloss)
+            spec = Image.open(sp).convert("RGB")
+            rough = np.asarray(Image.open(f["roughness"]).convert("L").resize(spec.size, Image.BILINEAR))
+            tmp = os.path.join(OUT, d, f"{s}_specgloss_src.png")
+            Image.fromarray(np.dstack([np.asarray(spec), 255 - rough]), "RGBA").save(tmp)
+            body["specularGlossiness"] = sw.write(tmp, "specgloss", f"{d}/{s}_specgloss")
+            os.remove(tmp)
+        elif os.path.exists(f["roughness"]) and file_hash(f["roughness"]) != file_hash(plain["roughness"]):
             body["metallicSmoothness"] = sw.write(f["roughness"], "ms", f"{d}/{s}_metallic")
         mats = [body]
         if os.path.exists(f["glass"]) and file_hash(f["glass"]) != file_hash(plain["glass"]):
@@ -1520,7 +1666,7 @@ def main():
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump(info, open(os.path.join(OUT, "source.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
-    json.dump(booster_items() + weapon_items(D, snd), open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    json.dump(booster_items() + weapon_items(D, snd) + secondary_items(D, snd), open(os.path.join(OUT, "items.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     json.dump({

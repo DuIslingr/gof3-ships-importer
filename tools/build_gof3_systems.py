@@ -19,7 +19,9 @@ What comes from where (gof3_galaxy for the data):
   GoF3's stations are far bigger next to its ships than GoF2's), not dockable (GoF3 docks at none: its missions start
   from the galaxy map, and "docking" there only ever means the Manticore), a tech level by the sector's place in GoF3's
   progression.
-Each station's model shares its race's baked station atlas (textures/gof3/<key>_colour.jpg) through its "materials"."""
+Each station's model shares its race's baked atlases (textures/gof3/<key>_colour.jpg, _emission, _specgloss, _normal:
+scene_glb) through its "materials"; looping animations (a gate's rings, a station's moving parts) go into its glb. Last,
+gof3_look puts each level's own lights, fog, sky and sun in."""
 import argparse, collections, hashlib, json, math, os, re, shutil, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
@@ -92,6 +94,20 @@ def sun_png(entity, assets, out):
     rgb = im[..., :3] * im[..., 3:4] * np.array(tint, np.float32)
     Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8)).resize((512, 512), Image.BICUBIC).save(out)
     return [round(float(v), 3) for v in tint]
+
+
+def sky_materials(shape, assets):
+    """A sky scene's materials, the one named like the scene first: the scene names its models and they their materials
+    by resource id (Icicles' skybox_trim_000_B draws skybox_trim_000b; Orpheus' stars mesh skybox_rigant_003_stars)."""
+    import engine_meshes
+    scene = f"{assets}{shape[len('/assets'):]}"
+    named = f"{assets}/skyboxes/materials/{os.path.basename(shape).replace('.ae4scene', '.ae4material')}"
+    out = [named] if os.path.exists(named) else []
+    if os.path.exists(scene):
+        for m in engine_meshes._refs(scene, assets):
+            if not m.endswith(".ae4model"): continue
+            out += [f for f in engine_meshes._refs(m, assets) if f.endswith(".ae4material") and "/skyboxes/" in f and f not in out]
+    return out
 
 
 def main():
@@ -183,9 +199,8 @@ def main():
         for lv, _ in levels:
             sky = next((e for e in lv["entities"] if "/skyboxes/" in e["shape"]), None)
             if not sky: continue
-            mat = f"{assets}/skyboxes/materials/{os.path.basename(sky['shape']).replace('.ae4scene', '.ae4material')}"
             png = f"sky/{sid}.png"
-            if os.path.exists(mat) and sky_strip.convert(mat, f"{out}/{png}", assets):
+            if any(sky_strip.convert(m, f"{out}/{png}", assets) for m in sky_materials(sky["shape"], assets)):
                 sys_entry["skybox"] = {"nebula": png, "stars": 1, "nebulaBrightness": 1.0}
             suns = [e for e in lv["entities"] if "/suns/" in e["shape"]]
             if suns:
@@ -234,6 +249,27 @@ def main():
         c = gate_races.get(e["id"])
         r = c.most_common(1)[0][0] if c else {0: "terran", 1: "vossk", 2: "nivelian"}.get(e["race"], "terran")
         if r in gate_models: e["jumpgate"] = dict(gate_models[r])
+    # GoF3's hub traffic (gof3_world): its ships' props baked like the stations, as ships.json hulls the npcships fly
+    import gof3_world
+    world = gof3_world.World(a.pdb)
+    hulls = []
+    for hid, name, race, folder in gof3_world.traffic_hulls(world, assets):
+        scene = gof3_world.scene_of(folder)
+        if not scene: continue
+        info, glb = conv("/assets" + scene[len(assets):], f"{tmp}/traffic_{hid}.glb")
+        if not info: continue
+        os.makedirs(f"{out}/models/traffic", exist_ok=True)
+        shutil.copyfile(glb, f"{out}/models/traffic/{hid}.glb")
+        for key, g in info["groups"].items():
+            gg = groups.setdefault(key, {k: v for k, v in g.items() if k != "models"} | {"models": set()})
+            gg["models"] |= set(g["models"])
+        size = np.array(info["max"]) - np.array(info["min"])
+        hulls.append({"id": f"{hid}_hull", "name": name, "race": gof3_world.RACE_ID[race], "armor": 600, "cargo": 200,
+                      "handling": 60, "price": 0, "slots": {"primary": 0, "secondary": 0, "turret": 0, "equipment": 0},
+                      "model": f"models/traffic/{hid}.glb", "modelLength": int(round(float(size[2]) * K)), "modelYaw": 180,
+                      # (the game's own freighter rotation never picks them: only their npcships.json groups fly them)
+                      "traffic": {"capital": "freighter", "weight": 0},
+                      "materials": [{"material": f"gof3[{k}]"} for k in sorted(info["groups"])]})
     # the baked atlases, then every material entry pointed at its textures
     tex = {}
     for key, g in sorted(groups.items()):
@@ -244,20 +280,39 @@ def main():
         for m in mats:
             key = m["material"][5:-1]
             t = tex.get(key, {})
+            kind = groups[key]["kind"]
             m["diffuse"] = f"textures/gof3/{t['diffuse']}" if t.get("diffuse") else None
             if t.get("emission"): m["emission"] = f"textures/gof3/{t['emission']}"; m["emissionColor"] = [1, 1, 1]
-            m["smoothness"] = 0.35 if groups[key]["kind"] == "bake" else 0.1
-            m["metallic"] = 0.0
+            if kind == "bake":
+                # GoF3's specular colour and gloss (RGB / A) and its normal map, baked like the colour
+                m["specularGlossiness"] = f"textures/gof3/{t['specularGlossiness']}"
+                m["normal"] = f"textures/gof3/{t['normal']}"
+                m["smoothness"] = 1.0
+            elif kind == "own":
+                v = t["values"]
+                m["specularColor"] = v["specular"]; m["smoothness"] = v["smoothness"]
+                if v["alpha"] == "MASK": m["alphaClip"] = v["cutoff"]
+                else: m["opacity"] = min(v["opacity"], 0.999)   # blended by the texture's alpha (glass, decals)
+                if v["doubleSided"]: m["doubleSided"] = True
+            else:
+                m["smoothness"] = 0.1; m["metallic"] = 0.0
             for k in [k for k, v in m.items() if v is None]: del m[k]
     for st in stations: fill(st.get("materials", []))
     for _, e in systems:
         if "jumpgate" in e: fill(e["jumpgate"]["materials"])
+    for h in hulls: fill(h["materials"])
+    if hulls: json.dump(hulls, open(f"{out}/ships.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump([e for _, e in systems], open(f"{out}/systems.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(stations, open(f"{out}/stations.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     man = {"id": MOD_ID, "name": "Galaxy on Fire 3 Systems", "version": "1.0.0", "author": "gof3_ships_importer",
            "description": "Galaxy on Fire 3's sectors as star systems: Trim, Porros and Rigant with GoF3's own stations, "
-                          "jumpgates and skies, docked into GoF2's hangars by race."}
+                          "jumpgates, skies and suns; as in GoF3, none of them docks (the Manticore of the GoF3 Ships mod does)."}
     json.dump(man, open(f"{out}/mod.json", "w", encoding="utf-8"), indent=1)
+    # GoF3's own lights, fog, skies (their colours, stars and fog) and suns per level (gof3_look)
+    import gof3_look
+    gof3_look.apply(out, a.pdb, assets)
+    # each orbit's asteroid field and planet, the hubs' traffic, the clusters' music (gof3_world)
+    gof3_world.apply(out, a.pdb, assets, world=world)
     shutil.rmtree(tmp, ignore_errors=True)
     print(len(systems), "systems,", len(stations), "stations,", len(groups), "atlases")
 

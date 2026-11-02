@@ -21,6 +21,12 @@ It runs on **Windows, macOS and Linux**.
   - **Switch**: the romfs dumped from your own console, the folder with `game.tin`, `gfx.tin`, `patch.tin`,
     `patch_1_0_1.tin`, `patch_1_0_2.tin`. On its own it lacks the materials of three hulls (Terran 021 and 022, Vossk 121)
     and the gold guns, which the mod is then built without.
+  - **iOS**: the `.ipa`, or the app unpacked (the folder holding its `assets` tree, whose materials keep their shaders in
+    `<material>.ae4material_` folders). Its game data must come with it (the app's `data.pdb` / `game.jet`): an unpacked
+    `assets` tree alone holds none, and the importer says so; give another build's files with it then.
+  - Each build works on its own: they hold the same models and textures and differ in how they store the materials'
+    shaders (one shared `shaders/` folder on Android and Switch, a folder per material on iOS), which the importer reads
+    either way (`tools/ae4_shaders.py`). The engine effects come out the same from each.
   - **Both**: give the importer the two together and it layers them, the Switch files over the Android ones (the Switch
     version's textures and game data where both have a file, the Android files filling in what the Switch romfs lacks).
   The game versions differ a little: the Android version (2.1.3) has newer game data, with some hulls' hull and shield
@@ -168,6 +174,15 @@ python tools/build_gof3_systems.py --pdb <Android data.pdb> --assets <merged GoF
 - None of the stations can be docked at, as in GoF3: its missions start from the galaxy map and "docking" only ever
   means the Manticore, which roams these systems too (the GoF3 ships mod).
 - Kaamo's MKKT BKKT Club sector is left out (GoF2 has its own Kaamo Club).
+- The stations, gates and capital ships are drawn with GoF3's own materials: every part of a model names its material
+  (platings, windows, pipes, solar panels...), baked with its textures into the model's light-map space, with GoF3's
+  specular colour and gloss and its normal maps (the remake's specular workflow); antennas, glass and decals keep their
+  own tiled textures. GoF3 gives these no cubemap reflection (only its glass and solar panels have one, which raises their
+  specular here).
+- What moves in GoF3 moves here: the Terran gates' rotator, the Vossk gates' two rings, the stations' turning and sliding
+  parts (their looping clips; the cutscenes, damage and docking clips are left out).
+- Each level's own look: its main light (the sun's direction and colour), its fog, its sky with GoF3's colours, stars and
+  fog, and its sun (`tools/gof3_look.py`, which also runs on its own over a built mod).
 
 ## When something goes wrong
 

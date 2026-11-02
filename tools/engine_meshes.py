@@ -6,7 +6,8 @@ What the game does (libgofm.so and its shaders):
 - a scene names its models, a model its meshgroup and material, a material its textures, all by resource id:
   ae::resource::getResourceId (0x15fdad8) = MurmurHash3_x86_128 of "/assets/<path>" with seed 1, the two 64-bit halves
   xor-ed (ae4_ids);
-- a material is drawn by one of the shader variants in its "<material>.ae4material_" folder, compiled for exactly the
+- a material is drawn by one of its shader variants (ae4_shaders: the iOS build's "<material>.ae4material_" folder, or
+  the Android / Switch build's shaders/ folder by the ids the material names), each compiled for exactly the
   options it uses (the ones the material's flags name but the variant leaves out don't count: the Vossk exhaust's
   DiffuseColor, the Terran exhaust's Colorize); the GLSL (GLES2) variant in romfs shaders/ is read here for what it does:
   sprite (a_pos2dOffset: camera-facing, sized by the object's scale), the diffuse texture or the DiffuseColor alone,
@@ -36,14 +37,13 @@ def _refs(path, assets):
     return out
 
 
-def _variant(material, merged):
-    """The material's GLSL (GLES2) shader variant's text, None when the game has none."""
-    folder = material + "_"
-    if not os.path.isdir(folder): return None
-    for f in sorted(os.listdir(folder)):
-        src = os.path.join(merged, "shaders", f)
-        if not os.path.exists(src): continue
-        t = open(src, "rb").read().decode("latin-1")
+def _variant(material, merged, assets=None):
+    """The material's GLSL (GLES2) shader variant's text, None when the game has none (ae4_shaders: from the iOS build's
+    folder beside the material or the Android / Switch build's shaders/ folder, whichever the source has)."""
+    import ae4_shaders
+    flat = os.path.join(merged, "shaders") if merged else None
+    for src in ae4_shaders.variants(material, assets or os.path.join(merged, "assets"), flat):
+        t = ae4_shaders.text(src)
         if "attribute vec3 a_position" in t and "#ifdef FRAGMENT" in t: return t
     return None
 
@@ -181,7 +181,7 @@ def build(out_dir, assets, merged, scene_rel, name, tex_cache=None, root_filter=
     def root(k):
         while nodes[k]["parent"] in nodes: k = nodes[k]["parent"]
         return nodes[k]["name"]
-    parts = []
+    parts, no_shader = [], []
     for k, n in sorted(nodes.items()):
         model = models.get(n["name"])
         if model is None: continue
@@ -191,8 +191,8 @@ def build(out_dir, assets, merged, scene_rel, name, tex_cache=None, root_filter=
         mat = next((f for f in refs if f.endswith(".ae4material")), None)
         if mesh is None or mat is None: continue
         v, _ = ae4_material.read(mat)
-        glsl = _variant(mat, merged)
-        if glsl is None: continue
+        glsl = _variant(mat, merged, assets)
+        if glsl is None: no_shader.append(os.path.basename(mat)); continue
         feat = _features(glsl, v)
         tex = {s: ae4_ids.resolve(assets, i) for s, i in ae4_material.texture_ids(mat).items()}
         part = {"name": n["name"]}
@@ -216,7 +216,11 @@ def build(out_dir, assets, merged, scene_rel, name, tex_cache=None, root_filter=
         part["intensity"] = INTENSITY.get((name, n["name"].rsplit("_", 1)[-1]), DEFAULT_INTENSITY)
         if n["name"] in anims: part["anims"] = anims[n["name"]]
         parts.append(part)
-    if not parts: return None
+    if no_shader:   # loud: the ships then wear the remake's default exhaust instead of GoF3's
+        print(f"WARNING: engine effect {name}: no shader variant found for {', '.join(sorted(set(no_shader)))}", flush=True)
+    if not parts:
+        print(f"WARNING: engine effect {name} left out: none of its parts could be drawn", flush=True)
+        return None
     rel = f"fx/engines/{name}.json"
     os.makedirs(os.path.join(out_dir, "fx", "engines"), exist_ok=True)
     with open(os.path.join(out_dir, rel), "w") as fh:

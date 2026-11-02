@@ -74,7 +74,8 @@ def emission(mat, diffuse, e, glass=False):
     return e * (lum + (4.0 if glass else 2.0) * c * (1.0 - lum)) * lum
 
 base = colorize(body, T4)
-save(base, f"{name}_basecolor.png")
+E = T1[..., 3:4]   # the emissive mask: GoF3 draws lit x (1 - e) + glow, so the lit base fades out under the glow
+save(base * (1 - E), f"{name}_basecolor.png")
 save(emission(body, base, T1[..., 3:4]), f"{name}_emissive.png")
 if body.get("Emissive_EmissiveColorOverwrite"):
     print("emissive colour override", np.round(body["Emissive_Color"][:3], 2))
@@ -117,9 +118,12 @@ if body.get("Iridescence_TextureSlot", 0) > 0:   # T5: RGB spectrum looked up by
     save(I[..., :3], f"{name}_iridescence_gradient.png")
     print("iridescence textures")
 save(roughness_map(body), f"{name}_roughness.png", "L")
-xy = T3[..., :2] * 2 - 1
-z = np.sqrt(np.clip(1 - (xy ** 2).sum(-1), 0, 1))
-save(np.dstack([T3[..., 0], T3[..., 1], z * 0.5 + 0.5]), f"{name}_normal.png")
+def clear_z(t):
+    """GoF3's Normal_ClearZ: normalize(rg * 2 - 1, 1), as an RGB normal map (a z rebuilt as sqrt(1 - x² - y²) tilted the
+    normals further: 44 deg at the 99th percentile against GoF3's 35)."""
+    n = np.dstack([t[..., 0] * 2 - 1, t[..., 1] * 2 - 1, np.ones(t.shape[:2], np.float32)])
+    return n / np.linalg.norm(n, axis=-1, keepdims=True) * 0.5 + 0.5
+save(clear_z(T3), f"{name}_normal.png")
 def glass_texture(path, quiet=False):
     """The canopy: (lit) diffuse x Diffuse_Color, with the override emission over it where the glass shader has one;
     opacity = the diffuse alpha (or the glass's own textures, terran/031)."""
@@ -152,7 +156,7 @@ for mp in SCHEMES:
     mask = tex(cm, SIZE) if os.path.exists(cm) else T4
     vmat = {**body, **ae4_material.read(mp)[0]}   # what a scheme leaves out is the body's (201 scheme 002: no Gloss_Multiplier)
     vbase = colorize(vmat, mask)
-    save(vbase, f"{name}_basecolor_{var}.png")
+    save(vbase * (1 - E), f"{name}_basecolor_{var}.png")
     save(emission(vmat, vbase, T1[..., 3:4]), f"{name}_emissive_{var}.png")   # a scheme may recolour the glow
     own_spec = scheme_specular(vmat, mask, var)
     gv = f"{os.path.dirname(mp)}/{owner}_matid02_glass_{var}.ae4material"   # the scheme's own canopy (dragon: orange)
@@ -176,7 +180,7 @@ for sk in (R or {}).get("data_skins", []):
         vmat.update({k: (tuple(v) + (1.0,) if isinstance(v, list) else v) for k, v in sk["specular"].items()})
     mask = tex(sk["mask"], SIZE) if sk.get("mask") else T4   # no mask slot (the Gold tiers): the ship's own
     vbase = colorize(vmat, mask)
-    save(vbase, f"{name}_basecolor_{sk['scheme']}.png")
+    save(vbase * (1 - E), f"{name}_basecolor_{sk['scheme']}.png")
     save(emission(vmat, vbase, T1[..., 3:4]), f"{name}_emissive_{sk['scheme']}.png")
     own_spec = scheme_specular(vmat, mask, sk["scheme"])
     print("data.pdb skin", sk["scheme"], "preset", sk.get("preset") or sk.get("preset_record"), np.round(sk["color1"], 3), "/", np.round(sk["color2"], 3),
@@ -189,8 +193,7 @@ if os.path.exists(f"{src}/{name}_decals.tga.ae4texture"):   # the ship's own dec
 # weapon mount: T1 normal_diffuse = RG normal, B diffuse / specular
 M = tex(f"{assets}/weapons/generic/mounts/000/weapon_generic_mount_000_normal_diffuse.tga.ae4texture")
 save(np.repeat(M[..., 2:3], 3, -1), "weapon_generic_mount_000_basecolor.png")
-mxy = M[..., :2] * 2 - 1
-save(np.dstack([M[..., 0], M[..., 1], np.sqrt(np.clip(1 - (mxy ** 2).sum(-1), 0, 1)) * 0.5 + 0.5]), "weapon_generic_mount_000_normal.png")
+save(clear_z(M), "weapon_generic_mount_000_normal.png")
 # mount contact shadow: black, alpha = tex.a * luminance (texture referenced by GUID only: vfx_generic_glow_000 stands in)
 G = tex(f"{assets}/vfx/generic/vfx_generic_glow_000.tga.ae4texture")
 a = G[..., 3] * (G[..., :3] @ np.array([0.3, 0.59, 0.11], np.float32))
