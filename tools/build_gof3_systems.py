@@ -125,10 +125,10 @@ def main():
     print(len(sectors), "sectors")
     groups = {}                       # bake group key -> {kind, light, plating, models}
     converted = {}                    # scene -> convert info (cached)
-    def conv(shape, glb):
+    def conv(shape, glb, effects=False):
         if shape in converted: return converted[shape]
         path = f"{assets}{shape[len('/assets'):]}"
-        info = scene_glb.convert(path, glb, assets) if os.path.exists(path) else None
+        info = scene_glb.convert(path, glb, assets, effects=effects) if os.path.exists(path) else None
         converted[shape] = (info, glb)
         return converted[shape]
     systems, stations = [], []
@@ -237,7 +237,7 @@ def main():
     for r in ("terran", "vossk", "nivelian"):
         shape = gate_races.get("_shape_" + r)
         if not shape: continue
-        info, glb = conv(shape, f"{tmp}/gate_{r}.glb")
+        info, glb = conv(shape, f"{tmp}/gate_{r}.glb", effects=True)   # with the gate's glows and electricity
         if not info: continue
         shutil.copyfile(glb, f"{out}/models/gates/{r}.glb")
         for key, g in info["groups"].items():
@@ -288,6 +288,13 @@ def main():
                 m["specularGlossiness"] = f"textures/gof3/{t['specularGlossiness']}"
                 m["normal"] = f"textures/gof3/{t['normal']}"
                 m["smoothness"] = 1.0
+            elif kind == "fx":
+                # a gate's glow / electricity: drawn additive by the remake (GoF2/ModGlow)
+                v = t["values"]
+                m["additive"] = True
+                m["emissionColor"] = v["color"]; m["emissionIntensity"] = v["intensity"]
+                if "scroll" in v: m["scroll"] = v["scroll"]
+                if not v["vertexColors"]: m["ignoreVertexColors"] = True
             elif kind == "own":
                 v = t["values"]
                 m["specularColor"] = v["specular"]; m["smoothness"] = v["smoothness"]

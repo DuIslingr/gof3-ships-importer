@@ -12,7 +12,10 @@ specular-glossiness and normal maps in its UV1 space, shared by every station th
 alpha-tested or blended (antennas, glass, decals) keep a material of their own on their tiled texture (own_<material>).
 The .glb's materials carry only a name (gof3[<key>]) and stations.json's "materials" point them at the texture files.
 Asteroids keep their family's tiled diffuse texture on UV0 (gof3_rock_<key>). Effects (glows, sprites, beams, steam,
-lights), collision and lower LODs are left out.
+lights), collision and lower LODs are left out; with effects=True (the jumpgates) the gate's own effect layers come in
+(_add, _glow, _glows, _electricity: GoF3's BlendMode 2 materials), each a gof3[fx_<material>] material that stations.json
+draws additive (its texture x DiffuseColor x Opacity x the vertex colours, scrolling by UVAnim). The sky window (a fixed
+cubemap seen through the gate) is still left out.
 
 scene_glb.convert(scene_path, out_glb, assets) -> {"min", "max", "groups": {key: {...}}, "nodes", "parts", "triangles"}
 (glTF space: Y up, 1 unit = 1 GoF3 unit). bake_group(key, info, models, out_dir) writes the group's textures."""
@@ -24,6 +27,7 @@ import structure_materials as sm
 
 _INDEX = {}
 PLATING_GAIN = 2.6           # the baked colour x this (GoF3's platings are dark: its shader brightens them)
+FX = re.compile(r"_(add|glows?(_\d+)?|electricity)$")   # a gate's effect layers (convert's effects=True)
 SKIP = re.compile(r"(?i)collision|_lod_0*[1-9]\d*_|glow|sprite|beam|streak|steam|_fx|lights?_|flare|holo|spotlight|_shadow|decal")
 
 
@@ -49,6 +53,35 @@ def meshgroup(name, assets):
     for stem, p in idx.items():
         if stem.startswith(base + "___"): return p
     return None
+
+
+def fx_meshgroup(name, assets):
+    """The effect layer meshgroup a node instances (a gate's ..._add / _glow / _glow_000 / _glows_000 / _electricity), or None."""
+    idx = index(assets)
+    for base in (name, re.sub(r"\d{3}$", "", name)):
+        if FX.search(base) and base in idx: return idx[base]
+    return None
+
+
+def fx_split(mg, assets):
+    """An effect meshgroup's sections by their additive material: {key: (Material, [section])}."""
+    out = {}
+    for s, m in zip(_sections(mg), sm.section_materials(mg, assets)):
+        if m is None or not m.effect or "a_texCoord0" not in s: continue
+        out.setdefault("fx_" + m.name.replace("structure_", ""), (m, []))[1].append(s)
+    return out
+
+
+def _fx_prim(secs, material):
+    P = np.concatenate([np.asarray(s["a_position"], np.float32) for s in secs])
+    T = np.concatenate([np.asarray(s["a_texCoord0"], np.float32) for s in secs])
+    C = np.concatenate([np.asarray(s["a_vtxColor"], np.float32)[:, :4] if "a_vtxColor" in s and np.asarray(s["a_vtxColor"]).ndim == 2
+                        else np.ones((s["count"], 4), np.float32) for s in secs])
+    I, base = [], 0
+    for s in secs:
+        I.append(np.asarray(s["indices"], np.int64) + base); base += s["count"]
+    N = np.tile(np.array([[0, 1, 0]], np.float32), (len(P), 1))   # (unlit: the layer has none)
+    return {"positions": P, "normals": N, "uvs": T, "colors": C, "indices": np.concatenate(I), "material": material}
 
 
 def group(path, assets):
@@ -169,13 +202,18 @@ def _trs(M):
     return M[:3, 3].copy(), q, S
 
 
-def convert(scene_path, out_glb, assets, skip=None):
+def convert(scene_path, out_glb, assets, skip=None, effects=False):
     scene = ae4_scene.read(scene_path)
     W = structures.world_matrices(scene)
     parts, groups, inst = {}, {}, []
     for i, n in scene.items():
         if skip and skip(n["name"]): continue
         mg = meshgroup(n["name"], assets)
+        if mg is None and effects and (mg := fx_meshgroup(n["name"], assets)) is not None and mg not in parts:
+            fx = fx_split(mg, assets)
+            for k, (mat, _) in fx.items():
+                groups.setdefault(k, {"kind": "fx", "material": mat.path, "models": set()})["models"].add(mg)
+            parts[mg] = (None, {"kind": "fx"}, [], fx) if fx else None
         if mg is None: continue
         if mg not in parts:
             g = group(mg, assets)
@@ -197,11 +235,13 @@ def convert(scene_path, out_glb, assets, skip=None):
     for mg in order:
         key, info, baked, own = parts[mg]
         prims = []
-        if baked:
+        if info["kind"] == "fx":
+            prims += [_fx_prim(own[k][1], mat_of[k]) for k in sorted(own)]
+        elif baked:
             uvk = "a_texCoord1" if info["kind"] == "bake" else "a_texCoord0"
             tangents = [t for _, _, t in baked] if info["kind"] == "bake" else None
             prims.append(_prim([s for s, _, _ in baked], uvk, tangents, mat_of[key]))
-        for k in sorted(own):
+        for k in (sorted(own) if info["kind"] != "fx" else []):
             prims.append(_prim(own[k][1], "a_texCoord0", None, mat_of[k]))
         tris += sum(len(p["indices"]) // 3 for p in prims)
         mesh_of[mg] = len(meshes)
@@ -290,6 +330,8 @@ def bake_group(key, info, models, out_dir, size=2048):
         if max(im.size) > 1024: im = im.resize((1024, 1024), Image.BICUBIC)
         im.save(f"{out_dir}/{key}_colour.jpg", quality=88)
         return {"diffuse": f"{key}_colour.jpg"}
+    if info["kind"] == "fx":
+        return fx_values(key, info["material"], out_dir)
     if info["kind"] == "own":
         mat = sm.material(info["material"], os.path.dirname(info["material"]).split("/structures/")[0])
         open(f"{out_dir}/{key}_colour.png", "wb").write(structures.own_images(mat)["colour"])
@@ -306,6 +348,29 @@ def bake_group(key, info, models, out_dir, size=2048):
     for k, n in names.items(): open(f"{out_dir}/{n}", "wb").write(img[k])
     return {"diffuse": names["colour"], "emission": names["emission"], "specularGlossiness": names["specgloss"],
             "normal": names["normal"]}
+
+
+def fx_values(key, material, out_dir):
+    """An effect layer's texture (its Diffuse slot, decoded to PNG) and stations.json values: GoF3's additive colour is the
+    texture x DiffuseColor x Opacity (x the vertex colours with Colorize_VertexColors); UVAnim scrolls it (speed x multiplier
+    a second) unless it only drives the flow map's distortion (UVAnim_FlowOnly), which the remake doesn't draw."""
+    import ae4_material, ae4_ids
+    v, _ = ae4_material.read(material)
+    assets = material.split("/structures/")[0]
+    slots = {k: ae4_ids.resolve(assets, h) for k, h in ae4_material.texture_ids(material).items()}
+    out = {"values": {"color": [round(float(c), 4) for c in v.get("DiffuseColor", (1, 1, 1, 1))[:3]],
+                      "intensity": round(float(v.get("Opacity", 1.0)) * float(v.get("Colorize_Multiplier", 1.0)), 3),
+                      "vertexColors": bool(v.get("Colorize_VertexColors", True))}}
+    if v.get("UVAnim_Enabled") and not v.get("UVAnim_FlowOnly"):
+        sp, k = v.get("UVAnim_Speed", (0, 0, 0)), float(v.get("UVAnim_SpeedMultiplier", 1.0))
+        out["values"]["scroll"] = [round(float(sp[0]) * k, 4), round(float(sp[1]) * k, 4)]
+    tex = slots.get("Diffuse") or slots.get("T1")
+    if tex and os.path.exists(tex):
+        im = structures.ae4_texture.decode(tex).convert("RGBA")
+        if max(im.size) > 512: im = im.resize((min(im.width, 512), min(im.height, 512)))
+        im.save(f"{out_dir}/{key}.png")
+        out["diffuse"] = f"{key}.png"
+    return out
 
 
 if __name__ == "__main__":

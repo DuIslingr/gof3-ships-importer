@@ -17,7 +17,7 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 | A3 | Planets with atmosphere, rim and corona, aimed as GoF3's levels do | `planets/` (1294 files), level entities on the background camera | per-orbit `planetTexture`, `orbit.planet` | done in the importer (`gof3_planets.py`): 46 orbits, rendered with GoF3's planet shader; horizon-sized planets (over 60 degrees) and partial caps left out |
 | A4 | Asteroid fields and ores | data `Field`, `FieldItems`, `OreDistribution`, `OreSpot`, `MiningField`; `asteroids/` | `orbit.asteroids` (count, centre, spread, type, ores) | done in the importer: 48 orbits; one field per orbit, ores by family (Anchorage H4's from GoF3's data) |
 | A5 | Music and ambience | `sound/music_hub.bank`, `ambience_stream_*.bank` (FMOD, vgmstream) | the systems' music | done in the importer: each cluster's calm layer (area_arrival1-5) as its systems' `spaceMusic`; combat music and ambience need remake fields |
-| A6 | Level dressing: the gates' sky window, glow and electricity; beacons, satellites, signal lights, billboards, comets, space junk, wrecks; the sky's turn matched to the sun | `structures/*/props/jumpgates/*` (skywindow, glow, add, electricity), `scenery/`, level entities | gate and station models, systems.json `skybox.rotation` | planned |
+| A6 | Level dressing: the gates' sky window, glow and electricity; beacons, satellites, signal lights, billboards, comets, space junk, wrecks; the sky's turn matched to the sun | `structures/*/props/jumpgates/*` (skywindow, glow, add, electricity), `scenery/`, level entities | gate and station models, stations.json orbit `skyRotation` | gates' glow, add and electricity done (2026-11-02: `scene_glb` effects=True, the remake's additive `materials` entries, GoF2/ModGlow); the sky window (a fixed cubemap through the gate) and the scenery props open; the sky's turn: the remake's per-orbit `skyRotation` is in, GoF3's convention not found yet (below) |
 | A7 | Loot crates, lore images and texts, boss portraits | `collectables/crates`, `loreimages/` (175), data `LoreElement`, `swf/*Boss*` | crate models, descriptions, portraits | open |
 
 ## Gameplay (from the decompilation; each needs remake support)
@@ -49,6 +49,12 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 ## Also open from earlier work
 
 - The sky's rotation (GoF3 turns each sky entity; the axes into the remake's frame are unchecked), so a sun direction
-  doesn't yet line up with its sky's bright side.
+  doesn't yet line up with its sky's bright side. The remake now takes a turn per orbit (stations.json orbit `skyRotation`),
+  so only GoF3's convention is missing. The level frame is the remake's with x mirrored (what the sun and the station models
+  already use); unknown are the sky entity's Euler order (its `rot` in degrees, e.g. Transit 12's [35, -60, 0]) and which
+  level direction each cube face faces. Tried 2026-11-02: fitting every Euler order and face mapping so each sky's brightest
+  spot sits behind the level's light (median miss 63 deg) or its biggest sun sprite (60 deg): no fit; levels sharing one sky
+  and turn have lights 40-160 deg apart, so neither follows the sky. Next: GoF3's own Euler-to-quaternion and cube sampling
+  from the binary (the skybox shader's matrix), or one look in game.
 - The second light, ambient colour and planets per level (the remake has no fields for them yet).
 - In-game check of the structures' shine (specular strength, normal map orientation) and of Survey Main's foggy sky.

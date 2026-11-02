@@ -285,7 +285,7 @@ def own_material(name, tex, v):
 
 def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_importer structures.py", nodes=None, animations=None):
     """A .glb of several meshes. meshes: [{"name", "primitives": [{"positions", "normals", "uvs", "tangents" (optional),
-    "indices", "material"}]}]; materials: glTF materials whose texture indices are image indices; images: [(bytes, mime,
+    "colors" (optional, rgba), "indices", "material"}]}]; materials: glTF materials whose texture indices are image indices; images: [(bytes, mime,
     name, repeat)]. nodes: glTF nodes (default one per mesh under a root). animations: one glTF animation of
     [{"node", "times" (s), "translation", "rotation", "scale"}] (linear keys)."""
     blobs, views, accessors = [], [], []
@@ -309,6 +309,7 @@ def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_impor
             attrs = {"POSITION": acc(np.asarray(p["positions"], np.float32), "VEC3", 5126, 34962, True),
                      "NORMAL": acc(nrm, "VEC3", 5126, 34962), "TEXCOORD_0": acc(np.asarray(p["uvs"], np.float32), "VEC2", 5126, 34962)}
             if p.get("tangents") is not None: attrs["TANGENT"] = acc(np.asarray(p["tangents"], np.float32), "VEC4", 5126, 34962)
+            if p.get("colors") is not None: attrs["COLOR_0"] = acc(np.asarray(p["colors"], np.float32), "VEC4", 5126, 34962)
             prims.append({"attributes": attrs, "indices": acc(np.asarray(p["indices"], np.uint32), "SCALAR", 5125, 34963),
                           "material": p["material"]})
         out_meshes.append({"name": mesh["name"], "primitives": prims})
