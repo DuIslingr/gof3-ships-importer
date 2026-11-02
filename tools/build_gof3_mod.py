@@ -101,6 +101,8 @@ BOOSTERS = {
     "gunship": {"device": "Device_Special_EngineBooster_Gunship", "boostSpeed": 100, "factor": 200, "durationMs": 3000},
 }
 BOOSTER_BASE, BOOSTER_RECHARGE = 73, 12000
+# Secondary slots per class (GoF3 arms one launcher each; the user, 2026-11-02: fighters 2, gunships 3, scouts as GoF3).
+SECONDARY_SLOTS = {"scout": 1, "fighter": 2, "gunship": 3}
 # GoF3's Device_Revive_Cloak (24 of the 32 player ships): when the ship is destroyed it comes back cloaked for a moment
 # (DeviceConfigurationCloak: 4 and 10 s). GoF2's own Emergency System (185) is that: the hull's end turned into 10 s of
 # invulnerability, once a sortie (a built-in one used up is back at the next docking).
@@ -1518,10 +1520,30 @@ def main():
             r = own_turn(M)
             if r: m["rotation"] = r
             mounts.append(m)
-        # TODO (noted 2026-10-11, undecided): every GoF3 record arms one secondary launcher, so every ship has 1 secondary slot
-        # (GoF2 ships often 2-4). Possibly give fighters 2 / gunships 3 on the unused hardpoints (keep their pylons, list them
-        # in "nodes" instead of stripping them in slim()).
+        # Every GoF3 record arms one secondary launcher; GoF2's ships carry 2-4. The user (2026-11-02): fighters 2, gunships 3
+        # (SECONDARY_SLOTS), the extra launchers on hardpoints no gun uses (their pylons kept and shown while armed, as the
+        # guns'), a mirrored pair first, else the nearest the centreline; without free hardpoints, beside the first launcher.
+        extra = max(0, SECONDARY_SLOTS.get(cls, 1) - len(secs))
+        free = [hp for hp in sorted(hpnode) if hp not in prim and hp not in secs]
+        pos = {hp: W[node[hpnode[hp]]][:3, 3] for hp in free}
+        picked = []
+        while extra - len(picked) >= 2:
+            pair = min(((a_, b_) for i_, a_ in enumerate(free) for b_ in free[i_ + 1:] if a_ not in picked and b_ not in picked
+                        and abs(pos[a_][0] + pos[b_][0]) < 0.05 * max(abs(pos[a_][0]), 1e-3) + 0.02
+                        and abs(pos[a_][1] - pos[b_][1]) < 0.05 and abs(pos[a_][2] - pos[b_][2]) < 0.05),
+                       key=lambda ab: abs(pos[ab[0]][0]), default=None)
+            if pair is None: break
+            picked += list(pair)
+        rest = sorted((hp for hp in free if hp not in picked), key=lambda hp: (abs(pos[hp][0]), pos[hp][1]))
+        picked += rest[:extra - len(picked)]
+        secs = list(secs) + picked
         for hp in secs: mounts.append({"slotType": 1, "position_engine": game(W[node[hpnode[hp]]][:3, 3]), **pylon(hp)})
+        base_sec = next((m for m in mounts if m["slotType"] == 1), None)
+        for k in range(extra - len(picked)):   # no free hardpoint: beside the first launcher (no pylon)
+            if base_sec is None: break
+            x, y, z = base_sec["position_engine"]
+            side = (k // 2 + 1) * (1 if k % 2 == 0 else -1) * 60.0
+            mounts.append({"slotType": 1, "position_engine": [round(x + side, 2), y, z]})
         pts_hull = hull_points(glb)
         turrets = turret_mounts(glb, pts_hull)
         mounts += turrets

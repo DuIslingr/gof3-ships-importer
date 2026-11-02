@@ -148,6 +148,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   Deflector as the remake's active devices (fired from the quick menu or the keys 4-6, a 60 s cooldown each, GoF3's
   sounds), and the Hiroto Cloak as a cloak with GoF3's 60 s cooldown and no energy cells. They need a remake with the
   device system (Modding/README.md "Devices").
+- Secondary slots: GoF3 arms one launcher per hull; here fighters have 2 and gunships 3 (scouts keep 1), the extra
+  launchers on hardpoints no gun uses, their pylons shown while armed.
 - Each ship flies at its GoF3 speed with its class's GoF3 booster built in; ships with GoF3's revive device have the
   Emergency System built in.
 - In the hangar, **Customize ship** (under Inspect ship) picks the hull's paint scheme (Skin: GoF3's numbered schemes and
