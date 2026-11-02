@@ -83,7 +83,8 @@ Most Wanted (wanted.json, characters.json, portraits/): GoF3's 31 campaign bosse
 each with its GoF3 portrait, quote, hull and guns: act 1 (Sh'gaal's) on the Vossk boards, act 2 (Khador's) on the
 Nivelian ones, act 3 (Ti-Nung's) on the Terran ones, in the campaign and in free play. As in GoF3 the helper bosses come
 first, escorted by their two informants' ships, the under bosses once some of them are dead, the big boss last; each
-taunts you over the radio with its GoF3 line when found. Their strength and bounties follow Galaxy on Fire 2's own
+taunts you over the radio with its GoF3 line when found, and the fight plays GoF3's boss music of its act and
+rank (music/). Their strength and bounties follow Galaxy on Fire 2's own
 boards (7,000-10,000 hull, 60,000-140,000 credits up the ladder) and its difficulty setting; the under and big bosses
 drop Golden Cores, and the boss hulls their own blueprint.
 Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, in Galaxy on Fire 2's own way

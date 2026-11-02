@@ -33,9 +33,15 @@ The remake's criminal from it:
   wingmen     GoF2's 0 -> 4 along the act, at least 2 for an HB (its two informants), 2 for a UB, 4 for a BB
   escorts     an HB's: its informants' hulls (GoF3's grind bosses fly regular hulls); the others' their race's fighters
   taunt       its first entourage line, else its quote
+  music       its act's and tier's boss music (BossInfo musicEvent music_boss_<boss>[_helper|_under]): the act's sector bank
+              (music_stream_trim / porros / rigant.bank: act 1 "annikett", 2 "khador", 3 "ti_nung") holds per tier a
+              combat_low and a combat_high layer, 64 s loops each; GoF3 crossfades them by intensity (FMOD), the mod plays
+              low then high as one 128 s loop (music/gof3_boss_<act>_<tier>.ogg); its warm-up and attention stingers left out
   description its quote and its place under its act's big boss"""
-import json, os, re, sys
+import json, os, re, shutil, subprocess, sys
 from PIL import Image
+
+MUSIC = {1: ("trim", "annikett"), 2: ("porros", "khador"), 3: ("rigant", "ti_nung")}   # act -> (bank, the music's boss)
 
 TIER_NAMES = {2: "helper", 3: "under", 4: "big"}
 BOARD = {1: "vossk", 2: "nivelian", 3: "terran"}
@@ -108,9 +114,36 @@ def bosses(D):
     return sorted(found.values(), key=lambda e: e["order"])
 
 
+def boss_music(merged, out, log=print):
+    """music/gof3_boss_<act>_<tier>.ogg (see the header); returns {(act, tier): track name}."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import gof3_sounds
+    ff = shutil.which("ffmpeg")
+    if not ff: log("wanted: no ffmpeg (the bosses keep the game's wanted music)"); return {}
+    tracks = {}
+    for act, (bank, key) in MUSIC.items():
+        path = os.path.join(merged, "sound", f"music_stream_{bank}.bank")
+        folder = gof3_sounds.decode_bank(path) if os.path.exists(path) else None
+        if not folder: continue
+        waves = {re.sub(r"(\.wav)+$", "", f.lower()): os.path.join(folder, f) for f in os.listdir(folder) if f.lower().endswith(".wav")}
+        for tier, word in TIER_NAMES.items():
+            layer = lambda l: next((p for n, p in sorted(waves.items()) if re.search(rf"mus_{key}_boss_{word}_combat_{l}(_v?\d+)?$", n)), None)
+            parts = [x for x in (layer("low"), layer("high")) if x]
+            if not parts: continue
+            name = f"gof3_boss_{act}_{word}"
+            os.makedirs(os.path.join(out, "music"), exist_ok=True)
+            cmd = [ff, "-y", "-v", "error"] + [a for x in parts for a in ("-i", x)]
+            if len(parts) > 1: cmd += ["-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1[out]", "-map", "[out]"]
+            cmd += ["-c:a", "libvorbis", "-q:a", "4", os.path.join(out, "music", name + ".ogg")]
+            if subprocess.run(cmd).returncode == 0: tracks[(act, tier)] = name
+    log(f"wanted: {len(tracks)} boss tracks")
+    return tracks
+
+
 def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log=print):
-    """Writes <out>/wanted.json, characters.json and portraits/; returns the number of criminals."""
+    """Writes <out>/wanted.json, characters.json, portraits/ and music/; returns the number of criminals."""
     all_b = bosses(D)
+    music = boss_music(merged, out, log)
     big = {e["act"]: e for e in all_b if e["tier"] == 4}
     unders = {}
     wanted, chars = [], []
@@ -151,6 +184,7 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         if escorts: entry["escorts"] = escorts
         taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
         if taunt: entry["taunt"] = taunt
+        if (act, tier) in music: entry["music"] = music[(act, tier)]
         src = os.path.join(merged, "swf", e["portrait"] + ".png") if e["portrait"] else None
         if src and os.path.exists(src):
             Image.open(src).convert("RGBA").resize((320, 384), Image.LANCZOS).save(os.path.join(out, "portraits", f"{wid}.png"), optimize=True)

@@ -142,7 +142,9 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 - The five boss hulls aren't sold: pirate bosses fly them, and a destroyed boss drops its hull's blueprint.
 - GoF3's 31 campaign bosses are on the Most Wanted boards (`tools/gof3_wanted.py`: wanted.json, their portraits as
   characters): act 1 on the Vossk boards, act 2 on the Nivelian, act 3 on the Terran, the helper bosses first, then the
-  under bosses, the big boss last. Runs on its own over a built mod too: `python tools/gof3_wanted.py <mod folder>`.
+  under bosses, the big boss last; their informants' ships escort them, each taunts with its GoF3 line, and the fight
+  plays GoF3's boss music (needs ffmpeg and vgmstream). Strength and bounties follow GoF2's boards and difficulty.
+  Runs on its own over a built mod too: `python tools/gof3_wanted.py <mod folder>`.
 - Each hull has its GoF3 cockpit seat for the cockpit view, smokes from GoF3's damage points when hurt, explodes at its
   GoF3 size, and the bigger hulls (and the gunships) get a chase camera pulled back to fit them.
 - GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
