@@ -313,7 +313,8 @@ def main():
     json.dump(stations, open(f"{out}/stations.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     man = {"id": MOD_ID, "name": "Galaxy on Fire 3 Systems", "version": "1.0.0", "author": "gof3_ships_importer",
            "description": "Galaxy on Fire 3's sectors as star systems: Trim, Porros and Rigant with GoF3's own stations, "
-                          "jumpgates, skies and suns; as in GoF3, none of them docks (the Manticore of the GoF3 Ships mod does)."}
+                          "jumpgates, skies and suns; as in GoF3, none of them docks (the Manticore of the GoF3 Ships mod does).",
+           "tag": "GoF3"}   # (dim after its systems' and stations' names, Modding/README.md "mod.json")
     json.dump(man, open(f"{out}/mod.json", "w", encoding="utf-8"), indent=1)
     # GoF3's own lights, fog, skies (their colours, stars and fog) and suns per level (gof3_look)
     import gof3_look

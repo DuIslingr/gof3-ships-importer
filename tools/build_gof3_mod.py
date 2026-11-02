@@ -1785,6 +1785,7 @@ def main():
                        "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge). "
                        f"{n_wanted} GoF3 bosses on the Most Wanted boards, from Vh'arus Tengs to Ti-Nung.",
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",
+        "tag": "GoF3",   # (dim after the names of all it adds: "Groza [GoF3]", Modding/README.md "mod.json")
         "preview": "preview.png"}, open(os.path.join(OUT, "mod.json"), "w", encoding='utf-8'), indent=4, ensure_ascii=False)
     shutil.copy(os.path.join(HERE, "gof3_mod_readme.txt"), os.path.join(OUT, "README.txt"))
     json.dump(exhaust_styles(), open(os.path.join(OUT, "exhausts.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
