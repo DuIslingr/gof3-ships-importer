@@ -54,7 +54,11 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
   already use); unknown are the sky entity's Euler order (its `rot` in degrees, e.g. Transit 12's [35, -60, 0]) and which
   level direction each cube face faces. Tried 2026-11-02: fitting every Euler order and face mapping so each sky's brightest
   spot sits behind the level's light (median miss 63 deg) or its biggest sun sprite (60 deg): no fit; levels sharing one sky
-  and turn have lights 40-160 deg apart, so neither follows the sky. Next: GoF3's own Euler-to-quaternion and cube sampling
-  from the binary (the skybox shader's matrix), or one look in game.
+  and turn have lights 40-160 deg apart, so neither follows the sky. From the binary (libgofm.so, 2026-11-02): a
+  TransformComponent holds a quaternion (x y z w at +0x20) that TransformSystem::MatrixCache::updateLocal turns into glm's
+  matrix; the data's Euler degrees most likely become it through glm::quat(vec3) = Rz Ry Rx (x applied first; the loader,
+  TransformSystem::newComponent(Entity, Descriptor), decompiles badly, so not confirmed). That order didn't fit either, so
+  the open piece is the cube's faces: the .ae4texture stores top, four sides, bottom (not GL's +X -X +Y -Y +Z -Z), so the
+  engine's cube upload (the texture loader) says which level direction each face faces. That, or one look in game.
 - The second light, ambient colour and planets per level (the remake has no fields for them yet).
 - In-game check of the structures' shine (specular strength, normal map orientation) and of Survey Main's foggy sky.
