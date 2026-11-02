@@ -79,6 +79,11 @@ Bosses: the Khador Boss, the Krotac, the Snotch, the Sh'Gaal and the Bl'Arek (da
 pirate bosses' hulls when a pirate event brings a boss (ships.json "traffic": { "boss": true }), every turret mount armed
 with their race's heavy turret (the Vossk the L'ksaar, the others the Hammerhead D2A2). Destroying a boss drops its hull's
 blueprint in a data container, once (blueprints.json "drops" { "ship" }): the only way to get one.
+Most Wanted (wanted.json, characters.json, portraits/): GoF3's 31 campaign bosses are criminals on the Most Wanted boards,
+each with its GoF3 portrait, quote, hull and guns: act 1 (Sh'gaal's) on the Vossk boards, act 2 (Khador's) on the
+Nivelian ones, act 3 (Ti-Nung's) on the Terran ones, in the campaign and in free play. As in GoF3 the helper bosses come
+first, the under bosses once some of them are dead, the big boss last; the strongest pay up to 300,000 and drop Golden
+Cores, and the boss hulls their own blueprint.
 Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, in Galaxy on Fire 2's own way
 (its blueprints are items only, so the GoF3 ships follow those): the recipe starts with the product's lower tier, as GoF2's
 Wolverine needs a Wolf, here the hull's own GoF3 guns (two, all four for the dearest hulls, of a family of its race, the

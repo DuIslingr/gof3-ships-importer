@@ -55,6 +55,7 @@ from glb_layout import layout, read, trs
 from engine_glows import engines as measure_engines, _accessor
 import gof3_sounds
 import capitals
+import gof3_wanted
 
 args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not sys.argv[i - 1] in ("--max-texture", "--icons-from", "--jobs")]
 OUT = os.path.abspath(args[0] if args else os.path.expanduser("~/GOF2UnityRemakeMods/gof3_ships"))
@@ -1772,14 +1773,17 @@ def main():
     if device_fx: json.dump(device_fx, open(os.path.join(OUT, "weaponfx.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
+    # GoF3's bosses on the Most Wanted boards, their portraits as characters (gof3_wanted.py)
+    n_wanted = gof3_wanted.build(D, {s["id"] for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase)
     json.dump({
-        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.3", "author": "DuIslingr",
+        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.4", "author": "DuIslingr",
         "description": f"{len(ships)} ships from Galaxy on Fire 3: Manticore as customizable ships, sold by visitors in the Space "
                        f"Lounges of their race's systems: {len(skins)} GoF3 paint schemes to pick in the hangar's Customize "
                        "screen, GoF3 guns that follow the weapons mounted, and GoF3 turrets. Names, descriptions, races and "
                        "stats come from the game's own data (data.pdb), scaled to Galaxy on Fire 2's ranges. "
                        f"{len(cap_ships)} GoF3 capital ships (battleships, frigates, freighters) in the orbits' traffic, and the "
-                       "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge).",
+                       "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge). "
+                       f"{n_wanted} GoF3 bosses on the Most Wanted boards, from Vh'arus Tengs to Ti-Nung.",
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",
         "preview": "preview.png"}, open(os.path.join(OUT, "mod.json"), "w", encoding='utf-8'), indent=4, ensure_ascii=False)
     shutil.copy(os.path.join(HERE, "gof3_mod_readme.txt"), os.path.join(OUT, "README.txt"))
