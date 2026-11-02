@@ -39,7 +39,7 @@ else:
     IN = [f"{src}/{name}_{k}.tga.ae4texture" for k in ("diffuse_emissive", "specular_gloss", "normal", "colormask_000")]
     SCHEMES = sorted(glob.glob(f"{src}/materials/{name}_matid01_body_*.ae4material"))
 if PACKED: IN[1] = None
-SIZE = max((ae4_texture.decode(p).size for p in IN if p), key=lambda s: s[0] * s[1])   # the largest input's size
+SIZE = max((ae4_texture.dimensions(p) for p in IN if p), key=lambda s: s[0] * s[1])   # the largest input's size
 def const(*v): return np.broadcast_to(np.array(v, np.float32), (SIZE[1], SIZE[0], 4)).copy()
 T1, T2, T3, T4 = (tex(p, SIZE) if p else None for p in IN)
 LOADED = [T1 is not None, T2 is not None or PACKED, T3 is not None, T4 is not None]

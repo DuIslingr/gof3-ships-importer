@@ -64,7 +64,11 @@ It checks Python, Blender and the game files first, then works through six stage
 6. builds the mod: `gof3_ships` next to this script.
 
 Everything a stage makes is kept in the work folder, so if a run stops (or you close it), running the same command again
-goes on where it was (giving it other game files starts the stages after the extraction over). The whole run takes about
+reuses stages whose fingerprints still match. Source archives are SHA-256 hashed on each run; changed archives are
+extracted again, and changes to converter scripts, their helper scripts and tables, Python packages, Blender's version,
+or relevant options rebuild the affected stages and their dependents. Unchanged archives and conversions are kept.
+Hashing large archives adds disk-reading time even when all conversions are reused. The first run after upgrading from
+the old timestamp-only cache rebuilds the cached stages once. The whole run takes about
 10 minutes on a fast 24-thread computer, more on a smaller one, mostly stage 3.
 
 Options:
@@ -81,6 +85,42 @@ Options:
 - `--blender <path>`: Blender's executable (or `Blender.app` on a Mac), if it isn't found by itself.
 - `--fbx`: also write FBX files of the converted models into the work folder (the mod doesn't need them).
 - `--fresh`: delete the work folder and start over.
+
+## Build records and cache checks
+
+Every successful build writes `<output-folder>.build-manifest.json` beside the mod and `build-manifest.json` in the work
+folder. They record source archive names and SHA-256 hashes, importer Git revision (when available) and source-file
+hashes, stage fingerprints, Python/package and Blender versions, build options, failed hulls/loadouts, failed skin
+variants, skipped weapons, and selected builder diagnostics. The source-file hashes identify uncommitted converter
+changes too. The final mod is assembled on every run, so changes to its builder, texture limit, icon choice or remake
+data take effect without repeating unchanged hull conversions.
+
+Keep the build record alongside the mod for troubleshooting. It lives outside the mod folder because the game includes
+every mod file in its save and multiplayer hashes; a build timestamp should not change those hashes. Copy only the mod
+folder into the game's Mods folder. Failed hulls and variants are retried on the next run, and failed loadouts are not
+marked complete. Weapons omitted by their converter are listed in the build record, including on resumed builds.
+
+The cache tests use tiny conversion fixtures and need neither game files nor Blender:
+
+```
+python3 -m unittest discover -s tests -v
+```
+
+They exercise clean/resumed output equivalence, legacy cache migration, same-size source replacements, helper-script
+and conversion-table changes, downstream invalidation, FBX options, failed-stage retries, and provenance. They do not
+verify the visual output of Blender or replace a full conversion check with the user's game files.
+
+## Performance without changing asset quality
+
+Ship texture dimensions are read from the texture header, so checking the largest input no longer decodes those pixels
+before their actual conversion. Legacy-packed textures still use the existing decompressor. Pixel decoding, shader
+math, texture sizes, filtering and PNG output are unchanged.
+
+APK/bundle members already in the work folder are compared byte for byte with the complete archive member. Identical
+members keep their existing files; changed or damaged copies are replaced atomically. SHA-256 is computed during that
+comparison or copy and reused only within the current invocation. Full checks still run each time; file timestamps,
+size and ZIP CRC alone never establish equality. Nested APKs use a memory-limited temporary stream and spill large
+members to disk rather than loading the entire APK into RAM.
 
 ## Installing
 

@@ -20,13 +20,15 @@ The stages (each kept in the work folder, so a run that stops goes on where it w
   5 loadouts  every hull with its default guns, and which weapon each hardpoint carries (build_loadouts.py)
   6 mod       the mod itself (build_gof3_mod.py): ships.json, shipkits.json, hulls, skins, guns, turret, icons, preview
 """
-import argparse, glob, json, os, platform, re, shutil, stat, subprocess, sys, time, zipfile
+import argparse, glob, importlib.metadata, json, os, platform, re, shutil, stat, subprocess, sys, time, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.join(HERE, "tools")
 MOD_ID = "gof3_ships"
 PY = sys.executable
+sys.path.insert(0, TOOLS)
+import build_cache as cache
 
 # The order the archives are layered in, the later winning a file several hold: the Android files first, the Switch's over
 # them (its textures and materials win where both have a file; the Android OBB fills what the Switch romfs lacks: the
@@ -102,7 +104,7 @@ def blender_version(blender):
     if not m: fail(f"{blender} doesn't run as Blender:\n{r.stdout[-500:]}{r.stderr[-500:]}")
     v = (int(m.group(1)), int(m.group(2)))
     if v < (4, 2): fail(f"Blender {v[0]}.{v[1]} is too old: 4.2 or newer is needed")
-    return f"{v[0]}.{v[1]}"
+    return r.stdout[m.start():].splitlines()[0].strip()
 
 
 # ---------------------------------------------------------------- folders
@@ -128,7 +130,8 @@ def remove_tree(path):
 def prepare_out(out):
     """An empty folder for the mod: an earlier build of it is replaced, anything else is never touched."""
     if os.path.exists(out):
-        try: ours = json.load(open(os.path.join(out, "mod.json"), encoding="utf-8-sig")).get("id") == MOD_ID
+        try:
+            with open(os.path.join(out, "mod.json"), encoding="utf-8-sig") as f: ours = json.load(f).get("id") == MOD_ID
         except Exception: ours = False
         if not ours and os.listdir(out): fail(f"{out} exists and isn't a {MOD_ID} mod: choose another --out")
         remove_tree(out)
@@ -169,14 +172,6 @@ def lp(path):
     return "\\\\?\\UNC\\" + path[2:] if path.startswith("\\\\") else "\\\\?\\" + path
 
 
-def done(path): return os.path.exists(os.path.join(path, ".done"))
-
-
-def mark(path):
-    os.makedirs(path, exist_ok=True)
-    open(os.path.join(path, ".done"), "w", encoding="utf-8").write(time.strftime("%Y-%m-%d %H:%M:%S\n"))
-
-
 def place(src, dst):
     """dst becomes src: a hard link (no extra space), else a copy (another drive, a file system without links)."""
     if os.path.exists(dst): os.remove(dst)
@@ -186,9 +181,10 @@ def place(src, dst):
 
 # ---------------------------------------------------------------- 1 the game files
 
-def find_sources(paths, work):
+def find_sources(paths, work, verified=None):
     """The archives to extract: [(name, path, platform)]. Folders are searched (four levels down); an .apk / .xapk / .apks
     gives up its game.jet (and an .xapk its .obb files), copied into the work folder."""
+    verified = {} if verified is None else verified
     files = []
     for p in paths:
         p = os.path.abspath(os.path.expanduser(p))
@@ -212,11 +208,11 @@ def find_sources(paths, work):
         elif low.endswith(".jet"):
             out.append(("android_game", f, "android"))
         elif low.endswith((".apk", ".xapk", ".apks")):
-            out += from_bundle(f, unpacked)
+            out += from_bundle(f, unpacked, verified)
     unique = []
     for name, f, plat in out:
         if name in seen:
-            if os.path.getsize(f) == os.path.getsize(next(x for n, x, _ in unique if n == name)): continue   # the same file twice
+            if source_hash(f, verified) == source_hash(next(x for n, x, _ in unique if n == name), verified): continue   # the same file twice
             fail(f"two different archives are both {name}: give the game files of one version only")
         seen.add(name); unique.append((name, f, plat))
     out = unique
@@ -240,16 +236,25 @@ def obb_name(path):
     return "android_main" if b.startswith("main.") else "android_patch" if b.startswith("patch.") else "android_" + os.path.splitext(b)[0]
 
 
-def from_bundle(path, unpacked):
+def source_hash(path, verified):
+    """A hash already computed from full contents in this invocation, never a persisted shortcut."""
+    path = os.path.abspath(path)
+    if path not in verified: verified[path] = cache.file_hash(path)
+    return verified[path]
+
+
+def from_bundle(path, unpacked, verified=None):
     """An .apk: its assets/game.jet. An .xapk / .apks (a zip of APKs and, for .xapk, Android/obb/...): the game.jet of the
     APK that has it, and the .obb files."""
+    verified = {} if verified is None else verified
+    unpacked = os.path.join(unpacked, cache.digest(os.path.abspath(path)))
     os.makedirs(unpacked, exist_ok=True)
     found = []
     def apk_jet(z, label):
         if "assets/game.jet" in z.namelist():
-            dst = os.path.join(unpacked, "game.jet")
-            if not (os.path.exists(dst) and os.path.getsize(dst) == z.getinfo("assets/game.jet").file_size):
-                with z.open("assets/game.jet") as s, open(dst, "wb") as d: shutil.copyfileobj(s, d, 1 << 20)
+            dst = os.path.join(unpacked, cache.digest(label), "game.jet")
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            verified[os.path.abspath(dst)] = cache.materialize_member(z, "assets/game.jet", dst)
             found.append(("android_game", dst, "android"))
             return True
         return False
@@ -259,40 +264,42 @@ def from_bundle(path, unpacked):
             for n in z.namelist():
                 if n.lower().endswith(".obb"):
                     dst = os.path.join(unpacked, os.path.basename(n))
-                    if not (os.path.exists(dst) and os.path.getsize(dst) == z.getinfo(n).file_size):
-                        log(f"  unpacking {os.path.basename(n)} from {os.path.basename(path)}")
-                        with z.open(n) as s, open(dst, "wb") as d: shutil.copyfileobj(s, d, 1 << 20)
+                    log(f"  checking {os.path.basename(n)} from {os.path.basename(path)}")
+                    verified[os.path.abspath(dst)] = cache.materialize_member(z, n, dst)
                     found.append((obb_name(dst), dst, "android"))
                 elif n.lower().endswith(".apk"):
-                    import io
-                    with zipfile.ZipFile(io.BytesIO(z.read(n))) as inner:
-                        apk_jet(inner, n)
+                    import tempfile
+                    # Keep small APKs in memory; spill large ones instead of holding the whole bundle member in RAM.
+                    with tempfile.SpooledTemporaryFile(max_size=64 << 20) as apk:
+                        with z.open(n) as src: shutil.copyfileobj(src, apk, 4 << 20)
+                        apk.seek(0)
+                        with zipfile.ZipFile(apk) as inner: apk_jet(inner, n)
     except zipfile.BadZipFile:
         fail(f"{path} isn't a readable APK / bundle")
     if not any(n == "android_game" for n, _, _ in found): log(f"  note: no assets/game.jet in {os.path.basename(path)}")
     return found
 
 
-def extract(sources, work):
+def extract(sources, work, fingerprints):
     sys.path.insert(0, TOOLS)
     import tinextract
     ex = os.path.join(work, "extracted")
     for name, path, _ in sources:
         dest = os.path.join(ex, name)
-        if done(dest): continue
+        if cache.done(dest, fingerprints[name]): continue
         remove_tree(lp(dest))
         part = os.path.join(ex, name + ".partial")   # renamed once complete, so a stopped run starts that archive over
         remove_tree(lp(part))
         if not tinextract.extract(path, None, dest=lp(part)): fail(f"{path} didn't extract cleanly (see the errors above)")
         os.replace(lp(part), lp(dest))
-        mark(dest)
+        cache.mark(dest, fingerprints[name])
 
 
-def merge(sources, work):
+def merge(sources, work, fingerprint):
     """One tree of the archives (work/merged: assets/, data.pdb, particles/, ...), the later archive winning a file several
     hold: hard links, so it takes no extra space."""
     merged = os.path.join(work, "merged")
-    if done(merged): return merged
+    if cache.done(merged, fingerprint): return merged
     names = [n for n, _, _ in sources]
     known = ANDROID_ORDER + SWITCH_ORDER
     order = [n for n in known if n in names] + sorted(n for n in names if n not in known)
@@ -312,7 +319,7 @@ def merge(sources, work):
         place(src, dst)
     for need in ("data.pdb", os.path.join("assets", "ships")):
         if not os.path.exists(os.path.join(merged, need)): fail(f"the game files have no {need}: are these Galaxy on Fire 3's?")
-    mark(merged)
+    cache.mark(merged, fingerprint)
     return merged
 
 
@@ -353,10 +360,14 @@ def variants_of(resolve):
     return sorted(named)
 
 
-def convert_ship(job, assets, conv, logs, blender, env):
+def convert_ship(job, assets, conv, logs, blender, env, fingerprint):
     key, folder, name = job
     out = os.path.join(conv, name)
-    if done(out): return name, True, ""
+    if cache.done(out, fingerprint) and os.path.isfile(os.path.join(out, name + ".glb")):
+        return name, True, ""
+    # A removed or failed paint scheme must not survive from an earlier conversion.
+    for variant in glob.glob(os.path.join(conv, name + "_*")):
+        if os.path.isdir(variant): remove_tree(variant)
     remove_tree(out); os.makedirs(out)
     logf = os.path.join(logs, name + ".log")
     if os.path.exists(logf): os.remove(logf)
@@ -369,9 +380,13 @@ def convert_ship(job, assets, conv, logs, blender, env):
         [blender, "-b", "--factory-startup", "-P", T("ae4_to_gltf.py"), "--", os.path.join(out, name + ".blend")],
     ]
     for cmd in steps:
-        if not run(cmd, logf, env): return name, False, logf
-    if not os.path.exists(os.path.join(out, name + ".glb")): return name, False, logf
-    resolve = json.load(open(rj, encoding="utf-8-sig"))
+        if not run(cmd, logf, env):
+            remove_tree(out)
+            return name, False, logf
+    if not os.path.exists(os.path.join(out, name + ".glb")):
+        remove_tree(out)
+        return name, False, logf
+    with open(rj, encoding="utf-8-sig") as f: resolve = json.load(f)
     bad = []
     for scheme in variants_of(resolve):
         v = f"{name}_{scheme}"
@@ -381,7 +396,7 @@ def convert_ship(job, assets, conv, logs, blender, env):
                 and run([blender, "-b", "--factory-startup", "-P", T("ae4_to_gltf.py"), "--", os.path.join(vdir, v + ".blend")], logf, env)
                 and os.path.exists(os.path.join(vdir, v + ".glb"))):
             bad.append(scheme); remove_tree(vdir)   # (a skin model is only its decal sheet's source: the skin stays)
-    mark(out)
+    if not bad: cache.mark(out, fingerprint)
     return name, True, ("variants failed: " + ", ".join(bad)) if bad else ""
 
 
@@ -407,27 +422,39 @@ def main():
 
     check_python()
     blender = find_blender(a.blender)
-    log(f"Blender {blender_version(blender)}: {blender}")
+    blender_identity = blender_version(blender)
+    log(f"{blender_identity}: {blender}")
     work = os.path.abspath(os.path.expanduser(a.work))
     out = os.path.abspath(os.path.expanduser(a.out))
     if a.fresh: remove_tree(work)
     os.makedirs(work, exist_ok=True)
     lock_work(work)
 
+    packages = {}
+    for package in ("numpy", "Pillow", "texture2ddecoder", "scipy", "pyzstd"):
+        try: packages[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError: packages[package] = None
+    runtime = {"python": platform.python_version(), "platform": platform.platform(), "packages": packages}
+
     log("1/6 Finding and extracting the game files ...")
-    sources = find_sources(a.sources, work)
+    verified = {}
+    sources = find_sources(a.sources, work, verified)
     log("  " + ", ".join(f"{os.path.basename(p)} ({plat})" for _, p, plat in sources))
-    extract(sources, work)
-    # The merged tree and everything made from it belong to one set of game files: another set (the Android files added to
-    # a Switch run, a newer version) starts those over; the extracted archives are kept.
-    signature = sorted([n, os.path.getsize(p)] for n, p, _ in sources)
-    sig_file = os.path.join(work, "sources.json")
-    try: old = json.load(open(sig_file, encoding="utf-8-sig"))
-    except Exception: old = None
-    if old != signature:
-        for d in ("merged", "data", "converted", "loadouts"): remove_tree(lp(os.path.join(work, d)))
-        json.dump(signature, open(sig_file, "w", encoding="utf-8"))
-    merged = merge(sources, work)
+    log("  hashing source archives (SHA-256) ...")
+    source_info = [{"name": n, "file": os.path.basename(p), "platform": plat,
+                    "bytes": os.path.getsize(p), "sha256": source_hash(p, verified)} for n, p, plat in sources]
+    stages = {}
+    extract_keys = {}
+    for src in source_info:
+        recipe = cache.stage(HERE, ["tinextract.py"], src,
+                             {"python": runtime["python"], "platform": runtime["platform"], "pyzstd": packages["pyzstd"]})
+        stages["extract/" + src["name"]] = recipe
+        extract_keys[src["name"]] = recipe["fingerprint"]
+    extract(sources, work, extract_keys)
+    names = set(extract_keys)
+    order = [n for n in ANDROID_ORDER + SWITCH_ORDER if n in names] + sorted(names - set(ANDROID_ORDER + SWITCH_ORDER))
+    stages["merge"] = cache.stage(HERE, [], [(n, extract_keys[n]) for n in order])
+    merged = merge(sources, work, stages["merge"]["fingerprint"])
     assets = os.path.join(merged, "assets")
     conv = os.path.join(work, "converted")
     logs = os.path.join(work, "logs"); os.makedirs(logs, exist_ok=True)
@@ -435,45 +462,114 @@ def main():
     env = dict(os.environ, GOF3_BLENDER=blender, GOF3_PDB=os.path.join(merged, "data.pdb"), GOF3_DATA_DIR=data,
                GOF3_CONV=conv, GOF3_LOADOUTS=os.path.join(work, "loadouts"), GOF3_MERGED=merged, GOF3_ASSETS=assets,
                PYTHONIOENCODING="utf-8")
+    env.pop("GOF3_NO_FBX", None)
     if not a.fbx: env["GOF3_NO_FBX"] = "1"
     if a.remake: env["GOF3_REMAKE"] = os.path.abspath(os.path.expanduser(a.remake))
     else: env["GOF3_REMAKE"] = os.path.join(work, "no-remake")   # the builder's built-in price fits and drawn icon frame
 
+    conversion_options = dict(runtime, blender=blender_identity, fbx=a.fbx)
+    merged_key = stages["merge"]["fingerprint"]
+    stages["data"] = cache.stage(HERE, ["ae4_pdb_arming.py"], merged_key, runtime)
+    data_key = stages["data"]["fingerprint"]
     log("2/6 Reading the weapon loadouts from data.pdb ...")
-    if not os.path.exists(os.path.join(data, "data_arming.json")):
+    if not cache.done(data, data_key) or not os.path.isfile(os.path.join(data, "data_arming.json")):
+        remove_tree(data); os.makedirs(data)
         if not run([PY, os.path.join(TOOLS, "ae4_pdb_arming.py"), os.path.join(merged, "data.pdb"), "--write",
                     os.path.join(data, "data_arming.json")], os.path.join(logs, "data.log"), env):
             fail(f"reading data.pdb failed: see {os.path.join(logs, 'data.log')}")
+        cache.mark(data, data_key)
 
+    stages["ships"] = cache.stage(HERE, ["ae4_resolve.py", "ae4_ship_textures.py", "ae4_ship_to_fbx.py",
+        "ae4_to_gltf.py", "ae4_scheme_variant.py"], [merged_key, data_key], conversion_options)
+    ships_key = stages["ships"]["fingerprint"]
     ships = ship_list(assets)
     log(f"3/6 Converting {len(ships)} hulls and their paint schemes ({a.jobs} at a time; the longest step, minutes per hull) ...")
     os.makedirs(conv, exist_ok=True)
-    failed = []
+    # Drop hulls removed from the source inventory, including their paint-scheme folders.
+    hull_names = {name for _, _, name in ships}
+    for folder in glob.glob(os.path.join(conv, "ship_*")):
+        if not any(os.path.basename(folder) == n or os.path.basename(folder).startswith(n + "_") for n in hull_names):
+            remove_tree(folder)
+    failed, warnings = [], []
     with ThreadPoolExecutor(a.jobs) as pool:
-        for i, (name, ok, note) in enumerate(pool.map(lambda j: convert_ship(j, assets, conv, logs, blender, env), ships), 1):
+        for i, (name, ok, note) in enumerate(pool.map(
+                lambda j: convert_ship(j, assets, conv, logs, blender, env, ships_key), ships), 1):
             log(f"  {i}/{len(ships)} {'ok  ' if ok else 'FAIL'} {name}" + (f"  ({note})" if note else ""))
             if not ok: failed.append(name)
+            if note: warnings.append({"stage": "ships", "name": name, "detail": note})
     if failed: log(f"  {len(failed)} hulls failed (the mod is built without them): see {logs}")
 
     log("4/6 Converting the weapons ...")
+    stages["weapons"] = cache.stage(HERE, ["convert_weapons.py"], merged_key, conversion_options)
+    weapons_key = stages["weapons"]["fingerprint"]
     wdir = os.path.join(conv, "weapons")
-    if not done(wdir):
-        if not run([PY, os.path.join(TOOLS, "convert_weapons.py"), assets, wdir], os.path.join(logs, "weapons.log"), env):
-            fail(f"converting the weapons failed: see {os.path.join(logs, 'weapons.log')}")
-        mark(wdir)
+    if not cache.done(wdir, weapons_key):
+        remove_tree(wdir)
+        weapon_log = os.path.join(logs, "weapons.log")
+        if os.path.exists(weapon_log): os.remove(weapon_log)
+        if not run([PY, os.path.join(TOOLS, "convert_weapons.py"), assets, wdir], weapon_log, env):
+            fail(f"converting the weapons failed: see {weapon_log}")
+        with open(weapon_log, encoding="utf-8", errors="replace") as f:
+            skipped_weapons = [line.strip() for line in f if line.lstrip().startswith("skipped ")]
+        cache.mark(wdir, weapons_key, skipped=skipped_weapons)
+    skipped_weapons = cache.record(wdir).get("skipped", [])
 
     log("5/6 The hulls with their default guns ...")
+    # Output hashes also catch a previously failed hull/variant succeeding on a later run.
+    converted = {os.path.relpath(p, conv).replace(os.sep, "/"): cache.file_hash(p)
+                 for pattern in ("ship_*/*.blend", "ship_*/resolve.json", "weapons/*/*.blend")
+                 for p in sorted(glob.glob(os.path.join(conv, pattern)))}
+    stages["loadouts"] = cache.stage(HERE, ["build_loadouts.py"],
+        [ships_key, weapons_key, data_key, converted], conversion_options)
+    loadouts_key = stages["loadouts"]["fingerprint"]
     ldir = os.path.join(work, "loadouts")
-    if not done(ldir):
+    if not cache.done(ldir, loadouts_key) or not os.path.isfile(os.path.join(ldir, "manifest.json")):
+        remove_tree(ldir)
         if not run([PY, os.path.join(TOOLS, "build_loadouts.py"), conv, ldir, str(a.jobs)], os.path.join(logs, "loadouts.log"), env):
             fail(f"the loadouts failed: see {os.path.join(logs, 'loadouts.log')}")
-        mark(ldir)
-
+        with open(os.path.join(ldir, "manifest.json"), encoding="utf-8-sig") as f: loadout_info = json.load(f)
+        if not any("error" in row for row in loadout_info.values()): cache.mark(ldir, loadouts_key)
+    with open(os.path.join(ldir, "manifest.json"), encoding="utf-8-sig") as f: loadout_info = json.load(f)
+    loadout_failures = [name for name, row in loadout_info.items() if "error" in row]
     log("6/6 Building the mod ...")
     prepare_out(out)
+    # An interrupted new build must not appear to have the previous build's provenance.
+    for previous in (out + ".build-manifest.json", os.path.join(work, "build-manifest.json")):
+        if os.path.isfile(previous): os.remove(previous)
     cmd = [PY, os.path.join(TOOLS, "build_gof3_mod.py"), out, "--max-texture", str(a.max_texture)] + (["--no-icons"] if a.no_icons else [])
-    if not run(cmd, os.path.join(logs, "mod.log"), env): fail(f"building the mod failed: see {os.path.join(logs, 'mod.log')}")
-    n = len(json.load(open(os.path.join(out, "ships.json"), encoding="utf-8-sig")))
+    mod_log = os.path.join(logs, "mod.log")
+    if os.path.exists(mod_log): os.remove(mod_log)
+    if not run(cmd, mod_log, env): fail(f"building the mod failed: see {mod_log}")
+    importer_code = {"import.py": cache.file_hash(os.path.join(HERE, "import.py"))}
+    for filename in sorted(os.listdir(TOOLS)):
+        if filename.endswith((".py", ".json", ".txt")):
+            importer_code["tools/" + filename] = cache.file_hash(os.path.join(TOOLS, filename))
+    remake_inputs = {}
+    for relative in ("Assets/Resources/GoF2Data/ships.json", "Assets/Resources/GoF2Data/economy_default.json",
+                     "Assets/Resources/GoF2Data/stations.json", "Assets/Resources/GoF2Data/systems.json",
+                     "Assets/Resources/GoF2Data/items.json", "Assets/Textures/textures/gof2_interface2_ipad_large.png"):
+        path = os.path.join(env["GOF3_REMAKE"], relative)
+        if os.path.isfile(path): remake_inputs[relative] = cache.file_hash(path)
+    options = {"max_texture": a.max_texture, "icons": not a.no_icons, "fbx": a.fbx,
+               "remake": os.path.abspath(os.path.expanduser(a.remake)) if a.remake else None, "jobs": a.jobs}
+    stages["mod"] = cache.stage(HERE, [name for name in os.listdir(TOOLS) if name.endswith((".py", ".json", ".txt"))],
+        [loadouts_key, converted, remake_inputs], dict(conversion_options, **options))
+    with open(mod_log, encoding="utf-8", errors="replace") as f:
+        builder_notes = [line.strip() for line in f if any(word in line.lower() for word in ("skipped", "no sounds", "not found"))]
+    manifest = {"schema": 1, "built_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "importer": {"revision": cache.revision(HERE), "files": importer_code,
+                             "sha256": cache.digest(importer_code)},
+                "sources": source_info, "runtime": dict(runtime, blender=blender_identity),
+                "options": options, "remake_inputs": remake_inputs,
+                "stages": stages, "failed_hulls": failed, "warnings": warnings,
+                "skipped_weapons": skipped_weapons, "failed_loadouts": loadout_failures,
+                "loadout_notes": {name: row["note"] for name, row in loadout_info.items() if "note" in row},
+                "builder_notes": builder_notes}
+    # The game hashes every file inside a mod for saves and multiplayer. Keep build-local
+    # metadata beside the mod so timestamps and machine details cannot change those hashes.
+    cache.write_json(out + ".build-manifest.json", manifest)
+    cache.write_json(os.path.join(work, "build-manifest.json"), manifest)
+    with open(os.path.join(out, "ships.json"), encoding="utf-8-sig") as f: n = len(json.load(f))
     log(f"\nDone: {n} ships in {out}\n"
         f"Install: copy the {MOD_ID} folder into the game's Mods folder and turn it on in the main menu's Mods screen.\n"
         f"The work folder ({work}) can be deleted, or kept to rebuild faster.\n"

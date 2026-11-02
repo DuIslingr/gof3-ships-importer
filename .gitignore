@@ -3,3 +3,4 @@ work/
 gof3_ships/
 *.zip
 __pycache__/
+*.build-manifest.json

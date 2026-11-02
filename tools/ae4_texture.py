@@ -6,9 +6,19 @@ Takes the old zstd-packed files and the romfs's decompressed ones alike.
 Needs texture2ddecoder + Pillow (a venv). Usage: ae4_texture.py in.ae4texture out.png"""
 import struct, sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from ae4unpack import unpack
+from ae4unpack import MAGIC, unpack
 import texture2ddecoder as t
 from PIL import Image
+
+def dimensions(path):
+    """Read the dimensions without decoding pixels; legacy-packed files still get unpacked."""
+    with open(path, "rb") as f:
+        header = f.read(32)
+        if header[:4] == MAGIC:
+            header = unpack(header + f.read())
+    assert header[:4] == b"ET4A", header[:4]
+    return struct.unpack_from("<H", header, 0x1a)[0], struct.unpack_from("<H", header, 0x1e)[0]
+
 
 def decode(path):
     d = unpack(open(path, "rb").read())
