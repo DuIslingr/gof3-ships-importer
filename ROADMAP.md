@@ -26,10 +26,51 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 |---|---|---|---|---|
 | G1 | Devices, about 40: Carom Deflector, EMP generator and projectile, Shield Disruptor, Shield Overcharger (front, sphere), Cluster Module, Proximity Mine, Radar Jammer, Teleport, Engine Booster, Flash Grenade, Loot Magnet, Spark Collector, Mind Control, Cloak, Front Shield, Super Charger, Blast Amplifier, Bomb Spreader, Dynamic Wormhole Generator, wingman devices | `DeviceConfiguration*`, `DeviceBehaviorConfiguration*`, `DeviceUpgradeLevel`, `DeviceSystem`, `DeviceAgentSystem`, `EffectZoneSystem` | the remake's active devices (`device` 136, `Flight.Device`, `PlayerDevices`) and `cloakCooldownMs` | the 8 player devices done: the remake's device system (quick menu, keys 4-6, HUD slots, the NPC slow over multiplayer) and the importer's items (`device_items`: GoF3's sounds, lore-image icons); untested in Play mode; the NPC / boss devices open (G3) |
 | G2 | Weapon abilities and buffs: armour piercing, burst hit, shield bypass, chain effect, slowdown; damage / shield drain over time | `Ability*`, `Buff*`, `StrengthAndWeakness` | gun traits | done for the player's weapons 2026-11-02: only two carry abilities (Buffable.onCreationBuffs): the Slowdeath's AbilitySlowdown and the Hunter-XT's AbilityBypassShield, now the remake's slowMs / slowPercent and shieldBypass; GoF3's primaries carry none. The NPC / boss buffs (damage over time, energy drain, StrengthAndWeakness on 43 bosses) wait for G3 |
-| G3 | Bosses: info and difficulty, weak points, minions, taunts, portraits | `BossInfo`, `BossSetting`, `BossDifficulty`, `Weakpoint`, `Minion`, `TauntTable` | Most Wanted, capital ship subsystems | Most Wanted done 2026-11-02 (`tools/gof3_wanted.py`, the remake's new `wanted.json`): the 31 campaign bosses (BossInfo tier 8012639, order 5732944, minions 362122 / 362124, quote 9650601, portrait GuiAttribute 1210092) with their hulls, first primary, launcher, portraits as characters, the HB / UB / BB hierarchy as requiredBounties; untested in Play mode. Open: difficulty configs (5320137), weak points, minions as escorts of their own type, taunts, music, the NPC / boss devices and buffs, the events' bosses |
+| G3 | Bosses: info and difficulty, weak points, minions, taunts, portraits | `BossInfo`, `BossSetting`, `BossDifficulty`, `Weakpoint`, `Minion`, `TauntTable` | Most Wanted, capital ship subsystems | Most Wanted done 2026-11-02 (`tools/gof3_wanted.py`, the remake's `wanted.json` with its `escorts` / `taunt` / `music`): the 31 campaign bosses (BossInfo bossType, progressionPosition, infoSource0-2 the informants, quoteSnippet, entourageSnippets; portrait GuiAttribute 1210092) with their hulls, first primary, launcher, portraits as characters, an HB's informants' hulls as its escorts, its first entourage line as its taunt, the HB / UB / BB hierarchy as requiredBounties; strength and bounty by GoF2's rules (the user: GoF2's difficulty, not GoF3's; see "Difficulty: GoF3 against GoF2"); untested in Play mode. Open: the boss music (musicEvent: FMOD events in music_stream*.bank, not decoded; the remake's `music` field is ready), weak points, the NPC / boss devices and buffs, the events' bosses |
 | G4 | Missions: side missions, contracts, distress calls, freelance challenges and seasons (task types kill, escort, find, escape, scan area, protect NPC); story dialogue and actors | `Sidemission`, `ContractSpawnSchedule`, `DistressCallSchedule`, `Freelance*`, `*Task`, `Story*` | bar missions, event graphs | open |
 | G5 | Progression: blueprints and parts, ship / weapon / tier upgrades, wingmen and pet drones | `Blueprint*`, `ShipUpgrade*`, `WeaponUpgrade*`, `TierUpgrade`, `Wingman`, `PetDrone` | blueprints.json, wingmen | open |
 | G6 | AI: flocking, formations, perception, danger levels, evasive rolls | `FlockingSystem`, `FormationSystem`, `PerceptionSystem`, `AIDangerSystem`, `NPCBanking` | the remake's own (GoF2) AI | open, least needed |
+
+
+## Difficulty: GoF3 against GoF2 (to look over later)
+
+Decided (the user, 2026-11-02): the GoF3 ships and bosses follow GoF2's difficulty rules, not GoF3's. How the two differ,
+from data.pdb and libgofm.so's protobuf descriptors (`BossDifficultyConfig`, `DangerDependentAttributes`, `PowerRatingDeviation`,
+`*DangerLevel`, `PlayerLevel`) against the remake's docs/notes/saves.md "Difficulty":
+
+- **One setting against none.** GoF2: a difficulty picked per game (Easy / Normal / Hard / Extreme; the remake's
+  `Session.DifficultyFactor` x0.5 / 1 / 1.5 / 2 on NPC hulls and gun damage, raider counts, base guards, the wanted,
+  outposts, freelance enemy counts; Extreme's own rules on top). GoF3 has no game-wide difficulty: the world's danger
+  rises with the story, and each fight takes its numbers from a danger level.
+- **Danger levels 0-40.** Every GoF3 fight has a danger level; `DangerDependentAttributes_<n>` multiplies NPC hull,
+  shield and damage by it, per mission kind (grind easy / medium / hard, freelance, distress call, exploration, event
+  challenge, boss easy / medium / hard): about 0.06-0.14 at level 1, 2.7-6.3 at 20, 16-38 at 40 (up to 56 for the hard
+  grind). GoF2's NPCs differ by ship and by the player's rank (the wanted's +15 x rank hull), not by an orbit level.
+- **What spawns.** GoF3 picks NPC ships, weapons, secondaries and devices by danger level and race (`ShipDangerLevel`,
+  `WeaponDangerLevel`, `SecondaryWeaponDangerLevel`, `DeviceDangerLevel`: levelFrom-levelTo ranges per `DangerLevelList`).
+  GoF2 picks by the system's race and its own tables (`NpcTables`), the gear by tech level and security.
+- **Bosses: Normal, Titan, Titan+.** Each boss has three `BossDifficultyConfig`s. Normal: danger level = its place in the
+  campaign (1-31), credits and XP 2000-7600, no gate. Titan: danger 30, 3000 credits / 2000 XP, gated by the player's
+  power rating (required defence 1300, attack 900); Titan+: danger 40, 5000 / 4000, required 1400 / 1000. A boss is
+  "dead" per difficulty: the ladder is replayed at Titan, then Titan+. GoF2's criminals are killed once, at the
+  game's difficulty, their bounty fixed (50,000-140,000) and their hull fixed per entry (5000-10000) plus rank.
+- **Power rating and pain.** GoF3 rates the player's ship (attack / defence power rating) and compares it with each
+  boss config's expected rating: below it, "pain" factors (hullPain, shieldPain, damagePain with their maxima and the
+  attack / defence normalizers) make the boss stronger the weaker the player's ship. `PowerRatingDeviation` sets the
+  rating window of the grind missions' runs. GoF2 has nothing that looks at the player's ship.
+- **Player level and XP.** GoF3's `PlayerLevel` table (XP per level; credits, Mhaan Tiq and revive coins as level
+  rewards); bosses and missions give XP. GoF2's rank comes from kills (`Session.Rank`).
+- **Mission difficulty.** GoF3's grind missions come as Easy / Medium / Hard (their danger factors above; the scripts'
+  "Mission Difficulty" and per-wave "Difficulty Settings"); GoF2's freelance missions scale with the difficulty factor
+  and the player's rank.
+- **Durability.** A GoF3 boss fight costs ship durability (BossInfo durabilityCost 20); GoF2 has no wear.
+- **Premium / China variants.** GoF3's boss configs carry `_premium` columns (other required and expected ratings), its
+  player levels `_chn` and `_premium` ones (XP, rewards);
+  GoF2 has one table.
+
+What the mods use instead: the bosses' hull 7000 -> 10000 and bounty 60,000 -> 140,000 along each act's ladder (GoF2's
+boards), escorts 2-4 (GoF2's 0-4), then the remake's rank bonus and difficulty factor (`TrafficPlan.AddWanted`); the
+GoF3 ships' stats were scaled to GoF2's ranges from the start (build_gof3_mod.py, CONVERT).
 
 ## Devices: the plan (from the 2026-11-02 research)
 

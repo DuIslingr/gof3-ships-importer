@@ -82,8 +82,10 @@ blueprint in a data container, once (blueprints.json "drops" { "ship" }): the on
 Most Wanted (wanted.json, characters.json, portraits/): GoF3's 31 campaign bosses are criminals on the Most Wanted boards,
 each with its GoF3 portrait, quote, hull and guns: act 1 (Sh'gaal's) on the Vossk boards, act 2 (Khador's) on the
 Nivelian ones, act 3 (Ti-Nung's) on the Terran ones, in the campaign and in free play. As in GoF3 the helper bosses come
-first, the under bosses once some of them are dead, the big boss last; the strongest pay up to 300,000 and drop Golden
-Cores, and the boss hulls their own blueprint.
+first, escorted by their two informants' ships, the under bosses once some of them are dead, the big boss last; each
+taunts you over the radio with its GoF3 line when found. Their strength and bounties follow Galaxy on Fire 2's own
+boards (7,000-10,000 hull, 60,000-140,000 credits up the ladder) and its difficulty setting; the under and big bosses
+drop Golden Cores, and the boss hulls their own blueprint.
 Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, in Galaxy on Fire 2's own way
 (its blueprints are items only, so the GoF3 ships follow those): the recipe starts with the product's lower tier, as GoF2's
 Wolverine needs a Wolf, here the hull's own GoF3 guns (two, all four for the dearest hulls, of a family of its race, the

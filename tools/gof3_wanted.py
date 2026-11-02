@@ -7,10 +7,13 @@ GoF3's data.pdb gives each boss a BossInfo component (research 2026-11-02):
   8012639   the tier: 2 helper boss (HB), 3 under boss (UB), 4 big boss (BB)
   5732944   its place in the campaign's order (1-31: act 1 1-13, act 2 14-26, act 3 27-31)
   5671259   its internal name, the act first (A01_HB04_T09-...)
-  362122 / 362124  its two minions: an HB's two escort ships, a UB's two HBs, a BB's two UBs (the hierarchy the remake's
-            "requiredBounties" follows here)
-  9650601   its quote (a text record), 4670436 / 8403147 its music; GuiAttribute 4067579 its title, 1210092 its portrait
-            (swf/<name>.png, a 1000 x 1200 cut-out)
+  362122-362124  infoSource0-2, its informants (killed to find it): an HB's two grind-boss ships, a UB's two HBs, a BB's
+            two UBs (the hierarchy the remake's "requiredBounties" follows here)
+  9650601   quoteSnippet, its quote; 597983 entourageSnippets, its lines (a record of text refs, 4095575); 4670436 /
+            8403147 its music events; GuiAttribute 4067579 its title, 1210092 its portrait (swf/<name>.png, 1000 x 1200)
+  5320137   difficultyConfigs: Normal / Titan / Titan+ (not used: the remake keeps GoF2's difficulty, ROADMAP.md
+            "Difficulty: GoF3 against GoF2")
+(The field names: libgofm.so's protobuf descriptors, BossInfo / BossDifficultyConfig.)
 Left out: the records without a place in the order (the events' bosses, Krotac's arena, Rigant's unused under bosses,
 Ti-Nung's decoy), the test record and the "_2" / "Clones" copies; of the records sharing a title the strongest hull counts.
 
@@ -19,13 +22,17 @@ The remake's criminal from it:
   race        Identity 9536365 (RACE: the pirates of act 3 fly as pirates); its escorts are of that race
   board       by act: 1 Vossk (Sh'gaal's), 2 Nivelian (Khador's), 3 Terran (Ti-Nung's)
   requiredBounties  HB 0; the act's n-th UB 2n; the BB 3 x the act's UBs (kills on that board's mod criminals)
-  hitpoints   the GoF3 hull (Hull 1929780, 1200-7300) onto GoF2's 5000-12000 (the game's criminals: 5000-10000)
-  reward      hitpoints x 12 / 16 / 25 by tier (the game's: 50,000-140,000)
+  hitpoints   GoF2's rule (the user, 2026-11-02: GoF2's difficulty, not GoF3's): GoF2's boards climb 7000 -> 10000 along
+              their ladder, so the act's first boss 7000 to its big boss 10000 by its place in the act's order; the
+              remake then adds GoF2's rank bonus and multiplies by GoF2's difficulty factor (TrafficPlan.AddWanted)
+  reward      likewise GoF2's 60,000 -> 140,000 along the act
   weapon      the boss's first primary (Arming 9719173, a PW_ record: its Shape's gun family) as this mod's GoF3 gun, mark 2
               for an HB, 3 above; a boss arming only a launcher takes the Burst Laser
   secondary   its launcher: rockets by tier (Rocket, Turretschreck, Hunt Down), mine layers and the smart bomb the cluster
   loot        HB 5 Implants, UB 2 / BB 5 Golden Cores (the hulls' blueprints already drop from the boss hulls)
-  wingmen     2 / 3 / 4 by tier
+  wingmen     GoF2's 0 -> 4 along the act, at least 2 for an HB (its two informants), 2 for a UB, 4 for a BB
+  escorts     an HB's: its informants' hulls (GoF3's grind bosses fly regular hulls); the others' their race's fighters
+  taunt       its first entourage line, else its quote
   description its quote and its place under its act's big boss"""
 import json, os, re, sys
 from PIL import Image
@@ -35,8 +42,7 @@ BOARD = {1: "vossk", 2: "nivelian", 3: "terran"}
 RACE_WORD = {0: "terran", 1: "vossk", 2: "nivelian", 3: "midorian", 8: "pirate"}
 SECONDARY = {2: "gof3_crrocket", 3: "gof3_lrturretschreck", 4: "gof3_lrhuntdown"}
 LOOT = {2: (113, 5), 3: (165, 2), 4: (165, 5)}
-WINGMEN = {2: 2, 3: 3, 4: 4}
-REWARD = {2: 12, 3: 16, 4: 25}
+WINGMEN_MIN = {2: 2, 3: 2, 4: 4}
 SKIP = re.compile(r"NOT USED|Test|Clones|_2$|FakeBoss|Vortex")
 
 
@@ -53,8 +59,25 @@ def cased(title, record, mixed_case):
     return " ".join(word(w) for w in title.split())
 
 
+def entourage(D, b):
+    """A boss's entourage lines (BossInfo entourageSnippets -> its 4095575 text refs)."""
+    v = b.get(597983)
+    rec = D.R.sub(v[0]).get(1) if v else None
+    if rec not in D.R.p.recs: return []
+    return [t for t in (D.text_of(x) for x in D.R.fields(rec).get(4095575, [])) if t]
+
+
+def hull_of(D, rid):
+    """A ship record's hull folder as this mod's ship id (Shape /assets/ships/<race>/<n>/ -> <race>_<n>)."""
+    if rid not in D.R.p.recs: return None
+    sh = (D.R.resolved(rid)[0].get("Shape", {}).get(7803720) or [b""])[0].decode("utf-8", "replace")
+    m = re.search(r"/ships/(\w+)/(\d+)/", sh)
+    return f"{m.group(1)}_{m.group(2)}" if m else None
+
+
 def bosses(D):
-    """[{rid, title, quote, tier, order, act, hull, race, shape, portrait, minions, weapons}] of the campaign's bosses."""
+    """[{rid, title, quote, lines, tier, order, act, hull, race, shape, portrait, informants, weapons}] of the campaign's
+    bosses."""
     R = D.R
     found = {}
     for rid in list(R.p.recs):
@@ -79,7 +102,8 @@ def bosses(D):
              "order": b[5732944][0], "act": int(act.group(1)), "hull": comps.get("Hull", {}).get(1929780, [0.0])[0],
              "race": comps.get("Identity", {}).get(9536365, [7])[0], "shape": shape,
              "portrait": (comps.get("GuiAttribute", {}).get(1210092) or [b""])[0].decode("utf-8", "replace"),
-             "minions": [R.name(R.sub(v).get(1)) for k in (362122, 362124) for v in b.get(k, [])], "weapons": weapons}
+             "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
+             "lines": entourage(D, b)}
         if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
     return sorted(found.values(), key=lambda e: e["order"])
 
@@ -100,7 +124,12 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
             log(f"wanted: {title}: no hull {ship} in the mod (left out)"); continue
         tier, act = e["tier"], e["act"]
         race = race_map.get(e["race"], 8)
-        hp = int(round((5000 + max(0.0, e["hull"] - 1200) / 6100 * 7000) / 500.0)) * 500
+        span = [x["order"] for x in all_b if x["act"] == act]
+        t = (e["order"] - min(span)) / max(1, max(span) - min(span))   # its place on the act's ladder, 0..1
+        hp = int(round((7000 + 3000 * t) / 500.0)) * 500
+        reward = int(round((60000 + 80000 * t) / 5000.0)) * 5000
+        wingmen = max(WINGMEN_MIN[tier], int(round(4 * t)))
+        escorts = [f"{mod_id}:{h}" for h in (hull_of(D, i) for i in e["informants"]) if h in ship_ids] if tier == 2 else []
         if tier == 3: unders[act] = unders.get(act, 0) + 1
         required = 0 if tier == 2 else 2 * unders[act] if tier == 3 else 3 * sum(1 for x in all_b if x["act"] == act and x["tier"] == 3)
         mk = 2 if tier == 2 else 3
@@ -117,8 +146,11 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         entry = {"id": wid, "name": title, "description": (f"“{quote}” " if quote else "") + role,
                  "board": BOARD.get(act, "terran"), "race": RACE_WORD.get(race, "pirate"),
                  "ship": f"{mod_id}:{ship}", "weapon": f"{mod_id}:{weapon_id(fam.group(1) if fam else '000', mk)}",
-                 "secondary": f"{mod_id}:{secondary}", "hitpoints": hp, "reward": int(round(hp * REWARD[tier], -4)),
-                 "loot": loot, "lootAmount": amount, "wingmen": WINGMEN[tier], "requiredBounties": required}
+                 "secondary": f"{mod_id}:{secondary}", "hitpoints": hp, "reward": reward,
+                 "loot": loot, "lootAmount": amount, "wingmen": wingmen, "requiredBounties": required}
+        if escorts: entry["escorts"] = escorts
+        taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
+        if taunt: entry["taunt"] = taunt
         src = os.path.join(merged, "swf", e["portrait"] + ".png") if e["portrait"] else None
         if src and os.path.exists(src):
             Image.open(src).convert("RGBA").resize((320, 384), Image.LANCZOS).save(os.path.join(out, "portraits", f"{wid}.png"), optimize=True)
