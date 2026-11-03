@@ -1,42 +1,47 @@
 """GoF3's Hades hangar (hangar/geometry/hangar_01, the ShipSelectionB room: the player's ship on the round launch pad) as one
 baked .glb for the remake's mod interiors (interiors.json "model"), the Manticore's own hangar.
 
-The room's pieces (ShipSelectionB_*) share one light map on UV1 (textures/ShipSelectionB_light_ao: RGB the baked lighting, its
-occlusion included). Each piece's .ae4model lists its sections' materials by an 8-byte id (after the model's id table and the
-LOD's meshgroup id: [count u32][id u64]...), which no file maps back to a material; MATERIALS below was found by matching each
-id's UV0 island borders against the edges of the hangar's numbered textures over every section that uses it (the cables
-material 04 shares 05's texture), then checked on renders. Baked onto the UV1 unwrap:
-  emission = diffuse(UV0) x light map RGB x GLOW     (GoF3's own lighting: the room looks as in GoF3 whatever the remake lights)
-  colour   = diffuse(UV0) x BASE                     (a little response to the remake's key light)
+The room's pieces (ShipSelectionB_*) share one light map on UV1 (textures/ShipSelectionB_light_ao: RGB the baked lighting, A
+its occlusion). Each piece's .ae4model lists its sections' materials by an 8-byte id (after the model's id table and the
+LOD's meshgroup id: [count u32][id u64]...): GoF3's resource id of the material's path (ae4_ids.resolve), the material's
+textures (T1, T2...) by the same ids. (Until 2026-11-02 a table guessed from UV islands stood in, and seven of its ten ids
+were wrong: the ground, floors and walls showed the cables texture's coloured balls, the cables the wall's.)
+
+GoF3's hangar shader (the 01..09_hangar materials' .ae4shader, ae4_shaders.text) lights a texel only by its light maps:
+  light    = mix(T7 light map, T6 showroom light map, custom_LightMapFade_Value)
+  colour   = diffuse x light x (1 - e) + e x diffuse + light x specular x occlusion
+with diffuse = T<Diffuse_TextureSlot>.rgb x Diffuse_Color, e (the emissive mask: monitors, lamps) = T<Emissive_TextureSlot>.a
+when that slot is set, specular = T<Specular_TextureSlot> (.rgb for channel 0, else .b: the normal map's) x Specular_Color
+(its fresnel boost, the rim and the scene's own lights left out: they depend on the view). The fade is 0 in the ship
+hangar: VfxController's constructor zeroes it and its target (+0x110 / +0x114), and switchHangarLightMap, the only thing
+that sets the target, has no caller in libgofm.so (2026-11-02), so the regular light map (each piece's T7 is the material
+file's ShipSelectionA one, replaced by the room's own) lights the room. Baked onto the UV1 unwrap:
+  emission = that colour x GLOW         (the room looks as in GoF3 whatever the remake lights; GLOW makes up for its tone map)
+  colour   = diffuse x BASE             (a little response to the remake's key light)
 The sections without a light map go in as materials of their own on their UV0 (2026-11-02: the room looked bare without
-them): LIGHTS, GoF3's 06_hangar_light_effects (unlit: Emissive_Unlit, its texture drawn as it is: the light strips and lamps
-of ShipSelectionB_light and the floors) as an emission-only material, and DECALS, 16_hangar_decals_000 (alpha-blended, lit:
-the wall signs of ShipSelectionB_decals_000). The pulse (17_hangar_pulse_000, additive, vertex-coloured: GoF3's launch
-effect) stays out.
+them), by their material's values: unlit ones (Emissive_Unlit: 06_hangar_light_effects, the light strips and lamps of
+ShipSelectionB_light, and the pad's orange rim on the floors: GoF3 draws them as their texture x custom_Diffuse_Color,
+which nothing in the hangar sets, so the material's Diffuse_Color) as emission-only materials at GLOW, alpha-blended ones
+(BlendMode 5: 16_hangar_decals_000, the wall signs of ShipSelectionB_decals_000) as blended lit ones. GoF3's ship ignition
+light (hangar_ship_ignition_light_body) and the pulse (17_hangar_pulse_000) stay out: the ignition's idle animation
+(hangar_ship_light_idle_anim) holds its alpha at 0, it shows only while a ship launches, as the pulse.
 
 convert(assets, out_glb, size) -> {"min", "max", "triangles"} in glTF space (Y up, 1 unit = 1 GoF3 unit; the pad at the origin)."""
-import glob, os, struct, sys
+import os, struct, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 from PIL import Image
-import ae4_meshgroup, ae4_texture, structures
+import ae4_ids, ae4_material, ae4_meshgroup, ae4_texture, structures
 from ae4unpack import unpack
 
 PIECES = ["ShipSelectionB_floor", "ShipSelectionB_floor_001", "ShipSelectionB_floor_002", "ShipSelectionB_ground",
           "ShipSelectionB_left_001", "ShipSelectionB_front", "ShipSelectionB_front_001", "ShipSelectionB_engine",
           "ShipSelectionB_mirrored_background", "ShipSelectionB_crates_001", "ShipSelectionB_crates_002",
-          "ShipSelectionB_crates_003"]
-MATERIALS = {
-    "e62a4a8693f8f5f5": "01_hangar_floor_001", "822d8c767feda3e7": "02_hangar_001", "37133fed148bd2d6": "05_hangar_Cables_001",
-    "0727efc12bd2c57f": "05_hangar_Cables_001", "7855531f67f68aad": "07_hangar_crates_001", "a1fc0925f4b21782": "12_hangar_wall_001",
-    "8552b6380f006334": "16_hangar_decals_000", "c95e90c7ab2e445a": "11_hangar_monitors_001", "1223e8de51f26d8a": "08_hangar_002",
-    "514395008b487772": "10_hangar_floor_004",
-}
-LIGHTS = ("6c2439f06a422239", "06_hangar_light_effects", ["ShipSelectionB_light"])   # (id, texture, pieces beside PIECES)
-DECALS = ("373a342518cc4cc1", "16_hangar_decals_000", ["ShipSelectionB_decals_000"])
+          "ShipSelectionB_crates_003", "ShipSelectionB_light", "ShipSelectionB_decals_000"]
 LIGHT_MAP = "ShipSelectionB_light_ao"
 GLOW = 2.2
 BASE = 0.15
+TEX = 1024                    # each material's textures sampled at this size
 
 
 def section_materials(model_path):
@@ -49,8 +54,8 @@ def section_materials(model_path):
 
 
 def raster(sections, textures, size):
-    """Each section's UV0 texture onto its UV1 unwrap: colour (size, size, 3), mask."""
-    col = np.zeros((size, size, 3), np.float32); mask = np.zeros((size, size), bool)
+    """Each section's UV0 texture (h, w, c) onto its UV1 unwrap: (size, size, c), mask."""
+    col = np.zeros((size, size, textures[0].shape[2]), np.float32); mask = np.zeros((size, size), bool)
     for s, tex in zip(sections, textures):
         uv1 = np.asarray(s["a_texCoord1"], np.float64) * size
         uv0 = np.asarray(s["a_texCoord0"], np.float64)
@@ -72,31 +77,66 @@ def raster(sections, textures, size):
             w = np.stack([l0[inside], l1[inside], l2[inside]], 1)
             px = structures._sample(tex, w @ uv0[[a, b, c]])
             yy, xx = gy[inside].astype(int), gx[inside].astype(int)
-            col[yy, xx] = px[:, :3]; mask[yy, xx] = True
+            col[yy, xx] = px; mask[yy, xx] = True
     return col, mask
+
+
+def material(assets, mid, cache={}):
+    """(name, values, {slot number: texture file}) of a material id (ae4_ids), (None, {}, {}) when it doesn't resolve."""
+    if mid not in cache:
+        f = ae4_ids.resolve(assets, mid)
+        if not f: cache[mid] = (None, {}, {})
+        else:
+            v, slots = ae4_material.read(f)
+            files = {int(k[1:]): ae4_ids.resolve(assets, h) for k, h in slots.items() if k[1:].isdigit()}
+            cache[mid] = (os.path.basename(f)[:-len(".ae4material")], v, {k: t for k, t in files.items() if t})
+    return cache[mid]
+
+
+def surface(v, files, load):
+    """A lit material's texels for the bake (TEX, TEX, 7): diffuse RGB, the emissive mask, specular RGB (see the header)."""
+    diffuse = load(files[int(v.get("Diffuse_TextureSlot", 1))])
+    out = np.zeros((TEX, TEX, 7), np.float32)
+    out[..., :3] = diffuse[..., :3] * np.asarray(v.get("Diffuse_Color", (1, 1, 1, 1))[:3], np.float32)
+    em = int(v.get("Emissive_TextureSlot", 0) or 0)
+    if em and em in files: out[..., 3] = load(files[em])[..., 3]
+    sp = int(v.get("Specular_TextureSlot", 0) or 0)
+    spec = load(files[sp]) if sp in files else np.ones((TEX, TEX, 4), np.float32)
+    spec = spec[..., :3] if int(v.get("Specular_Channel", 0) or 0) == 0 else spec[..., 2:3]
+    out[..., 4:] = spec * np.asarray(v.get("Specular_Color", (1, 1, 1, 1))[:3], np.float32)
+    return out
 
 
 def convert(assets, out_glb, size=4096, log=print):
     geo = f"{assets}/hangar/geometry/hangar_01"
     cache = {}
-    def tex(name):
-        if name not in cache:
-            f = glob.glob(f"{assets}/hangar/textures/{name}_D*.ae4texture")[0]
-            cache[name] = np.asarray(ae4_texture.decode(f).convert("RGBA").resize((1024, 1024), Image.BICUBIC), np.float32) / 255
-        return cache[name]
-    sections, textures, unknown = [], [], set()
-    own = {LIGHTS[0]: [], DECALS[0]: []}   # the unlit lights and the decals: sections without a light map
-    for p in PIECES + LIGHTS[2] + DECALS[2]:
+    def load(path):
+        if path not in cache:
+            im = ae4_texture.resized(ae4_texture.decode(path).convert("RGBA"), (TEX, TEX))
+            cache[path] = np.asarray(im, np.float32) / 255
+        return cache[path]
+    sections, textures, unknown, surfaces = [], [], set(), {}
+    own = {}   # the sections without a light map by material: {name: (kind, values, texture, [section])}
+    for p in PIECES:
         for mid, s in zip(section_materials(f"{geo}/{p}.ae4model"), ae4_meshgroup.read_all(f"{geo}/{p}.ae4meshgroup")):
-            if mid in own: own[mid].append(s); continue
-            if "a_texCoord1" not in s or not np.abs(np.asarray(s["a_texCoord1"])).max(): continue
-            if mid not in MATERIALS: unknown.add(mid); continue
-            sections.append(s); textures.append(tex(MATERIALS[mid]))
-    if unknown: log(f"hangar room: sections of unknown materials left out: {sorted(unknown)}")
-    col, mask = raster(sections, textures, size)
-    col = structures._dilate(col, mask, max(4, size // 256))
-    light = structures._tex(f"{assets}/hangar/textures/{LIGHT_MAP}.tga.ae4texture")
-    lm = np.asarray(Image.fromarray((light * 255).astype(np.uint8)).resize((size, size), Image.BILINEAR)).astype(np.float32) / 255
+            name, v, files = material(assets, mid)
+            t = files.get(int(v.get("Diffuse_TextureSlot", 1)))
+            if name is None or t is None: unknown.add(name or mid); continue
+            if "a_texCoord1" in s and np.abs(np.asarray(s["a_texCoord1"])).max():
+                if name not in surfaces: surfaces[name] = surface(v, files, load)
+                sections.append(s); textures.append(surfaces[name]); continue
+            kind = "light" if v.get("Emissive_Unlit") else "decal" if v.get("BlendMode") in (1, 5) else None
+            if kind is None: unknown.add(name); continue
+            own.setdefault(name, (kind, v, t, []))[3].append(s)
+    if unknown: log(f"hangar room: left out: {sorted(unknown)}")
+    texel, mask = raster(sections, textures, size)
+    light = structures._tex(f"{assets}/hangar/textures/{LIGHT_MAP}.tga.ae4texture", (size, size))
+    lm, ao = light[..., :3], light[..., 3:]
+    d, e, sp = texel[..., :3], texel[..., 3:4], texel[..., 4:]
+    glow = (d * lm * (1 - e) + e * d + lm * sp * ao) * GLOW
+    del texel, light, lm, ao, sp, e
+    col = structures._dilate(np.concatenate([d * BASE, glow], 2), mask, max(4, size // 256))
+    del d, glow
     pos, nrm, uv, idx = [], [], [], []
     for s in sections:
         b = len(pos)
@@ -106,31 +146,32 @@ def convert(assets, out_glb, size=4096, log=print):
     materials = [{"name": "hangar_hull", "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}, "metallicFactor": 0.25,
                                                                  "roughnessFactor": 0.6},
                   "emissiveTexture": {"index": 1}, "emissiveFactor": [1.0, 1.0, 1.0]}]
-    images = [(structures._jpeg(col * BASE), "image/jpeg", "hangar_colour", False),
-              (structures._jpeg(col * lm[..., :3] * GLOW), "image/jpeg", "hangar_emission", False)]
-    for (mid, name, _), kind in ((LIGHTS, "lights"), (DECALS, "decals")):
-        secs = own[mid]
-        if not secs: log(f"hangar room: no {kind} sections"); continue
-        f = glob.glob(f"{assets}/hangar/textures/{name}_D*.ae4texture")
-        if not f: log(f"hangar room: no {name} texture"); continue
-        t = np.asarray(ae4_texture.decode(f[0]).convert("RGBA"), np.float32) / 255
+    images = [(structures._jpeg(col[..., :3]), "image/jpeg", "hangar_colour", False),
+              (structures._jpeg(col[..., 3:]), "image/jpeg", "hangar_emission", False)]
+    def add_mesh(name, secs, material_index):
         p_, n_, u_, i_ = [], [], [], []
-        for s in secs:
+        for sec in secs:
             b = len(p_)
-            p_ += [list(v) for v in s["a_position"]]; n_ += [list(v) for v in s["a_normal"]]
-            u_ += [tuple(x) for x in s["a_texCoord0"]]; i_ += [k + b for k in s["indices"]]
+            p_ += [list(x) for x in sec["a_position"]]
+            n_ += [list(x) for x in sec["a_normal"]] if "a_normal" in sec else [[0.0, 1.0, 0.0]] * len(sec["a_position"])
+            u_ += [tuple(x) for x in sec["a_texCoord0"]]; i_ += [k + b for k in sec["indices"]]
+        meshes.append({"name": name, "primitives": [{"positions": p_, "normals": n_, "uvs": u_, "indices": i_,
+                                                     "material": material_index}]})
+        return len(i_) // 3
+    for name, (kind, v, t, secs) in sorted(own.items()):
+        img = np.asarray(ae4_texture.decode(t).convert("RGBA"), np.float32) / 255
+        img[..., :3] *= np.asarray(v.get("Diffuse_Color", (1, 1, 1, 1))[:3], np.float32)
         k = len(images)
-        if kind == "lights":   # unlit: its texture as the emission over black
-            images.append((structures._jpeg(t[..., :3]), "image/jpeg", f"hangar_{kind}", True))
-            materials.append({"name": f"hangar_{kind}", "pbrMetallicRoughness": {"baseColorFactor": [0, 0, 0, 1], "metallicFactor": 0,
-                              "roughnessFactor": 1}, "emissiveTexture": {"index": k}, "emissiveFactor": [1.0, 1.0, 1.0]})
-        else:                  # alpha-blended, lit
-            images.append((structures._png(t, "RGBA"), "image/png", f"hangar_{kind}", True))
-            materials.append({"name": f"hangar_{kind}", "alphaMode": "BLEND", "doubleSided": True,
+        if kind == "light":   # unlit: its texture as the emission over black, at GLOW as the room (the remake reads the
+                              # factor unclamped: no clipping toward white, as GLOW baked into the texture would)
+            images.append((structures._jpeg(img[..., :3]), "image/jpeg", name, True))
+            materials.append({"name": name, "pbrMetallicRoughness": {"baseColorFactor": [0, 0, 0, 1], "metallicFactor": 0,
+                              "roughnessFactor": 1}, "emissiveTexture": {"index": k}, "emissiveFactor": [GLOW] * 3})
+        else:                 # alpha-blended, lit
+            images.append((structures._png(img, "RGBA"), "image/png", name, True))
+            materials.append({"name": name, "alphaMode": "BLEND", "doubleSided": True,
                               "pbrMetallicRoughness": {"baseColorTexture": {"index": k}, "metallicFactor": 0, "roughnessFactor": 0.7}})
-        meshes.append({"name": f"hangar_{kind}", "primitives": [{"positions": p_, "normals": n_, "uvs": u_, "indices": i_,
-                                                                "material": len(materials) - 1}]})
-        log(f"hangar room: {kind} {len(i_) // 3} triangles")
+        log(f"hangar room: {kind} {name} {add_mesh(name, secs, len(materials) - 1)} triangles")
     structures.write_glb_parts(out_glb, meshes, materials, images, generator="gof3_ships_importer hangar_room.py")
     P = np.asarray(pos)
     return {"min": P.min(0).tolist(), "max": P.max(0).tolist(), "triangles": len(idx) // 3}
