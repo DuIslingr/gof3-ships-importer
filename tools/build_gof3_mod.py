@@ -56,6 +56,7 @@ from engine_glows import engines as measure_engines, _accessor
 import gof3_sounds
 import capitals
 import gof3_wanted
+import gof3_shading
 
 args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not sys.argv[i - 1] in ("--max-texture", "--icons-from", "--jobs")]
 OUT = os.path.abspath(args[0] if args else os.path.expanduser("~/GOF2UnityRemakeMods/gof3_ships"))
@@ -1778,6 +1779,8 @@ def main():
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     # GoF3's bosses on the Most Wanted boards, their portraits as characters (gof3_wanted.py)
     n_wanted = gof3_wanted.build(D, {s["id"] for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase)
+    # GoF3's shading per kind (hull bodies, glass as GoF3's specular, guns, capital ships: gof3_shading.py)
+    gof3_shading.ships(OUT, ASSETS, log=phase)
     json.dump({
         "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.4", "author": "DuIslingr",
         "description": f"{len(ships)} ships from Galaxy on Fire 3: Manticore as customizable ships, sold by visitors in the Space "

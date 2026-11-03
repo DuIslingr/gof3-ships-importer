@@ -135,6 +135,11 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 
 ## In the game
 
+- Every GoF3 surface is lit the way GoF3 lights it: the remake's GoF2/Hull runs a port of GoF3's own shaders for the mods'
+  specular materials (gamma space, Phong, its fresnel), and `tools/gof3_shading.py` tells it each surface's kind (a glTF
+  material's `extras`, a JSON material's fields): the hulls reflect their surroundings and have a rim light, the glass is
+  GoF3's specular glass, the guns, stations, gates and capital ships reflect nothing (as in GoF3). Runs on its own over
+  built mods too: `python tools/gof3_shading.py <gof3_ships folder> [<gof3_systems folder>]`.
 - The ships are sold by visitors in the Space Lounges of their race's systems, from a story step (or rank) that grows with
   the ship's strength. Their blueprints work like Galaxy on Fire 2's: each sold by one lounge visitor at one station of its
   race, the recipe the hull's GoF3 guns plus goods, ores and cores; a few also lie in hackable derelicts, and ships of the

@@ -103,6 +103,13 @@ Not seen in game yet; the faces are 512 px, so a distant station is a few pixels
 
 ## Also open from earlier work
 
+- Shading (2026-11-02, `tools/gof3_shading.py`, the remake's `_GoF3Params`): approximations left: a ship glass with its own
+  specular texture (Terran 000's glass, slot 2) takes only its Specular_Color; a paint scheme with its own multiplier (the
+  gold schemes' x 5) keeps its hull's 1.5 for the environment term (its highlight is right); the structure atlases merge
+  the solar panels, which GoF3 lets reflect (Environment_Amount), into the no-reflection platings; the capital ships' rim
+  is on for the whole baked hull (GoF3: on their largeship parts, off on the platings among them); the weapon mount
+  (weapon_generic_mount_000) is still a metallic-roughness material. Checked in game: the Betty II in a hangar and its
+  Info preview, the Nemesis in space; the GoF3 Systems mod's stations and gates not seen yet.
 - The sky's turn: done 2026-11-02 (gof3_look.sky_rotation, sky_strip.MIRRORED). From libgofm.so: the .ae4texture's faces
   are GL's targets in the order +Y, -X, +Z, +X, -Z, -Y (ae::render::opengl::loadTexture's table), the sky shader samples
   them with the sky mesh's own position (textureCube(EnvironmentMap, normalize(a_position))), and a TransformComponent

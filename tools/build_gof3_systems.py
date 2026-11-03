@@ -321,6 +321,9 @@ def main():
     gof3_look.apply(out, a.pdb, assets)
     # each orbit's asteroid field and planet, the hubs' traffic, the clusters' music (gof3_world)
     gof3_world.apply(out, a.pdb, assets, world=world)
+    # GoF3's shading per kind: the structure atlases no environment or rim, the see-through parts their own (gof3_shading)
+    import gof3_shading
+    gof3_shading.systems(out, assets)
     shutil.rmtree(tmp, ignore_errors=True)
     print(len(systems), "systems,", len(stations), "stations,", len(groups), "atlases")
 
