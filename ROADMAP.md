@@ -18,7 +18,7 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 | A4 | Asteroid fields and ores | data `Field`, `FieldItems`, `OreDistribution`, `OreSpot`, `MiningField`; `asteroids/` | `orbit.asteroids` (count, centre, spread, type, ores) | done in the importer: 48 orbits; one field per orbit, ores by family (Anchorage H4's from GoF3's data) |
 | A5 | Music and ambience | `sound/music_hub.bank`, `ambience_stream_*.bank` (FMOD, vgmstream) | the systems' music | done in the importer: each cluster's calm layer (area_arrival1-5) as its systems' `spaceMusic`; combat music and ambience need remake fields |
 | A6 | Level dressing: the gates' sky window, glow and electricity; beacons, satellites, signal lights, billboards, comets, space junk, wrecks; the sky's turn matched to the sun | `structures/*/props/jumpgates/*` (skywindow, glow, add, electricity), `scenery/`, level entities | gate and station models, stations.json orbit `skyRotation` | gates' glow, add, electricity and sky window done (2026-11-02: `scene_glb` effects=True, the remake's additive `materials` entries, GoF2/ModGlow; the window's cube, a mip-chained one, baked as GoF3 samples it); the scenery: painted into each orbit's own sky (the user: the skybox only), see below; the sky's turn done (every orbit's `skyRotation`, the strips no longer mirrored) |
-| A7 | Loot crates, lore images and texts, boss portraits | `collectables/crates`, `loreimages/` (175), data `LoreElement`, `swf/*Boss*` | crate models, descriptions, portraits | lore texts in (checked 2026-11-02: the Neox Guide's Trim and Porros entries, title + text + image, are the sectors' descriptions the systems build already gives each system's first station; GoF3 has none for Rigant, and its levels carry only a name, no per-hub text). Open: the 175 codex images (the remake's lore panel shows no image), the History / Stories texts, loot crates, boss portraits |
+| A7 | Loot crates, lore images and texts, boss portraits | `collectables/crates`, `loreimages/` (175), data `LoreElement`, `swf/*Boss*` | crate models, descriptions, portraits | lore texts in (checked 2026-11-02: the Neox Guide's Trim and Porros entries, title + text + image, are the sectors' descriptions the systems build already gives each system's first station; GoF3 has none for Rigant, and its levels carry only a name, no per-hub text). Not wanted (the user, 2026-11-02): the codex (the 175 lore images, the History / Stories texts). Boss portraits done with G3. Open: loot crates |
 
 ## Gameplay (from the decompilation; each needs remake support)
 
@@ -110,6 +110,10 @@ Not seen in game yet; the faces are 512 px, so a distant station is a few pixels
   is on for the whole baked hull (GoF3: on their largeship parts, off on the platings among them); the weapon mount
   (weapon_generic_mount_000) is still a metallic-roughness material. Checked in game: the Betty II in a hangar and its
   Info preview, the Nemesis in space; the GoF3 Systems mod's stations and gates not seen yet.
+- The Manticore hangar (2026-11-02, `tools/hangar_room.py`): baked as GoF3's hangar shader lights it (the regular light
+  map: switchHangarLightMap has no caller; the emissive mask; the light map's specular), the pad's orange rim and the light
+  strips at the room's glow, the ignition light out (alpha 0 at idle). Not seen in game yet. The structure bakes' light
+  map fix (ae4_texture.resized: Pillow scaled RGBA premultiplied) lands with the next full gof3_systems / capitals build.
 - The sky's turn: done 2026-11-02 (gof3_look.sky_rotation, sky_strip.MIRRORED). From libgofm.so: the .ae4texture's faces
   are GL's targets in the order +Y, -X, +Z, +X, -Z, -Y (ae::render::opengl::loadTexture's table), the sky shader samples
   them with the sky mesh's own position (textureCube(EnvironmentMap, normalize(a_position))), and a TransformComponent
