@@ -252,7 +252,10 @@ ENGINE_FX = {"TerranEngine": ((0.0, 0.533, 1.0), 10.48 / 2.59), "TerranEngineLar
              "InouacEngine": ((0.0, 1.0, 0.835), 10.48 / 2.59)}
 NOZZLE_DEFAULT = 0.6      # GoF3 units: a nozzle's half size when the model shows none
 FLAME = 0.35              # the flame's length = the nozzle's mean half size x the plume's length / radius x this
-NAMES = {"ship_terran_020": "CRONUS"}   # its record is the dragon paint's (Ship_id020_DragonShip_Name); the plain hull
+NAMES = {"ship_terran_020": "CRONUS",   # its record is the dragon paint's (Ship_id020_DragonShip_Name); the plain hull
+         # the retro hull: titled GROZA "GR'GATH" (Ship_id000_Groza_Name_2, with the Groza's description), its gold
+         # variant BETTY; GoF3 2.0 shows it as "Betty II" (a player's ship list video, the user, 2026-11-02)
+         "ship_retro_000": "BETTY II"}
 # paint scheme -> its name in the Customize screen (the data.pdb skins' as the old variant ships were named)
 SCHEME = {"001": "Scheme 1", "002": "Scheme 2", "003": "Scheme 3", "000": "Scheme 0", "pirate": "Pirate", "huawei": "Huawei",
           "gold": "Gold", "red": "R.E.D.", "grgath": "Gr'Gath", "blackred": "Black Red", "mkktbkkt": "Mkkt Bkkt",
