@@ -11,6 +11,8 @@ baked with its own material's textures and values. Each model is baked onto its 
                   specular colour, its values as they are: GoF3 lights in gamma space, so the texture is read as sRGB)
   glossiness    = the n_s_g map's A as smoothness (structure_materials.smoothness)
   normal        = the n_s_g map's RG in the mesh's tangent frame, turned into the UV1 unwrap's (the glb's TANGENT)
+Sections of an unlit one-colour material (no texture, Colorize_Custom: the loot containers' collectables_emissive strips)
+go in as emission-only materials of that colour (UNLIT_GLOW).
 The colour, specular-glossiness and normal maps go in as glTF's KHR_materials_pbrSpecularGlossiness (the remake's mod
 loader reads it into URP's specular setup). Sections GoF3 draws alpha-tested or blended (antennas, glass, decals) get a
 material of their own on their own tiled texture (UV0); effect sections (sprites, glows, holograms, beams) and sections
@@ -29,6 +31,7 @@ LIGHT_FLOOR = 0.45            # the light map's A scales the colour from this to
 LIGHT_GLOW = 1.4              # the light map's RGB as emission
 WINDOW_GLOW = 0.6             # the plating's emissive mask (alpha) as emission
 OWN_SIZE = 1024               # an own material's tiled texture at most this size
+UNLIT_GLOW = 2.2              # an unlit one-colour section's emission (hangar_room.GLOW: the remake tone maps it down)
 
 
 def _tex(path, size=None):
@@ -90,6 +93,7 @@ def classify(sections, mats, fallback):
     for i, s in enumerate(sections):
         m = mats[i] if i < len(mats) else None
         if m is not None and m.effect: out.append(None); continue
+        if m is not None and m.unlit_colour is not None: out.append(("glow", m)); continue
         if m is not None and (m.blend == 1 or m.values.get("Opacity_Threshold", 0) > 0) and m.diffuse_role == "do":
             out.append(("own", m)); continue
         if "a_texCoord1" not in s or np.abs(np.asarray(s["a_texCoord1"])).max() <= 0: out.append(None); continue
@@ -346,28 +350,32 @@ def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_impor
                            + js + struct.pack("<II", len(binc), 0x004E4942) + binc)
 
 
-def convert(model_dir, name, race, out_glb, size=2048, assets=None):
+def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None):
+    """body: the hull meshgroup's name when it isn't <name>_lod_000_body (the loot containers' collectables_002_<race>_body,
+    lit by their race's default light map)."""
+    body_name = body or f"{name}_lod_000_body"
     assets = assets or model_dir.replace("\\", "/").split("/structures/")[0]
     sdir = f"{assets}/structures/{race}"
     scene = ae4_scene.read(f"{model_dir}/{name}.ae4scene")
     W = world_matrices(scene)
-    body = next((i for i, n in scene.items() if n["name"] == f"{name}_lod_000_body"), None)
+    body = next((i for i, n in scene.items() if n["name"] == body_name), None)
     M = W[body] if body is not None else np.eye(4)
     # The Hades' body is a root of its own at +(0, 86, -9.3) beside its geometry / helpers roots at -(0, 86, -9.3): it belongs
     # under the geometry root (the two cancel). Taken alone it put the hull 86 units above its own engine helpers (the
     # Manticore's exhausts hung under its nozzles).
     geo = next((i for i, n in scene.items() if n["name"] == f"{name}_geometry" and n["parent"] == -1), None)
     if body is not None and geo is not None and scene[body]["parent"] == -1: M = W[geo] @ W[body]
-    mg_path = f"{model_dir}/{name}_lod_000_body.ae4meshgroup"
+    mg_path = f"{model_dir}/{body_name}.ae4meshgroup"
     sections = ae4_meshgroup.read_all(mg_path)
     parts = classify(sections, sm.section_materials(mg_path, assets), sm.race_plating(race, assets))
     lm_path = f"{sdir}/materials/multi/{name}_light_ao.tga.ae4texture"
     if not os.path.exists(lm_path): lm_path = f"{sdir}/materials/multi/structure_{race}_default_light_ao.tga.ae4texture"
     light = _tex(lm_path)
-    items, own = [], {}
+    items, own, glows = [], {}, {}
     for s, part in zip(sections, parts):
         if part is None: continue
         if part[0] == "own": own.setdefault(part[1].name, (part[1], []))[1].append(s); continue
+        if part[0] == "glow": glows.setdefault(part[1].name, (part[1], []))[1].append(s); continue
         items.append((s, part[1], sm.uv_tangents(s["a_position"], s["a_normal"], s["a_texCoord1"], s["indices"])))
     maps = bake(items, light, size)
     mask = maps["mask"]
@@ -401,6 +409,12 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None):
         if not mat.diffuse: continue
         images.append((own_images(mat)["colour"], "image/png", f"{name}_{key}", True))
         materials.append(own_material(f"{name}_{key}", len(images) - 1, own_values(mat)))
+        p = merged(group, "a_texCoord0", None); p["material"] = len(materials) - 1
+        prims.append(p)
+    for key in sorted(glows):   # unlit in one colour: emission only, at UNLIT_GLOW against the remake's tone map
+        mat, group = glows[key]
+        materials.append({"name": f"{name}_{key}", "pbrMetallicRoughness": {"baseColorFactor": [0, 0, 0, 1], "metallicFactor": 0,
+                          "roughnessFactor": 1}, "emissiveFactor": [round(float(c) * UNLIT_GLOW, 4) for c in mat.unlit_colour]})
         p = merged(group, "a_texCoord0", None); p["material"] = len(materials) - 1
         prims.append(p)
     write_glb_parts(out_glb, [{"name": name, "primitives": prims}], materials, images,

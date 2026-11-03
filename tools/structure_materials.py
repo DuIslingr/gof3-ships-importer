@@ -123,6 +123,10 @@ class Material:
             f = ae4_ids.resolve(assets, h)
             if f: tex[slot] = f
         self.cube = "Cube" in tex
+        # an unlit one-colour material (no texture; the effect shader's custom colour: the loot containers' lit strips,
+        # collectables_emissive): its colour, else None
+        self.unlit_colour = (np.array(v.get("Colorize_Color1", (1, 1, 1, 1))[:3], np.float32) * float(v.get("Colorize_Multiplier", 1.0))
+                             if not tex and v.get("Colorize_Custom") else None)
         self.diffuse = self.normal = None
         self.diffuse_role = self.normal_role = None
         for slot in ("T1", "T2", "T3", "T4", "T5", "T6"):

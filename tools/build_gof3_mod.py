@@ -57,6 +57,7 @@ import gof3_sounds
 import capitals
 import gof3_wanted
 import gof3_shading
+import gof3_crates
 
 args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not sys.argv[i - 1] in ("--max-texture", "--icons-from", "--jobs")]
 OUT = os.path.abspath(args[0] if args else os.path.expanduser("~/GOF2UnityRemakeMods/gof3_ships"))
@@ -1775,6 +1776,10 @@ def main():
     cap_ships, cap_stations, cap_interiors = ([], [], [])
     if os.path.isdir(os.path.join(ASSETS, "structures")):
         cap_ships, cap_stations, cap_interiors = capitals.build(OUT, ASSETS, log=phase)
+    # GoF3's loot containers, each ship leaving its race's (gof3_crates.py; the remake's ships.json "crate")
+    if os.path.isdir(os.path.join(ASSETS, "collectables", "geometry", "002")):
+        gof3_crates.build(OUT, ASSETS, log=phase)
+        for s in ships + cap_ships: s["crate"] = gof3_crates.crate_for(s["race"])
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)

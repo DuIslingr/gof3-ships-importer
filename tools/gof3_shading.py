@@ -19,6 +19,7 @@ So:
                 linear factor) and Gloss_Amount (as smoothness, the importer's 1 - (2 / (n + 2))^0.25), with its
                 Environment_Amount and Specular_Multiplier on the highlight
   guns/*.glb    the gun family's material: no environment, rim, its Specular_Multiplier in the map
+  crates/*.glb  the loot containers (gof3_crates): structure platings, no environment, no rim
   structures/*.glb (the capital ships, the Hades / Manticore)   no environment; the capital ships' rim on (their largeship
                 materials), the Hades' off (structure platings); glass parts rim on with their multiplier in the map
   gof3_systems  every specular material of stations.json, systems.json (the gates) and ships.json (the traffic hulls): the
@@ -139,6 +140,14 @@ def ships(mod, assets, log=print):
                 elif not hades and "hades" not in name: t["rim"] = 1.0   # (a capital ship: its largeship materials)
                 m.setdefault("extras", {}).update(t)
                 count["structures"] += 1; changed = True
+            return changed
+        glb_edit(path, edit)
+    for path in sorted(glob.glob(os.path.join(mod, "crates", "*.glb"))):   # the loot containers: structure platings
+        def edit(j):
+            changed = False
+            for m in j.get("materials", []):
+                if "KHR_materials_pbrSpecularGlossiness" not in m.get("extensions", {}): continue
+                m.setdefault("extras", {}).update(STRUCTURE); count["structures"] += 1; changed = True
             return changed
         glb_edit(path, edit)
     log(f"shading: {count['bodies']} hull bodies, {count['glass']} glass (now specular), {count['guns']} guns, "
