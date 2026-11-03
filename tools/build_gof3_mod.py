@@ -486,7 +486,7 @@ def slim_glb(src, dst, maxtex, edit=None):
             out = io.BytesIO(); Image.new("RGBA", (1, 1)).save(out, "PNG"); newdata[im["bufferView"]] = out.getvalue(); continue
         img = Image.open(io.BytesIO(raw))
         if max(img.size) > maxtex:
-            img = img.resize((max(1, img.width * maxtex // max(img.size)), max(1, img.height * maxtex // max(img.size))), Image.LANCZOS)
+            img = scaled(img, maxtex)
             out = io.BytesIO(); img.save(out, "PNG", optimize=True); newdata[im["bufferView"]] = out.getvalue()
     nb = bytearray()
     for i, bv in enumerate(j["bufferViews"]):
@@ -1265,8 +1265,12 @@ def file_hash(p): return hashlib.md5(open(p, "rb").read()).hexdigest() if p and 
 
 
 def scaled(img, maxtex):
+    """At most maxtex, its alpha scaled apart (Pillow resizes RGBA premultiplied: a colour under alpha 0, where the alpha is a
+    mask such as gloss, came out black; ae4_texture.resized)."""
     if max(img.size) > maxtex:
-        img = img.resize((max(1, img.width * maxtex // max(img.size)), max(1, img.height * maxtex // max(img.size))), Image.LANCZOS)
+        size = (max(1, img.width * maxtex // max(img.size)), max(1, img.height * maxtex // max(img.size)))
+        img = (Image.merge(img.mode, [b.resize(size, Image.LANCZOS) for b in img.split()]) if img.mode in ("RGBA", "LA")
+               else img.resize(size, Image.LANCZOS))
     return img
 
 

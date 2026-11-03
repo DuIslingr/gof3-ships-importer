@@ -33,7 +33,7 @@ OWN_SIZE = 1024               # an own material's tiled texture at most this siz
 
 def _tex(path, size=None):
     im = ae4_texture.decode(path)
-    if size and im.size != size: im = im.resize(size, Image.BICUBIC)
+    if size and im.size != size: im = ae4_texture.resized(im, size)
     return np.asarray(im.convert("RGBA")).astype(np.float32) / 255
 
 
@@ -154,7 +154,9 @@ def bake(items, light, size):
                 o = np.stack([(n_o * t).sum(1), (n_o * bt).sum(1), (n_o * nn).sum(1)], 1)
                 nrm[yy, xx] = o / np.maximum(np.linalg.norm(o, axis=1, keepdims=True), 1e-12)
             mask[yy, xx] = True
-    lm = np.asarray(Image.fromarray((light * 255).astype(np.uint8)).resize((size, size), Image.BILINEAR)).astype(np.float32) / 255
+    # its RGB scaled apart from its A (the occlusion): Pillow scales RGBA premultiplied, which darkened the light by the
+    # occlusion a second time wherever the light map wasn't the bake's size (ae4_texture.resized, 2026-11-02)
+    lm = np.asarray(ae4_texture.resized(Image.fromarray((light * 255).astype(np.uint8)), (size, size), Image.BILINEAR)).astype(np.float32) / 255
     col = col * (LIGHT_FLOOR + (1 - LIGHT_FLOOR) * lm[..., 3:4])
     spec = spec * lm[..., 3:4]   # GoF3: specularTexel *= ambientocclusionTexel
     # GoF3's "lightmap specular": the baked coloured lights caught in the specular parts too
@@ -193,7 +195,7 @@ def map_images(maps, gain=1.0):
 def own_images(mat):
     """An own material's (antennas, glass, decals) tiled texture, its alpha the opacity, as a PNG at most OWN_SIZE."""
     im = ae4_texture.decode(mat.diffuse).convert("RGBA")
-    if max(im.size) > OWN_SIZE: im = im.resize((OWN_SIZE, OWN_SIZE * im.size[1] // im.size[0]), Image.BICUBIC)
+    if max(im.size) > OWN_SIZE: im = ae4_texture.resized(im, (OWN_SIZE, OWN_SIZE * im.size[1] // im.size[0]))
     a = np.asarray(im).astype(np.float32) / 255
     a[..., :3] *= mat.diffuse_color
     return {"colour": _png(a, "RGBA")}

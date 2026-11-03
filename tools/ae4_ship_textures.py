@@ -22,7 +22,7 @@ def tex(path, size=None):
     """size (w, h): scale to it (assets_best/ mixes 2048 px romfs textures with 1024 px iOS fallbacks)."""
     im = ae4_texture.decode(path)
     if size and im.size != size:
-        im = im.resize(size, Image.BICUBIC)
+        im = ae4_texture.resized(im, size)
     return np.asarray(im).astype(np.float32) / 255
 def save(a, fn, mode=None):
     Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), mode).save(os.path.join(out, fn))

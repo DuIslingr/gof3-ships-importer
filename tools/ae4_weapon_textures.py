@@ -26,7 +26,7 @@ os.makedirs(out, exist_ok=True)
 
 def tex(p, size=None):
     im = ae4_texture.decode(p)
-    if size and im.size != size: im = im.resize(size, Image.BICUBIC)
+    if size and im.size != size: im = ae4_texture.resized(im, size)
     return np.asarray(im).astype(np.float32) / 255
 
 

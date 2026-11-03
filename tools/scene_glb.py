@@ -397,7 +397,7 @@ def fx_values(key, material, out_dir):
         return out
     if tex and os.path.exists(tex):
         im = structures.ae4_texture.decode(tex).convert("RGBA")
-        if max(im.size) > 512: im = im.resize((min(im.width, 512), min(im.height, 512)))
+        if max(im.size) > 512: im = structures.ae4_texture.resized(im, (min(im.width, 512), min(im.height, 512)))
         im.save(f"{out_dir}/{key}.png")
         out["diffuse"] = f"{key}.png"
     return out

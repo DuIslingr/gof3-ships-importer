@@ -20,6 +20,16 @@ def dimensions(path):
     return struct.unpack_from("<H", header, 0x1a)[0], struct.unpack_from("<H", header, 0x1e)[0]
 
 
+def resized(im, size, resample=Image.BICUBIC):
+    """im scaled to size with its alpha kept apart. Pillow resizes RGBA / LA premultiplied, so a colour under alpha 0 came out
+    black: GoF3's alpha is often a mask (emission, gloss, specular), not opacity (2026-11-02: the hangar's tech panels, its
+    alpha the emissive mask, baked black but for their lamps)."""
+    size = tuple(size)
+    if im.size == size: return im
+    if im.mode not in ("RGBA", "LA"): return im.resize(size, resample)
+    return Image.merge(im.mode, [b.resize(size, resample) for b in im.split()])
+
+
 def decode(path):
     d = unpack(open(path, "rb").read())
     assert d[:4] == b"ET4A", d[:4]
