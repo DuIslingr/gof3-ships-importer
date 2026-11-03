@@ -80,6 +80,9 @@ PLATE_RECT = (1821, 1, 178, 86)          # frame_ship (image 1276), Reference/re
 K = 1231.49 / 23.02                      # game units per GoF3 unit (the two Grozas)
 KIT = "gof3"
 RACE = {3: 0, 4: 1, 6: 2, 7: 8, 5: 3}
+# hull -> its GoF2 race where GoF3's Identity says otherwise: the Betty II is the Betty's line, GoF2's Midorian ship
+# (GoF3 files the retro hull under Terran; the user, 2026-11-02)
+RACE_OF = {"retro_000": 3}
 CLASS = {2: "fighter", 3: "gunship", None: "scout"}
 CAMERA_FIT_LENGTH = 1400.0                 # ships.json "camera": GoF2's chase camera fits a hull this long (game units)
 CAMERA_BASE_DISTANCE = 7.0                 # GoF3's CameraThirdPerson distance for its scouts and fighters (gunships 8)
@@ -1622,7 +1625,7 @@ def main():
         tt = min(1.0, max(0.0, t))
         lc = CONVERT["lounge"]
         sid = folder[len("ship_"):]
-        race = RACE.get(ident, 0)
+        race = RACE_OF.get(sid, RACE.get(ident, 0))
         hull_file = f"hulls/{sid}.glb"
         part = ({"id": sid, "slot": "hull", "name": None, "model": hull_file, "types": [sid], "_src": glb,
                       "_unused": sorted(set(hpnode) - set(prim) - set(secs))})
