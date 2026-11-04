@@ -25,9 +25,12 @@ class RiftTests(unittest.TestCase):
         self.assertIsNone(gof3_wanted.rift(bosses[2:], {'vossk_120'}, 'gof3_ships', 481.25))
 
     def test_race(self):
-        r = gof3_wanted.rift([{'shape': '/assets/ships/vossk/120/x.ae4', 'hull': 1.0, 'shield': 0.0, 'race': 7}], {'vossk_120'},
+        r = gof3_wanted.rift([{'shape': '/assets/ships/vossk/120/x.ae4', 'hull': 1.0, 'shield': 0.0, 'race': 7,
+                               'weapon': 'gof3_ships:burst_laser_3', 'secondary': 'gof3_ships:gof3_lrhuntdown'}], {'vossk_120'},
                              'gof3_ships', 1.0, {7: 8, 4: 1})
         self.assertEqual('pirate', r['bosses'][0]['race'], 'its race as on the Most Wanted boards')
+        self.assertEqual(('gof3_ships:burst_laser_3', 'gof3_ships:gof3_lrhuntdown'), (r['bosses'][0]['weapon'], r['bosses'][0]['secondary']),
+                         'its Most Wanted guns')
 
 
 if __name__ == '__main__':

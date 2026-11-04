@@ -137,7 +137,8 @@ def raider_hp(D):
 def rift(bosses_, ship_ids, mod_id, raider, race_map=None):
     """The mod's rift encounter (encounters.json's entry): its "bosses" the bosses whose hull the mod has, each its hull +
     shield over 'raider' pirate raiders, flying for its own race (Identity's, as on the Most Wanted boards: 'race_map' GoF3's
-    race numbers to the remake's); None without any."""
+    race numbers to the remake's) with its Most Wanted gun and launcher (the boss's "weapon" / "secondary", once build has
+    made them); None without any."""
     out = []
     for e in bosses_:
         m = re.search(r"/ships/(\w+)/(\d+)/", e["shape"])
@@ -145,6 +146,8 @@ def rift(bosses_, ship_ids, mod_id, raider, race_map=None):
         if ship in ship_ids:
             b = {"ship": f"{mod_id}:{ship}", "raiders": round((e["hull"] + e.get("shield", 0.0)) / raider, 2)}
             if race_map is not None and "race" in e: b["race"] = RACE_WORD.get(race_map.get(e["race"], 8), "pirate")
+            for k in ("weapon", "secondary"):   # (its Most Wanted guns, set by build)
+                if e.get(k): b[k] = e[k]
             out.append(b)
     return dict(RIFT, bosses=out) if out else None
 
@@ -217,6 +220,7 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
                  "ship": f"{mod_id}:{ship}", "weapon": f"{mod_id}:{weapon_id(fam.group(1) if fam else '000', mk)}",
                  "secondary": f"{mod_id}:{secondary}", "hitpoints": hp, "reward": reward,
                  "loot": loot, "lootAmount": amount, "wingmen": wingmen, "requiredBounties": required}
+        e["weapon"], e["secondary"] = entry["weapon"], entry["secondary"]   # (its rift boss's too)
         if escorts: entry["escorts"] = escorts
         taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
         if taunt: entry["taunt"] = taunt
