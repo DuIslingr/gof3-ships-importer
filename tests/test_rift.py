@@ -24,6 +24,11 @@ class RiftTests(unittest.TestCase):
                          r['bosses'], 'hull + shield over the raider\'s; a hull the mod lacks left out')
         self.assertIsNone(gof3_wanted.rift(bosses[2:], {'vossk_120'}, 'gof3_ships', 481.25))
 
+    def test_race(self):
+        r = gof3_wanted.rift([{'shape': '/assets/ships/vossk/120/x.ae4', 'hull': 1.0, 'shield': 0.0, 'race': 7}], {'vossk_120'},
+                             'gof3_ships', 1.0, {7: 8, 4: 1})
+        self.assertEqual('pirate', r['bosses'][0]['race'], 'its race as on the Most Wanted boards')
+
 
 if __name__ == '__main__':
     unittest.main()

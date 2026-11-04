@@ -89,7 +89,7 @@ boards (7,000-10,000 hull, 60,000-140,000 credits up the ladder) and its difficu
 drop Golden Cores, and the boss hulls their own blueprint.
 Rifts (encounters.json): the cruise drive now and then finds a rift (from rank 5; the remake sets how often): stages of
 raiders, then a boss, here one of GoF3's 31 in its own hull, as strong against the raiders as in GoF3 (its hull + shield over a GoF3 pirate fighter's: 4 to
-20 raiders' hulls). With the ES2 Ships mod on too, the rifts stay as frequent and their bosses come from both mods.
+20 raiders' hulls), flying for its own race with that race's fighters guarding it. With the ES2 Ships mod on too, the rifts stay as frequent and their bosses come from both mods.
 Blueprints (blueprints.json): every ship can also be built in the hangar's Blueprints tab, in Galaxy on Fire 2's own way
 (its blueprints are items only, so the GoF3 ships follow those): the recipe starts with the product's lower tier, as GoF2's
 Wolverine needs a Wolf, here the hull's own GoF3 guns (two, all four for the dearest hulls, of a family of its race, the

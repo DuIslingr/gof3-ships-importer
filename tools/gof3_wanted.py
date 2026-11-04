@@ -134,15 +134,18 @@ def raider_hp(D):
     return (c.get("Hull", {}).get(1929780, [0.0])[0] + c.get("Shield", {}).get(3522367, [0.0])[0]) or RAIDER_HP
 
 
-def rift(bosses_, ship_ids, mod_id, raider):
+def rift(bosses_, ship_ids, mod_id, raider, race_map=None):
     """The mod's rift encounter (encounters.json's entry): its "bosses" the bosses whose hull the mod has, each its hull +
-    shield over 'raider' pirate raiders; None without any."""
+    shield over 'raider' pirate raiders, flying for its own race (Identity's, as on the Most Wanted boards: 'race_map' GoF3's
+    race numbers to the remake's); None without any."""
     out = []
     for e in bosses_:
         m = re.search(r"/ships/(\w+)/(\d+)/", e["shape"])
         ship = f"{m.group(1)}_{m.group(2)}" if m else None
         if ship in ship_ids:
-            out.append({"ship": f"{mod_id}:{ship}", "raiders": round((e["hull"] + e.get("shield", 0.0)) / raider, 2)})
+            b = {"ship": f"{mod_id}:{ship}", "raiders": round((e["hull"] + e.get("shield", 0.0)) / raider, 2)}
+            if race_map is not None and "race" in e: b["race"] = RACE_WORD.get(race_map.get(e["race"], 8), "pirate")
+            out.append(b)
     return dict(RIFT, bosses=out) if out else None
 
 
@@ -228,7 +231,7 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         wanted.append(entry)
     json.dump(wanted, open(os.path.join(out, "wanted.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     if chars: json.dump(chars, open(os.path.join(out, "characters.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-    r = rift(all_b, ship_ids, mod_id, raider_hp(D))
+    r = rift(all_b, ship_ids, mod_id, raider_hp(D), race_map)
     enc = os.path.join(out, "encounters.json")
     if r: json.dump([r], open(enc, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     elif os.path.exists(enc): os.remove(enc)

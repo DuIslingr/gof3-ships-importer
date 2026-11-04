@@ -153,7 +153,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 - The same 31 bosses are rift bosses (encounters.json: the mod's `rift` entry adds them to the remake's EVERSPACE 2 rift
   run on the cruise drive, whose chance is the remake's): its boss stage may bring one of them, its hull as many pirate raiders' as GoF3 makes it, its hull +
   shield over a GoF3 pirate fighter's (the Groza: 4 to 20; GoF3 scales a boss's hull by the same danger factor as a grind
-  mission's, so the ratio holds at every level). Other mods' rift bosses (the ES2 Ships mod's) join the same pool.
+  mission's, so the ratio holds at every level), flying for its race as on the Most Wanted boards (its stage is then that
+  race's, its guards too). Other mods' rift bosses (the ES2 Ships mod's) join the same pool.
 - Each hull has its GoF3 cockpit seat for the cockpit view, smokes from GoF3's damage points when hurt, explodes at its
   GoF3 size, and the bigger hulls (and the gunships) get a chase camera pulled back to fit them.
 - GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
