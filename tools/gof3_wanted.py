@@ -39,13 +39,13 @@ The remake's criminal from it:
               low then high as one 128 s loop (music/gof3_boss_<act>_<tier>.ogg); its warm-up and attention stingers left out
   description its quote and its place under its act's big boss
 
-The same bosses are the mod's rift bosses (encounters.json: its own "rift" encounter on the cruise drive, the remake's
-EVERSPACE 2 rift run, Modding/README.md "Cruise drives"): the boss stage brings one of the 31 at random, its hull "raiders"
+The same bosses are the mod's rift bosses (encounters.json: a "rift" entry adding them to the cruise drive's rift, the
+remake's EVERSPACE 2 rift run, Modding/README.md "Cruise drives"): the boss stage brings one of the 31 at random, its hull "raiders"
 pirate raiders' hulls. GoF3's own measure: its hull + shield (Hull 1929780, Shield 3522367) over a GoF3 pirate fighter's
 (the Groza, Ship_NPC_Pirate_Terran_Fighter_Groza, from its tier 3 on 240.6 + 240.6). The danger level cancels: GoF3 scales
 a boss fight's hull by the same factor as a grind mission's at every level (DangerDependentAttributes
-hullFactorMediumBossMission = hullFactorMediumGrindMission, libgofm.so's protobuf descriptor). Weight, rank and stages are
-the ES2 Ships mod's rift's; with another mod's rift on too, the remake keeps one rift and pools both mods' bosses."""
+hullFactorMediumBossMission = hullFactorMediumGrindMission, libgofm.so's protobuf descriptor). The rift's chance, rank and
+stages are the remake's; every mod's rift entry only adds its bosses to one pool."""
 import json, os, re, shutil, subprocess, sys
 from PIL import Image
 
@@ -59,7 +59,7 @@ LOOT = {2: (113, 5), 3: (165, 2), 4: (165, 5)}
 WINGMEN_MIN = {2: 2, 3: 2, 4: 4}
 RAIDER_SHIP = "Ship_NPC_Pirate_Terran_Fighter_Groza_T3"   # GoF3's pirate fighter at its steady tier (T3-T7 alike)
 RAIDER_HP = 240.625 + 240.625                              # (its hull + shield, should the record be missing)
-RIFT = {"id": "gof3_rift", "kind": "rift", "weight": 4, "visible": True, "minRank": 5, "ships": 4, "name": "Rift"}
+RIFT = {"id": "gof3_rift", "kind": "rift"}   # (the rift's chance and stages are the remake's: the mod only adds its bosses)
 SKIP = re.compile(r"NOT USED|Test|Clones|_2$|FakeBoss|Vortex")
 
 

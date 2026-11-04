@@ -150,11 +150,10 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   under bosses, the big boss last; their informants' ships escort them, each taunts with its GoF3 line, and the fight
   plays GoF3's boss music (needs ffmpeg and vgmstream). Strength and bounties follow GoF2's boards and difficulty.
   Runs on its own over a built mod too: `python tools/gof3_wanted.py <mod folder>`.
-- The same 31 bosses are the mod's rift bosses (encounters.json: a `rift` encounter on the cruise drive, the remake's
-  EVERSPACE 2 rift run): its boss stage brings one of them, its hull as many pirate raiders' as GoF3 makes it, its hull +
+- The same 31 bosses are rift bosses (encounters.json: the mod's `rift` entry adds them to the remake's EVERSPACE 2 rift
+  run on the cruise drive, whose chance is the remake's): its boss stage may bring one of them, its hull as many pirate raiders' as GoF3 makes it, its hull +
   shield over a GoF3 pirate fighter's (the Groza: 4 to 20; GoF3 scales a boss's hull by the same danger factor as a grind
-  mission's, so the ratio holds at every level). With another mod's rift on too (the ES2 Ships mod's), the remake keeps one
-  rift at the first mod's chance and pools the bosses of both.
+  mission's, so the ratio holds at every level). Other mods' rift bosses (the ES2 Ships mod's) join the same pool.
 - Each hull has its GoF3 cockpit seat for the cockpit view, smokes from GoF3's damage points when hurt, explodes at its
   GoF3 size, and the bigger hulls (and the gunships) get a chase camera pulled back to fit them.
 - GoF3's guns are shop items of their own (27: nine families in three marks), with their GoF3 models, sounds and colours.
