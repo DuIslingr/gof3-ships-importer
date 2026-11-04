@@ -45,7 +45,7 @@ pirate raiders' hulls. GoF3's own measure: its hull + shield (Hull 1929780, Shie
 (the Groza, Ship_NPC_Pirate_Terran_Fighter_Groza, from its tier 3 on 240.6 + 240.6). The danger level cancels: GoF3 scales
 a boss fight's hull by the same factor as a grind mission's at every level (DangerDependentAttributes
 hullFactorMediumBossMission = hullFactorMediumGrindMission, libgofm.so's protobuf descriptor). Weight, rank and stages are
-the ES2 Ships mod's rift's."""
+the ES2 Ships mod's rift's; with another mod's rift on too, the remake keeps one rift and pools both mods' bosses."""
 import json, os, re, shutil, subprocess, sys
 from PIL import Image
 
