@@ -37,7 +37,15 @@ The remake's criminal from it:
               (music_stream_trim / porros / rigant.bank: act 1 "annikett", 2 "khador", 3 "ti_nung") holds per tier a
               combat_low and a combat_high layer, 64 s loops each; GoF3 crossfades them by intensity (FMOD), the mod plays
               low then high as one 128 s loop (music/gof3_boss_<act>_<tier>.ogg); its warm-up and attention stingers left out
-  description its quote and its place under its act's big boss"""
+  description its quote and its place under its act's big boss
+
+The same bosses are the mod's rift bosses (encounters.json: its own "rift" encounter on the cruise drive, the remake's
+EVERSPACE 2 rift run, Modding/README.md "Cruise drives"): the boss stage brings one of the 31 at random, its hull "raiders"
+pirate raiders' hulls. GoF3's own measure: its hull + shield (Hull 1929780, Shield 3522367) over a GoF3 pirate fighter's
+(the Groza, Ship_NPC_Pirate_Terran_Fighter_Groza, from its tier 3 on 240.6 + 240.6). The danger level cancels: GoF3 scales
+a boss fight's hull by the same factor as a grind mission's at every level (DangerDependentAttributes
+hullFactorMediumBossMission = hullFactorMediumGrindMission, libgofm.so's protobuf descriptor). Weight, rank and stages are
+the ES2 Ships mod's rift's."""
 import json, os, re, shutil, subprocess, sys
 from PIL import Image
 
@@ -49,6 +57,9 @@ RACE_WORD = {0: "terran", 1: "vossk", 2: "nivelian", 3: "midorian", 8: "pirate"}
 SECONDARY = {2: "gof3_crrocket", 3: "gof3_lrturretschreck", 4: "gof3_lrhuntdown"}
 LOOT = {2: (113, 5), 3: (165, 2), 4: (165, 5)}
 WINGMEN_MIN = {2: 2, 3: 2, 4: 4}
+RAIDER_SHIP = "Ship_NPC_Pirate_Terran_Fighter_Groza_T3"   # GoF3's pirate fighter at its steady tier (T3-T7 alike)
+RAIDER_HP = 240.625 + 240.625                              # (its hull + shield, should the record be missing)
+RIFT = {"id": "gof3_rift", "kind": "rift", "weight": 4, "visible": True, "minRank": 5, "ships": 4, "name": "Rift"}
 SKIP = re.compile(r"NOT USED|Test|Clones|_2$|FakeBoss|Vortex")
 
 
@@ -106,12 +117,33 @@ def bosses(D):
             weapons.append((R.name(w) or "", wsh))
         e = {"rid": rid, "record": name, "title": title,"quote": D.text_of(b[9650601][0]), "tier": b.get(8012639, [2])[0],
              "order": b[5732944][0], "act": int(act.group(1)), "hull": comps.get("Hull", {}).get(1929780, [0.0])[0],
+             "shield": comps.get("Shield", {}).get(3522367, [0.0])[0],
              "race": comps.get("Identity", {}).get(9536365, [7])[0], "shape": shape,
              "portrait": (comps.get("GuiAttribute", {}).get(1210092) or [b""])[0].decode("utf-8", "replace"),
              "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
              "lines": entourage(D, b)}
         if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
     return sorted(found.values(), key=lambda e: e["order"])
+
+
+def raider_hp(D):
+    """A GoF3 pirate fighter's hull + shield (RAIDER_SHIP)."""
+    rid = next((r for r in D.R.p.recs if D.R.name(r) == RAIDER_SHIP), None)
+    if rid is None: return RAIDER_HP
+    c = D.R.resolved(rid)[0]
+    return (c.get("Hull", {}).get(1929780, [0.0])[0] + c.get("Shield", {}).get(3522367, [0.0])[0]) or RAIDER_HP
+
+
+def rift(bosses_, ship_ids, mod_id, raider):
+    """The mod's rift encounter (encounters.json's entry): its "bosses" the bosses whose hull the mod has, each its hull +
+    shield over 'raider' pirate raiders; None without any."""
+    out = []
+    for e in bosses_:
+        m = re.search(r"/ships/(\w+)/(\d+)/", e["shape"])
+        ship = f"{m.group(1)}_{m.group(2)}" if m else None
+        if ship in ship_ids:
+            out.append({"ship": f"{mod_id}:{ship}", "raiders": round((e["hull"] + e.get("shield", 0.0)) / raider, 2)})
+    return dict(RIFT, bosses=out) if out else None
 
 
 def boss_music(merged, out, log=print):
@@ -141,7 +173,8 @@ def boss_music(merged, out, log=print):
 
 
 def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log=print):
-    """Writes <out>/wanted.json, characters.json, portraits/ and music/; returns the number of criminals."""
+    """Writes <out>/wanted.json, characters.json, portraits/, music/ and encounters.json (the rift); returns the number of
+    criminals."""
     all_b = bosses(D)
     music = boss_music(merged, out, log)
     big = {e["act"]: e for e in all_b if e["tier"] == 4}
@@ -195,7 +228,11 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         wanted.append(entry)
     json.dump(wanted, open(os.path.join(out, "wanted.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     if chars: json.dump(chars, open(os.path.join(out, "characters.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-    log(f"wanted: {len(wanted)} bosses, {len(chars)} portraits")
+    r = rift(all_b, ship_ids, mod_id, raider_hp(D))
+    enc = os.path.join(out, "encounters.json")
+    if r: json.dump([r], open(enc, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    elif os.path.exists(enc): os.remove(enc)
+    log(f"wanted: {len(wanted)} bosses, {len(chars)} portraits; {len(r['bosses']) if r else 0} rift bosses")
     return len(wanted)
 
 

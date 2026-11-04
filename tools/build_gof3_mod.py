@@ -1801,7 +1801,7 @@ def main():
                        "stats come from the game's own data (data.pdb), scaled to Galaxy on Fire 2's ranges. "
                        f"{len(cap_ships)} GoF3 capital ships (battleships, frigates, freighters) in the orbits' traffic, and the "
                        "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge). "
-                       f"{n_wanted} GoF3 bosses on the Most Wanted boards, from Vh'arus Tengs to Ti-Nung.",
+                       f"{n_wanted} GoF3 bosses on the Most Wanted boards, from Vh'arus Tengs to Ti-Nung, and as the bosses of its rifts.",
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",
         "tag": "GoF3",   # (dim after the names of all it adds: "Groza [GoF3]", Modding/README.md "mod.json")
         "preview": "preview.png"}, open(os.path.join(OUT, "mod.json"), "w", encoding='utf-8'), indent=4, ensure_ascii=False)
