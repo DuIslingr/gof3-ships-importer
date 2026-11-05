@@ -90,7 +90,7 @@ DEVICE_UNITS = 11.4   # GoF3's distances in GoF2's units (build_gof3_mod.DEVICE_
 # named per boss, DeviceConfigurationRadarJammerDrak...) -> the remake's device type
 DEVICE_TYPES = {2326139: "teleport", 8768747: "frontShield", 8571177: "energyAbsorber", 3237451: "radarJammer",
                 5079556: "flashGrenade", 4241927: "mindControl", 271172: "bombSpreader", 6204793: "shadowClone",
-                9905519: "minions"}
+                9905519: "minions", 7502492: "wormhole"}
 
 
 def slug(s):
@@ -237,8 +237,8 @@ def devices(D, comps):
     """A boss's wanted.json "devices" from its DeviceEquip (8493051): each Device's configuration (9702497) and behaviour
     (42738), field ids from libgofm.so's descriptors. Durations and cooldowns (s) the non-premium ones; distances x
     DEVICE_UNITS; shadow clones (Khador) and shielding minions (Sh'gaal) with their count and their hull as a share of the
-    boss's hull + shield; GoF3's insanity (Ti-Nung), dynamic wormhole (Khador) and smart bombs (Mortak: no configuration)
-    have no remake device (left out)."""
+    boss's hull + shield; the dynamic wormhole (Khador) with its hole's radius, exit and life; GoF3's insanity (Ti-Nung) and
+    smart bombs (Mortak: no configuration) have no remake device (left out)."""
     R = D.R
     def rec(fields, k):
         v = fields.get(k)
@@ -293,6 +293,17 @@ def devices(D, comps):
                 cc = R.resolved(clone)[0]
                 share = (cc.get("Hull", {}).get(1929780, [0.0])[0] + cc.get("Shield", {}).get(3522367, [0.0])[0]) / max(1.0, own_power)
                 if share > 0: e["hullPercentOfShip"] = max(1, round(100 * share))
+        elif kind == "wormhole":   # dynamicWormholeDataId 4845261: DynamicWormhole wormholeRadius 4643119, exitDistanceFromOwner
+            # 2747916, its Lifetime; it opens at the owner's (0, 0, 50) (DeviceLogicDynamicWormholeGenerator::start)
+            hole = R.sub(c[4845261][0]).get(1) if 4845261 in c else None
+            hc = R.resolved(hole)[0] if hole in R.p.recs else {}
+            dw = hc.get("DynamicWormhole", {})
+            e["layBehind"] = round(50 * DEVICE_UNITS)
+            if dw.get(4643119): e["radius"] = round(dw[4643119][0] * DEVICE_UNITS)
+            if dw.get(2747916): e["exitDistance"] = round(dw[2747916][0] * DEVICE_UNITS)
+            if hc.get("Lifetime", {}).get(4817287): e["lifeMs"] = round(1000 * hc["Lifetime"][4817287][0])
+            # (its behaviour turns playerOutAngle on without an angle: the remake's 90, so it opens with the player behind it)
+            if num(b, 8586907) and not num(b, 8635967): e.setdefault("notAhead", 90)
         elif kind == "minions":   # minionCount 3012990, minRadius 3283432; minionDataId 5260010's hull against the boss's
             e["count"] = num(c, 3012990, 5)
             e["radius"] = round(num(c, 3283432, 100.0) * DEVICE_UNITS)
