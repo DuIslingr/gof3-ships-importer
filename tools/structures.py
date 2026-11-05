@@ -350,9 +350,10 @@ def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_impor
                            + js + struct.pack("<II", len(binc), 0x004E4942) + binc)
 
 
-def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None):
+def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None, extra=()):
     """body: the hull meshgroup's name when it isn't <name>_lod_000_body (the loot containers' collectables_002_<race>_body,
-    lit by their race's default light map)."""
+    lit by their race's default light map). extra: further meshgroups of the scene (its parts' bodies: a satellite's
+    wings) baked into the same model, each at its own node."""
     body_name = body or f"{name}_lod_000_body"
     assets = assets or model_dir.replace("\\", "/").split("/structures/")[0]
     sdir = f"{assets}/structures/{race}"
@@ -368,6 +369,15 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None):
     mg_path = f"{model_dir}/{body_name}.ae4meshgroup"
     sections = ae4_meshgroup.read_all(mg_path)
     parts = classify(sections, sm.section_materials(mg_path, assets), sm.race_plating(race, assets))
+    where = {id(x): M for x in sections}   # each section's world matrix (an extra body's its own node's)
+    for eb in extra:
+        node = next((i for i, n in scene.items() if n["name"] == eb), None)
+        if node is None: continue
+        ep = f"{model_dir}/{eb}.ae4meshgroup"
+        es = ae4_meshgroup.read_all(ep)
+        sections += es
+        parts += classify(es, sm.section_materials(ep, assets), sm.race_plating(race, assets))
+        where.update({id(x): W[node] for x in es})
     lm_path = f"{sdir}/materials/multi/{name}_light_ao.tga.ae4texture"
     if not os.path.exists(lm_path): lm_path = f"{sdir}/materials/multi/structure_{race}_default_light_ao.tga.ae4texture"
     light = _tex(lm_path)
@@ -379,9 +389,9 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None):
         items.append((s, part[1], sm.uv_tangents(s["a_position"], s["a_normal"], s["a_texCoord1"], s["indices"])))
     maps = bake(items, light, size)
     mask = maps["mask"]
-    R = M[:3, :3]; flip = -1.0 if np.linalg.det(R) < 0 else 1.0
     def placed(s, uvk, tan=None):
-        P = (np.c_[np.asarray(s["a_position"]), np.ones(s["count"])] @ M.T)[:, :3]
+        Ms = where.get(id(s), M); R = Ms[:3, :3]; flip = -1.0 if np.linalg.det(R) < 0 else 1.0
+        P = (np.c_[np.asarray(s["a_position"]), np.ones(s["count"])] @ Ms.T)[:, :3]
         N = np.asarray(s["a_normal"]) @ R.T
         T = None
         if tan is not None:

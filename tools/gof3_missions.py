@@ -114,7 +114,7 @@ def clock(seconds, fail_title="Out of time", label="Time left:"):
     ]
 
 
-def finish(outro):
+def finish(outro, speaker=MOD_SPEAKER):
     return [
         {"type": "set", "variable": "done", "value": "1"},
         {"type": "timer", "stop": True},
@@ -123,7 +123,7 @@ def finish(outro):
         {"type": "restrict", "what": "off"},
         {"type": "questorbit", "station": "{st}", "on": False},
         {"type": "sound", "sound": "success"},
-    ] + ([radio(outro)] if outro else []) + [{"type": "complete"}]
+    ] + ([radio(outro, speaker)] if outro else []) + [{"type": "complete"}]
 
 
 def checkpoints(pts, name, counter, bonus, then_last=()):
@@ -458,9 +458,206 @@ def errand_boy(D):
     return mission("Errand Boy", offer, 20000, variables, steps, client)
 
 
+# ---------------------------------------------------------------------------------------------------- contracts
+# GoF3's contracts (Mission type 1 / 0 and the contract events, Sidemission CE01-03), against GoF2's freelance missions:
+#   Cargo Protect (CM01)      containers at a beacon guarded against waves: GoF2's Protection, left out
+#   Evacuation (CM02)         drones dismantling freighters while their crews get out: new (a hull the drones wear down)
+#   Convoy (CM03, CE03)       a convoy escorted past crash bombers: GoF2's Escort, left out
+#   Supply Guard (CM04)       a supply drop held against waves: GoF2's Defense, left out
+#   Under Siege (CM05)        drones on the Manticore's hull: GoF2's Defense (of a capital ship), left out
+#   Blackout (CM06, WIP)      EMP bombers heading for a relay, none to get through: new (RELAY_TYPE; bombers that vanish
+#                             on reaching it count as hits)
+#   Enforcer (CM07, CE02)     the thieves found, the stolen goods taken back: GoF2's Recovery / Intercept, left out
+#   Weapon Control (CM08)     satellites hacked, then a fleeing weapon transport stopped before it escapes: new (SATELLITE_TYPE,
+#                             hacked by staying near, like Errand Boy's scans)
+#   Keith T. Maxwell (CE01)   helping GoF2's own hero, who in GoF2 is the player: left out
+# GoF3 says them from the Manticore; here the clients are the bars' visitors, the Manticore's words taken out.
+
+SATELLITE_HULL = "gof3_satellite"
+SATELLITE_SCALE = 0.47                                               # GoF3's mining satellite is 680 m tall: ~320 m
+RELAY_TYPE, SATELLITE_TYPE = "comm_relay", "survey_satellite"
+RELAY_AT = (-25000, 3000, 90000)
+HACK_UNITS, HACK_SECONDS = 10000, 10                                 # within 500 m (the satellite is 160 m to its tip)
+
+
+def props(out_dir, assets, log=print):
+    """The contracts' satellite (GoF3's mining satellite, structures/mining/geometry/props/satellites/000: its base and
+    its folded wings) as a ships.json hull no traffic flies; [] without GoF3's assets."""
+    import structures, numpy as np
+    md = os.path.join(assets, "structures/mining/geometry/props/satellites/000")
+    name = "structure_mining_satellites_000"
+    if not os.path.isdir(md): return []
+    os.makedirs(os.path.join(out_dir, "structures"), exist_ok=True)
+    wings = [f[:-len(".ae4meshgroup")] for f in sorted(os.listdir(md)) if f.endswith("_lod_000_body.ae4meshgroup") and "_base_" not in f]
+    info = structures.convert(md, name, "mining", os.path.join(out_dir, "structures/satellite.glb"), 1024, assets,
+                              body=name + "_base_000_lod_000_body", extra=wings)
+    K = 1231.49 / 23.02                                              # game units per GoF3 unit (build_gof3_mod.K)
+    size = (np.asarray(info["max"]) - np.asarray(info["min"])) * K * SATELLITE_SCALE
+    log(f"satellite: {round(size[1] * 0.05)} m tall, {info['triangles']} triangles")
+    return [{"id": SATELLITE_HULL, "name": "Satellite", "description": "A survey and relay satellite.", "race": 0,
+             "armor": 3000, "cargo": 0, "handling": 10, "price": 0, "slots": {"primary": 0, "secondary": 0, "turret": 0, "equipment": 0},
+             "model": "structures/satellite.glb", "modelLength": int(round(float(size[2]))), "modelYaw": 180,
+             "traffic": {"capital": "battleship", "weight": 0}, "explosionScale": 3.0}]
+
+
+def satellite_types(ships, mod_id):
+    if not any(s["id"] == SATELLITE_HULL for s in ships): return []
+    base = {"kind": "capital", "ship": f"{mod_id}:{SATELLITE_HULL}", "hostile": False, "missiles": False,
+            "escorts": {"count": 0}, "loot": False}
+    return [dict(base, id=RELAY_TYPE, name="Communications relay"), dict(base, id=SATELLITE_TYPE, name="Satellite")]
+
+
+def stay_near(D, p, cur, i, label, then):
+    """'every 1': while 'cur' is i and a player is within HACK_UNITS of p, 'prog' counts up; at HACK_SECONDS 'then'."""
+    near = f"distance(player, {p[0]:.0f}, {p[1]:.0f}, {p[2]:.0f})"
+    return [{"type": "every", "seconds": 1, "steps": [
+        {"type": "if", "condition": f"done == 0 and {cur} == {i} and {near} >= 0 and {near} <= {HACK_UNITS}", "then": [
+            {"type": "set", "variable": "prog", "value": "prog + 1"},
+            {"type": "if", "condition": f"prog < {HACK_SECONDS}", "then": [
+                {"type": "title", "subtitle": f"{label}: {{floor(prog * 100 / {HACK_SECONDS})}} %", "seconds": 1}],
+             "else": [{"type": "set", "variable": "prog", "value": "0"}, {"type": "set", "variable": cur, "value": str(i + 1)},
+                      {"type": "sound", "sound": "info"}] + then}]}]}]
+
+
+def evacuation(D):
+    client = "nivelian Evacuation officer"
+    at = (20000, 2000, 75000)
+    seconds = 90
+    offer = text(D, "CM02_Evacuation_Description", "We tracked down",
+                 fallback="Allied freighters are being dismantled by hostile drones. Destroy the drones so the crews can evacuate.")
+    intro = [text(D, "CM02_Intro Cutscene 0", "evacuate these freighters"), text(D, "CM02_Intro Cutscene 2", "dismantle")]
+    variables, steps = start("EVACUATION", text(D, "CM02_Evacuation_Objective01", fallback="Protect the evacuating ships"), intro,
+                             [{"name": "hull", "value": 100}, {"name": "mark", "value": 75}, {"name": "evac", "value": 0}],
+                             purpose="to the freighters", speaker=client)
+    drones = lambda n, k: [{"type": "spawn", "ship": 32, "race": "pirate", "count": n, "behaviour": "enemy", "name": "Drone",
+                            "hull": 0.4, "at": xyz((at[0] + k * 1500, at[1] + 800, at[2] - 600))},
+                           {"type": "shipaction", "ship": "Drone", "action": "hold"}]
+    steps += [{"type": "spawn", "who": ONCE, "ship": 13, "race": "terran", "count": 2, "behaviour": "friendly", "name": "Freighter",
+               "at": xyz(at)},
+              {"type": "shipaction", "ship": "Freighter", "action": "hold"}] + drones(3, 0)
+    steps += [{"type": "spawn", "ship": 22, "race": "pirate", "count": 2, "behaviour": "enemy", "name": "Raider",
+               "at": xyz((at[0], at[1] + 4000, at[2] - 15000))},
+              {"type": "waypoint", "station": "{st}", "at": xyz(at)},
+              {"type": "objective", "text": text(D, "CM02_Evacuation_Objective02", fallback="Destroy as many drones as possible"), "station": "{st}"}]
+    steps += appear("Freighter") + clock(seconds, "", "Evacuated in:")[:2]
+    hull_label = text(D, "CM02_Target ship hull", fallback="Target ship hull:")
+    steps += [{"type": "every", "seconds": 1, "steps": [   # each drone takes 0.4 % a second off the hull
+        {"type": "if", "condition": "done == 0", "then": [
+            {"type": "set", "variable": "evac", "value": "evac + 1"},
+            {"type": "set", "variable": "hull", "value": 'hull - 0.4 * alive("Drone")'},
+            {"type": "if", "condition": "hull <= 0", "then": [
+                {"type": "set", "variable": "done", "value": "2"}, {"type": "timer", "stop": True}, {"type": "waypoint"},
+                {"type": "restrict", "what": "off"}, {"type": "fail", "title": "The freighters were torn apart"}]},
+            {"type": "if", "condition": "hull > 0 and hull <= mark", "then": [
+                {"type": "set", "variable": "mark", "value": "mark - 25"},
+                {"type": "sound", "sound": "warning"},
+                {"type": "title", "subtitle": hull_label + " {floor(hull)} %", "seconds": 2}]}]}]},
+              {"type": "every", "seconds": 15, "steps": [   # more drones, never more than six
+                  {"type": "if", "condition": f'done == 0 and evac < {seconds - 10} and alive("Drone") < 6', "then": drones(2, 1)}]},
+              {"type": "waituntil", "condition": f"evac >= {seconds}"},
+              {"type": "shipaction", "ship": "Freighter", "action": "jump"}]
+    steps += finish(text(D, "CM02_Outro", edits=[("The Neox Sector really needs someone like you to look up to right now. ", ""),
+                                                  ("lifes", "lives")]), client)
+    return mission("Evacuation", offer, 25000, variables, steps, client)
+
+
+def blackout(D, mod_id):
+    client = "terran Relay technician"
+    waves, per_wave, gap, hits_allowed = 4, 3, 25, 3
+    offer = text(D, "CM06_Break_Down_Description", "relay", [("Nirai Communications has offered", "A communications company has offered"),
+                 ("Hunter, you must", "You must")],
+                 "A communications relay is under attack. Intercept the EMP bombers heading for it before they get through.")
+    intro = [text(D, "CM06_Intro Cutscene 0", edits=[("Nirai has hired us to protect their relay", "We have been hired to protect this relay")]),
+             text(D, "CM06_Intro Cutscene 2", edits=[(" Earn your pay, for the glory of Manticore!", "")])]
+    variables, steps = start("BLACKOUT", text(D, "CM06_Break_Down_Objective02", fallback="Let no attacker through"), intro,
+                             [{"name": "hits", "value": 0}, {"name": "sent", "value": 0}]
+                             + [{"name": f"hit{k + 1}", "value": 0} for k in range(waves * per_wave)],
+                             purpose="to the relay", speaker=client)
+    steps += [{"type": "spawntype", "who": ONCE, "npc": f"{mod_id}:{RELAY_TYPE}", "name": "Communications relay", "at": xyz(RELAY_AT)},
+              {"type": "waypoint", "station": "{st}", "at": xyz(RELAY_AT)},
+              {"type": "objective", "text": text(D, "CM06_Break_Down_Objective01", fallback="Get to the communication relay"), "station": "{st}"},
+              {"type": "waituntil", "condition": f"distance(player, {RELAY_AT[0]}, {RELAY_AT[1]}, {RELAY_AT[2]}) >= 0 and "
+                                                 f"distance(player, {RELAY_AT[0]}, {RELAY_AT[1]}, {RELAY_AT[2]}) <= 40000"},
+              {"type": "waypoint"},
+              {"type": "objective", "text": text(D, "CM06_Break_Down_Objective02", fallback="Let no attacker through"), "station": "{st}"}]
+    relay = "station " + xyz(RELAY_AT)
+    # a bomber reaching the relay hits it (then vanishes: nobody's kill); each counted once
+    for k in range(waves * per_wave):
+        b = f"Bomber {k + 1}"
+        near = f'distance("{b}", {RELAY_AT[0]}, {RELAY_AT[1]}, {RELAY_AT[2]})'
+        steps += [{"type": "every", "seconds": 0.5, "steps": [
+            {"type": "if", "condition": f"done == 0 and hit{k + 1} == 0 and {near} >= 0 and {near} <= 4500", "then": [
+                {"type": "set", "variable": f"hit{k + 1}", "value": "1"},
+                {"type": "set", "variable": "hits", "value": "hits + 1"},
+                {"type": "sound", "sound": "explosion"},
+                {"type": "if", "condition": f"hits >= {hits_allowed}", "then": [
+                    {"type": "set", "variable": "done", "value": "2"}, {"type": "timer", "stop": True},
+                    {"type": "restrict", "what": "off"}, {"type": "fail", "title": "The relay is down"}],
+                 "else": [{"type": "title", "subtitle": f"The relay was hit: {{hits}} of {hits_allowed}", "seconds": 3}]}]}]}]
+    rng = random.Random(6)
+    for w in range(waves):
+        a = rng.uniform(-1.0, 1.0) + (math.pi if w % 2 else 0)
+        src = (RELAY_AT[0] + 22000 * math.sin(a), RELAY_AT[1] + rng.uniform(-4000, 6000), RELAY_AT[2] + 22000 * math.cos(a))
+        steps += [{"type": "set", "variable": "left", "value": str(gap if w else 8)},
+                  {"type": "timer", "seconds": "left", "label": text(D, "CM06_Timer", fallback="Wave timer:")},
+                  {"type": "wait", "seconds": gap if w else 8},
+                  {"type": "sound", "sound": "alarm"}]
+        for j in range(per_wave):
+            k = w * per_wave + j + 1
+            steps += [{"type": "spawn", "who": ONCE, "ship": 22, "race": "pirate", "behaviour": "enemy", "name": f"Bomber {k}",
+                       "at": xyz((src[0] + (j - 1) * 2500, src[1], src[2]))},
+                      {"type": "shipgoto", "ship": f"Bomber {k}", "to": relay, "speed": 1.4, "radius": 2500, "then": "vanish"}]
+        steps += [{"type": "spawn", "ship": 32, "race": "pirate", "count": 2, "behaviour": "enemy", "name": "Raider",
+                   "at": xyz((src[0], src[1] + 3000, src[2]))}]
+    steps += [{"type": "timer", "stop": True}, {"type": "wait", "seconds": 3},
+              {"type": "waituntil", "condition": 'alive("Bomber") == 0 and alive("Raider") == 0'}]
+    steps += finish("")
+    return mission("Blackout", offer, 25000, variables, steps, client)
+
+
+def weapon_control(D, mod_id):
+    client = "midorian Security liaison"
+    sats = [(-45000, 6000, 60000), (40000, -4000, 110000)]
+    start_at, exit_at = (0, 8000, 150000), (0, 8000, 230000)
+    offer = text(D, "CM08_Weapon Transport_Description", "bio weapons", [("Hunter, a ship", "A ship")],
+                 "A ship with dangerous bio weapons has been stolen. Sterilize its cargo with the nearby satellites, then destroy it before it escapes.")
+    intro = ["Fly to the satellites and stay close while you hack each one."]
+    variables, steps = start("WEAPON CONTROL", text(D, "CM08_Weapon Transport_Objective02", "Incapacitate", fallback="Incapacitate the weapon transport"),
+                             intro, [{"name": "cur", "value": 0}, {"name": "prog", "value": 0}], purpose="to the satellites", speaker=client)
+    hack = "Hack the satellites"   # (CM08_Weapon Transport_Objective01's first variant; the other is "... to locate the ship")
+    for i, p in enumerate(sats):
+        steps += [{"type": "spawntype", "who": ONCE, "npc": f"{mod_id}:{SATELLITE_TYPE}", "name": f"Satellite {'AB'[i]}", "at": xyz(p)}]
+    for i, p in enumerate(sats):
+        then = ([{"type": "title", "subtitle": f"Satellite {'AB'[i]} hacked", "seconds": 2},
+                 {"type": "waypoint", "station": "{st}", "at": xyz(sats[i + 1])}] if i + 1 < len(sats) else
+                [{"type": "title", "subtitle": "The cargo is inert", "seconds": 2}])
+        steps += stay_near(D, p, "cur", i, "Hacking", then)
+    steps += [{"type": "waypoint", "station": "{st}", "at": xyz(sats[0])},
+              {"type": "objective", "text": hack, "station": "{st}"},
+              {"type": "waituntil", "condition": f"cur == {len(sats)}"},
+              radio("The cargo is inert. Now stop that ship before it gets away!", client),
+              {"type": "spawn", "who": ONCE, "ship": 13, "race": "pirate", "behaviour": "enemy", "name": "Weapon transport", "hull": 3,
+               "at": xyz(start_at)},
+              {"type": "spawn", "ship": 22, "race": "pirate", "count": 2, "behaviour": "enemy", "name": "Escort",
+               "at": xyz((start_at[0], start_at[1] + 3000, start_at[2] - 8000))},
+              {"type": "shipgoto", "ship": "Weapon transport", "to": "station " + xyz(exit_at), "speed": 1.0, "radius": 2500, "then": "jump"},
+              {"type": "waypoint", "station": "{st}", "at": xyz(start_at)},
+              {"type": "objective", "text": text(D, "CM08_Weapon Transport_Objective02", "Incapacitate", fallback="Incapacitate the weapon transport"),
+               "station": "{st}"}] + appear("Weapon transport")
+    near = f'distance("Weapon transport", {exit_at[0]}, {exit_at[1]}, {exit_at[2]})'
+    steps += [{"type": "every", "seconds": 0.5, "steps": [
+        {"type": "if", "condition": f"done == 0 and {near} >= 0 and {near} <= 6000", "then": [
+            {"type": "set", "variable": "done", "value": "2"}, {"type": "waypoint"}, {"type": "restrict", "what": "off"},
+            {"type": "fail", "title": "The transport escaped"}]}]},
+              {"type": "waituntil", "condition": 'alive("Weapon transport") == 0'},
+              {"type": "if", "condition": "done == 0", "then": finish("")}]
+    return mission("Weapon Control", offer, 28000, variables, steps, client)
+
+
 MISSIONS = {"gof3_sprint": sprint, "gof3_orb_rush": orb_rush, "gof3_obstacle_race": obstacle_race, "gof3_pickup_return": pickup_and_return,
-            "gof3_errand_boy": errand_boy}
-TYPED = {"gof3_hijack": (hijack, HIJACK_TYPE), "gof3_the_trap": (the_trap, TRAP_TYPE)}   # (need their NPC ship type)
+            "gof3_errand_boy": errand_boy, "gof3_evacuation": evacuation}
+TYPED = {"gof3_hijack": (hijack, HIJACK_TYPE), "gof3_the_trap": (the_trap, TRAP_TYPE),   # (need their NPC ship type)
+         "gof3_blackout": (blackout, RELAY_TYPE), "gof3_weapon_control": (weapon_control, SATELLITE_TYPE)}
 
 
 def build(D, out, ships=(), mod_id="gof3_ships", log=print):
@@ -468,14 +665,14 @@ def build(D, out, ships=(), mod_id="gof3_ships", log=print):
     the mod's ships.json entries); returns the number of missions."""
     folder = os.path.join(out, "events")
     os.makedirs(folder, exist_ok=True)
-    types = npc_types(ships, mod_id)
+    types = npc_types(ships, mod_id) + satellite_types(ships, mod_id)
     have = {t["id"] for t in types}
     made = dict(MISSIONS)
     made.update({name: (lambda D, f=f: f(D, mod_id)) for name, (f, t) in TYPED.items() if t in have})
     for name, make in made.items():
         json.dump(make(D), open(os.path.join(folder, name + ".gof2mission"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     if types: json.dump(types, open(os.path.join(out, "npcships.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-    log(f"missions: {len(made)} bar missions (GoF3's freelance challenges and distress calls GoF2 has no counterpart for), "
+    log(f"missions: {len(made)} bar missions (GoF3's freelance challenges, distress calls and contracts GoF2 has no counterpart for), "
         f"{len(types)} NPC ship types")
     return len(made)
 

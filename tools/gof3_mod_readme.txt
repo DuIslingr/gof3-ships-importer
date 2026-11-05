@@ -98,6 +98,10 @@ Vossk frigate, then its guards, without destroying it), The Trap (destroy the tr
 time runs out, past pirate turrets and scouts; then it jumps away) and Errand Boy (stay near each of three distress beacons
 while your scanner reads it out, raiders arriving at every one). Siege and Clean Up are GoF2's Protection and Junk
 removal and are left out; GoF3's mines aren't in the game.
+Three of GoF3's contracts as well: Evacuation (destroy the drones taking freighters apart until their crews are out),
+Blackout (stop four waves of bombers before three of them reach a communications relay) and Weapon Control (hack two
+satellites by staying close, then stop a stolen weapon transport before it gets away). The relay and the satellites are
+GoF3's mining satellite. The other contracts are GoF2's own Protection, Defense, Escort and Recovery missions.
 Rifts (encounters.json): the cruise drive now and then finds a rift (from rank 5; the remake sets how often): stages of
 raiders, then a boss, here one of GoF3's 31 in its own hull, as strong against the raiders as in GoF3 (its hull + shield over a GoF3 pirate fighter's: 4 to
 20 raiders' hulls), flying for its own race with that race's fighters guarding it. With the ES2 Ships mod on too, the rifts stay as frequent and their bosses come from both mods.
