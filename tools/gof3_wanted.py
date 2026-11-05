@@ -89,7 +89,8 @@ DEVICE_UNITS = 11.4   # GoF3's distances in GoF2's units (build_gof3_mod.DEVICE_
 # GoF3's device configurations by their type id (Device deviceConfigurationId 9702497's ObjectRef field 2: the records are
 # named per boss, DeviceConfigurationRadarJammerDrak...) -> the remake's device type
 DEVICE_TYPES = {2326139: "teleport", 8768747: "frontShield", 8571177: "energyAbsorber", 3237451: "radarJammer",
-                5079556: "flashGrenade", 4241927: "mindControl", 271172: "bombSpreader"}
+                5079556: "flashGrenade", 4241927: "mindControl", 271172: "bombSpreader", 6204793: "shadowClone",
+                9905519: "minions"}
 
 
 def slug(s):
@@ -235,7 +236,9 @@ def mine_layers(D, comps):
 def devices(D, comps):
     """A boss's wanted.json "devices" from its DeviceEquip (8493051): each Device's configuration (9702497) and behaviour
     (42738), field ids from libgofm.so's descriptors. Durations and cooldowns (s) the non-premium ones; distances x
-    DEVICE_UNITS; GoF3's insanity (Ti-Nung) and smart bombs (Mortak: no configuration) have no remake device (left out)."""
+    DEVICE_UNITS; shadow clones (Khador) and shielding minions (Sh'gaal) with their count and their hull as a share of the
+    boss's hull + shield; GoF3's insanity (Ti-Nung), dynamic wormhole (Khador) and smart bombs (Mortak: no configuration)
+    have no remake device (left out)."""
     R = D.R
     def rec(fields, k):
         v = fields.get(k)
@@ -245,6 +248,7 @@ def devices(D, comps):
     def num(f, k, default=None):
         v = f.get(k)
         return v[0] if v else default
+    own_power = comps.get("Hull", {}).get(1929780, [0.0])[0] + comps.get("Shield", {}).get(3522367, [0.0])[0]
     out = []
     for v in comps.get("DeviceEquip", {}).get(8493051, []):
         dev = R.sub(v).get(1)
@@ -259,7 +263,7 @@ def devices(D, comps):
         if kind == "frontShield" and (num(c, 3924296) or any("back" in n.lower() for n in (cname, bname, R.name(dev) or ""))):
             kind = "backShield"
         e = {"type": kind}
-        if num(c, 1866048) is not None: e["durationMs"] = round(1000 * num(c, 1866048))
+        if num(c, 1866048) is not None: e["durationMs"] = min(600000, round(1000 * num(c, 1866048)))   # (the remake's cap: 10 min)
         if num(c, 1389757) is not None: e["cooldownMs"] = round(1000 * num(c, 1389757))
         if bname.startswith("DeviceBehaviorConfigurationTeleport"):
             e["everyMs"] = round(1000 * num(b, 2824654, 15.0))
@@ -282,6 +286,20 @@ def devices(D, comps):
             e["durationMs"] = round(1000 * num(c, 5161318, 7.0))   # (the flash's own time; the device's 1 s is the throw)
         elif kind == "bombSpreader" and num(c, 1134537):
             e["bombEveryMs"] = round(1000 * num(c, 1134537))   # timeBetweenBombs (the mines' blast stays the remake's)
+        elif kind == "shadowClone":   # cloneCount 1167019; cloneDataId 8486176's hull + shield against the boss's
+            e["count"] = num(c, 1167019, 2)
+            clone = R.sub(c[8486176][0]).get(1) if 8486176 in c else None
+            if clone in R.p.recs:
+                cc = R.resolved(clone)[0]
+                share = (cc.get("Hull", {}).get(1929780, [0.0])[0] + cc.get("Shield", {}).get(3522367, [0.0])[0]) / max(1.0, own_power)
+                if share > 0: e["hullPercentOfShip"] = max(1, round(100 * share))
+        elif kind == "minions":   # minionCount 3012990, minRadius 3283432; minionDataId 5260010's hull against the boss's
+            e["count"] = num(c, 3012990, 5)
+            e["radius"] = round(num(c, 3283432, 100.0) * DEVICE_UNITS)
+            minion = R.sub(c[5260010][0]).get(1) if 5260010 in c else None
+            if minion in R.p.recs:
+                hull = R.resolved(minion)[0].get("Hull", {}).get(1929780, [0.0])[0]
+                if hull > 0: e["hullPercentOfShip"] = max(1, round(100 * hull / max(1.0, own_power)))
         elif kind in ("frontShield", "backShield") and num(c, 9394563):
             e["blockPercent"] = round(100 * (1.0 - num(c, 9394563)))
         out.append(e)
@@ -319,7 +337,12 @@ def bosses(D):
              "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
              "lines": entourage(D, b), "weak": modifiers(D, comps, 2467134), "strong": modifiers(D, comps, 462890),
              "devices": devices(D, comps) + mine_layers(D, comps), "turrets": turrets(D, comps)}
-        if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
+        # (the act bosses have two records: the bigger hull is kept, the devices come from the one that has them)
+        keep = found.get(title)
+        if keep is None or e["hull"] > keep["hull"]:
+            if keep is not None and not e["devices"]: e["devices"] = keep["devices"]
+            found[title] = e
+        elif not keep["devices"]: keep["devices"] = e["devices"]
     return sorted(found.values(), key=lambda e: e["order"])
 
 
