@@ -35,8 +35,9 @@ The remake's criminal from it:
   taunt       its first entourage line, else its quote
   music       its act's and tier's boss music (BossInfo musicEvent music_boss_<boss>[_helper|_under]): the act's sector bank
               (music_stream_trim / porros / rigant.bank: act 1 "annikett", 2 "khador", 3 "ti_nung") holds per tier a
-              combat_low and a combat_high layer, 64 s loops each; GoF3 crossfades them by intensity (FMOD), the mod plays
-              low then high as one 128 s loop (music/gof3_boss_<act>_<tier>.ogg); its warm-up and attention stingers left out
+              combat_low and a combat_high layer, 64 s loops each, the high one a stem over the low (FMOD's "fight" /
+              "fight_heavy"); the mod plays the low one, then both, as one 128 s loop (music/gof3_boss_<act>_<tier>.ogg);
+              its warm-up and attention stingers left out
   damageTaken its weak and strong spots (StrengthAndWeakness: weaknessList 2467134 / strengthList 462890 of DamageModifiers,
               GoF3's damage + damage x (weakness - strength)) against the player's guns, measured from its ordinary guns so
               that GoF2's difficulty holds (damage_taken): a helper boss takes 143 % from its weak family (GoF2's category
@@ -303,7 +304,9 @@ def boss_music(merged, out, log=print):
             name = f"gof3_boss_{act}_{word}"
             os.makedirs(os.path.join(out, "music"), exist_ok=True)
             cmd = [ff, "-y", "-v", "error"] + [a for x in parts for a in ("-i", x)]
-            if len(parts) > 1: cmd += ["-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1[out]", "-map", "[out]"]
+            if len(parts) > 1:   # the low layer, then the high one over it
+                cmd += ["-filter_complex", "[0:a]asplit[a][b];[b][1:a]amix=inputs=2:normalize=0[both];[a][both]concat=n=2:v=0:a=1,alimiter=limit=0.97:level=false[out]",
+                        "-map", "[out]"]
             cmd += ["-c:a", "libvorbis", "-q:a", "4", os.path.join(out, "music", name + ".ogg")]
             if subprocess.run(cmd).returncode == 0: tracks[(act, tier)] = name
     log(f"wanted: {len(tracks)} boss tracks")

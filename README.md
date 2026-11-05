@@ -207,6 +207,9 @@ python tools/build_gof3_systems.py --pdb <Android data.pdb> --assets <merged GoF
   needs a remake with `"additive"` materials), and the sky window inside the ring.
 - Each level's own look: its main light (the sun's direction and colour), its fog, its sky with GoF3's colours, stars and
   fog, and its sun (`tools/gof3_look.py`, which also runs on its own over a built mod).
+- Each cluster's music (needs ffmpeg and vgmstream): its calm arrival music in the orbits, and its combat music in the
+  fights, GoF3's low layer for a few enemies and its heavy layer over it for more (needs a remake with systems.json
+  `"battleMusic"`).
 
 ## When something goes wrong
 

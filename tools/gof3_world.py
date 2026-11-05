@@ -19,7 +19,10 @@ own it redoes a built mod's orbits (not the traffic hulls' models, which are bak
   planetTexture.
 - Music (music()): each level's Location audioMusicEvent is its cluster's (event:/music/music_porros / _rigant / _trim);
   the cluster's calm layer, music_stream_<cluster>.bank's area_arrival1-5, joined with crossfades as the systems'
-  spaceMusic."""
+  spaceMusic; its combat pieces (combat_low1-3 / combat_high1-3, ~60 s, the two layers of each the same length) as the
+  systems' battleMusic for GoF2's three battle tracks (1-2 enemies, 3-4, 5+): the low layer, then the high one on top
+  at half and at full, each piece 1-3 in a row (combat_music()). The high layer is a stem over the low one (2-11 dB
+  quieter, uncorrelated with it; GoF3's MusicHandler sets the FMOD parameter "fight" or "fight_heavy"). The attention / calm-down stingers and the levels' warm-ups are left out."""
 import collections, glob, json, math, os, re, shutil, struct, subprocess, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
@@ -453,6 +456,42 @@ def music(merged, out, log=print):
     return tracks
 
 
+def combat_music(merged, out, log=print):
+    """music/gof3_<cluster>_battle_low / _medium / _full.ogg (see the header); returns {cluster: [low, medium, full]}."""
+    import gof3_sounds
+    ff = shutil.which("ffmpeg")
+    if not ff: log("  combat music: ffmpeg is needed (the systems keep the game's battle music)"); return {}
+    os.makedirs(f"{out}/music", exist_ok=True)
+    tracks = {}
+    for cl in MUSIC_CLUSTERS:
+        bank = os.path.join(merged, "sound", f"music_stream_{cl}.bank")
+        folder = gof3_sounds.decode_bank(bank) if os.path.exists(bank) else None
+        if not folder: continue
+        waves = {os.path.splitext(f)[0].lower(): os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".wav")}
+        layer = lambda l, i: next((p for n, p in sorted(waves.items()) if re.search(rf"mus_{cl}_combat_{l}{i}(_v\d+)?$", n)), None)
+        pieces = [(layer("low", i), layer("high", i)) for i in range(1, 4)]
+        pieces = [x for x in pieces if x[0] and x[1]]
+        if not pieces: continue
+        names = []
+        for kind in ("low", "medium", "full"):
+            name = f"gof3_{cl}_battle_{kind}"
+            cmd, chain = [ff, "-y", "-v", "error"], []
+            for i, (lo, hi) in enumerate(pieces):
+                if kind == "low":
+                    cmd += ["-i", lo]
+                    chain.append(f"[{i}:a]anull[p{i}]")
+                else:
+                    cmd += ["-i", lo, "-i", hi]
+                    w = "1 0.5" if kind == "medium" else "1 1"
+                    chain.append(f"[{2 * i}:a][{2 * i + 1}:a]amix=inputs=2:weights={w}:normalize=0[p{i}]")
+            chain.append("".join(f"[p{i}]" for i in range(len(pieces))) + f"concat=n={len(pieces)}:v=0:a=1,alimiter=limit=0.97:level=false[out]")
+            cmd += ["-filter_complex", ";".join(chain), "-map", "[out]", "-c:a", "libvorbis", "-q:a", "4", f"{out}/music/{name}.ogg"]
+            if subprocess.run(cmd).returncode != 0: break
+            names.append(name)
+        if len(names) == 3: tracks[cl] = names; log(f"  combat music gof3_{cl}_battle_*: {len(pieces)} pieces")
+    return tracks
+
+
 def cluster_of(level_record): return level_record.split("_")[0].lower()
 
 
@@ -490,7 +529,7 @@ def apply(out, pdb, assets, log=print, world=None, music_too=True):
     ships = npcships(world, set(by_id), hulls)
     if ships: json.dump(ships, open(f"{out}/npcships.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     if music_too and os.path.isdir(os.path.join(merged, "sound")):
-        tracks = music(merged, out, log)
+        tracks, battle = music(merged, out, log), combat_music(merged, out, log)
         sector_cluster = {}
         for rec, lv in world.levels.items():
             sid = "gof3_" + slug(lv["sector"]["name"]) if lv["sector"]["name"] else None
@@ -498,6 +537,8 @@ def apply(out, pdb, assets, log=print, world=None, music_too=True):
         for e in systems:
             t = tracks.get(sector_cluster.get(e["id"], ""))
             if t: e["spaceMusic"] = t
+            b = battle.get(sector_cluster.get(e["id"], ""))
+            if b: e["battleMusic"] = b
     json.dump(stations, open(f"{out}/stations.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(systems, open(f"{out}/systems.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     n_ast = sum(1 for s in stations if s.get("orbit", {}).get("asteroids"))
