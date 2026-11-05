@@ -172,6 +172,7 @@ def damage_taken(e, mod_id, weapon_id):
     return out or None, line
 
 
+MINE_HULL_GOF3 = 72.91666   # GoF3's boss mines' hull (the remake's default 60)
 MINE_DAMAGE = 350.0 / 312.5   # GoF3's usual boss mine (312.5) as GoF2's AMR Saber blast (350), the remake's default
 
 
@@ -205,7 +206,8 @@ def mine_layers(D, comps):
         common = {"durationMs": run, "bombEveryMs": round(1000 * between),
                   "cooldownMs": max(0, round(1000 * g(c, "ArmingSmartBomb", 8141998, 15.0)) - run),
                   "range": [round(g(c, "ArmingSmartBomb", 810044, 0.0) * DEVICE_UNITS), round(g(c, "ArmingSmartBomb", 809766, 1500.0) * DEVICE_UNITS)],
-                  "layBehind": round(abs(g(c, "ShootingProjectile", 8989439, 0.0)) * DEVICE_UNITS)}
+                  "layBehind": round(-g(c, "ShootingProjectile", 8989439, 0.0) * DEVICE_UNITS)}   # (> 0 ahead: thrown)
+        if g(c, "ArmingSmartBomb", 5807642): common["ahead"] = round(g(c, "ArmingSmartBomb", 5807642))   # targetFrontAngle
         if "EffectZone" in m and g(m, "EffectZone", 4214561):
             e = {"type": "cloud", **common, "cloudRadius": round(g(m, "EffectZone", 4214561) * DEVICE_UNITS),
                  "lifeMs": round(1000 * g(m, "Lifetime", 4817287, 12.0)), "slowPercent": 0}
@@ -218,9 +220,11 @@ def mine_layers(D, comps):
         if "MovingBomb" not in m or not g(m, "MovingBomb", 7302911): continue
         e = {"type": "mineLayer", **common,
              "damage": round(g(m, "MovingBomb", 1823019, 312.5) * MINE_DAMAGE),
-             "seekSpeed": round(g(m, "BasicMoveToTarget", 8069543, 0.0) * DEVICE_UNITS),
+             # (a thrown mine has no BasicMoveToTarget: its launch speed; one without a Lifetime its chasingLifeTime)
+             "seekSpeed": round(g(m, "BasicMoveToTarget", 8069543, g(c, "ShootingProjectile", 8069543, 0.0) if common["layBehind"] < 0 else 0.0) * DEVICE_UNITS),
              "seekRange": round(g(m, "MovingBomb", 7302911) * DEVICE_UNITS),
-             "lifeMs": round(1000 * g(m, "Lifetime", 4817287, 5.0)),
+             "lifeMs": round(1000 * g(m, "Lifetime", 4817287, g(m, "MovingBomb", 8779600, 5.0))),
+             "hull": max(1, round(g(m, "Hull", 1929780, MINE_HULL_GOF3) * 60 / MINE_HULL_GOF3)),   # (the remake's 60 for GoF3's 72.9)
              "triggerRadius": round(g(m, "MovingBomb", 9952365, 85.0) * DEVICE_UNITS),
              "blastRadius": round(g(m, "MovingBomb", 8595678, 170.0) * DEVICE_UNITS)}
         for bv in c.get("Buffable", {}).get(5783157, []):

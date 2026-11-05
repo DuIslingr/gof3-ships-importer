@@ -178,6 +178,9 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 - GoF3's nine capital ships fly in the orbits' traffic: the battleships and frigates parked with their turrets armed (in
   Terran and Vossk systems now and then instead of the game's battleships, in Nivelian systems on their own), the
   freighters cruising among the orbit's freighters ("Mod ships in traffic" option).
+- GoF3's kamikazes fly among the Terran, Vossk, Nivelian and pirate fighters (`tools/gof3_kamikaze.py`, each race's own
+  drone): they ram their target and blow up, lay chasing mines behind them and throw others at you, behind a front shield
+  (needs a remake with ships.json `"traffic": { "devices" }`).
 - The Manticore, GoF3's Hades, is a moving station that roams every system, two hours in each (half an hour per orbit); the
   star map marks where it is and when it leaves. Find it in that orbit, lock it and dock into its own hangar (GoF3's Hades hangar,
   `tools/hangar_room.py`); it has no Space Lounge.

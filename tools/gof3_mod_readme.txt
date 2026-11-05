@@ -153,6 +153,11 @@ the orbits' capital ship special (Terran and Vossk systems now and then instead 
 which have none, in a third of the orbits with freighters), up to 8 of their GoF3 turret points armed with the race's heavy
 turret; the freighters Morpheus, Ashnan and Varuna cruise among the orbits' freighters. They come at the Gameplay option
 "Mod ships in traffic" (off: none). Never sold.
+Kamikazes (ships.json "traffic": { "role": "detonator", "devices" }): GoF3's ramming drones, each race's own model
+(Terran, Vossk, Nivelian, pirate), fly among that race's fighters at the same option: they hold their guns and fly into
+you to blow up, lay mines behind them that chase you (one every 4 s, 170 m to 1.4 km off) and throw others at you from close
+in front (every 5 s), and stop two thirds of your hits from in front with their shield while they close in. Their mines
+die to one hit. Never sold.
 The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's story, as a moving station that roams every
 system: two hours in one (half an hour past each of its stations, so you can leave and come back to it), then another (by the
 real clock, so it moves on while you're away). The star map marks where it is and when it leaves. Docked, the system shown is

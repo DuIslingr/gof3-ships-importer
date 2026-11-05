@@ -56,6 +56,7 @@ from engine_glows import engines as measure_engines, _accessor
 import gof3_sounds
 import capitals
 import gof3_wanted
+import gof3_kamikaze
 import gof3_missions
 import gof3_wingmen
 import gof3_shading
@@ -1779,6 +1780,9 @@ def main():
     if os.path.isdir(os.path.join(ASSETS, "structures")):
         cap_ships, cap_stations, cap_interiors = capitals.build(OUT, ASSETS, log=phase)
         cap_ships += gof3_missions.props(OUT, ASSETS, log=phase)   # (the contracts' satellite)
+        # GoF3's kamikazes: race drones ramming their targets and laying mines (gof3_kamikaze.py; ships.json "traffic":
+        # { "role": "detonator", "devices" })
+        cap_ships += gof3_kamikaze.build(D, OUT, ASSETS, log=phase)
     # GoF3's loot containers, each ship leaving its race's (gof3_crates.py; the remake's ships.json "crate")
     if os.path.isdir(os.path.join(ASSETS, "collectables", "geometry", "002")):
         gof3_crates.build(OUT, ASSETS, log=phase)
@@ -1809,7 +1813,8 @@ def main():
                        f"Lounges of their race's systems: {len(skins)} GoF3 paint schemes to pick in the hangar's Customize "
                        "screen, GoF3 guns that follow the weapons mounted, and GoF3 turrets. Names, descriptions, races and "
                        "stats come from the game's own data (data.pdb), scaled to Galaxy on Fire 2's ranges. "
-                       f"{sum(1 for s in cap_ships if s['id'] != gof3_missions.SATELLITE_HULL)} GoF3 capital ships (battleships, frigates, freighters) in the orbits' traffic, and the "
+                       f"{sum(1 for s in cap_ships if s.get('traffic', {}).get('capital') and s['id'] != gof3_missions.SATELLITE_HULL)} GoF3 capital ships (battleships, frigates, freighters) in the orbits' traffic, "
+                       f"{sum(1 for s in cap_ships if s['id'].startswith('gof3_kamikaze_'))} kamikaze drones among the races' fighters, and the "
                        "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge). "
                        f"{n_wanted} GoF3 bosses on the Most Wanted boards, from Vh'arus Tengs to Ti-Nung, and as the bosses of its rifts.",
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",
