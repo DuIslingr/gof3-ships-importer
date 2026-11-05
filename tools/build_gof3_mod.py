@@ -57,6 +57,7 @@ import gof3_sounds
 import capitals
 import gof3_wanted
 import gof3_kamikaze
+import gof3_loadouts
 import gof3_missions
 import gof3_wingmen
 import gof3_shading
@@ -1792,6 +1793,8 @@ def main():
     # GoF3's NPC fighters fight its way (the remake's ships.json "traffic": { "ai": "gof3" }: attack runs, veer-offs, tease,
     # chase, leading shots, evasive rolls; Options > Gameplay "NPC dogfighting"), the bosses' hulls too; not the capital ships
     for s in ships: s.setdefault("traffic", {})["ai"] = "gof3"
+    # GoF3's NPC fighters' mine drops by danger level (gof3_loadouts.py; the remake's "traffic": { "devices" })
+    gof3_loadouts.apply(D, ships, {k: v.get("class") for k, v in info.items() if isinstance(v, dict)}, log=phase)
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)

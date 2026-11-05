@@ -158,6 +158,10 @@ Kamikazes (ships.json "traffic": { "role": "detonator", "devices" }): GoF3's ram
 you to blow up, lay mines behind them that chase you (one every 4 s, 170 m to 1.4 km off) and throw others at you from close
 in front (every 5 s), and stop two thirds of your hits from in front with their shield while they close in. Their mines
 die to one hit. Never sold.
+Mine drops (ships.json "traffic": { "devices" }): as in GoF3, its fighters drop mines behind them once you are seasoned:
+from rank 8 a quarter of them sphere mines (a 43 m field for 15 s: the Terran ones drain your shield fast, the Vossk ones
+slow you and drain it, the Nivelian and pirate ones eat your hull, at most 5 % a second), from rank 16 biter mines
+instead, which chase you and leave you a fifth of your speed for 10 s (shoot them down).
 The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's story, as a moving station that roams every
 system: two hours in one (half an hour past each of its stations, so you can leave and come back to it), then another (by the
 real clock, so it moves on while you're away). The star map marks where it is and when it leaves. Docked, the system shown is

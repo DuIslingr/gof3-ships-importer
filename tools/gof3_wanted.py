@@ -214,10 +214,12 @@ def mine_layers(D, comps):
             for bv in m["EffectZone"].get(9508173, []):
                 f = R.fields(ref(bv)) if ref(bv) in R.p.recs else {}
                 if f.get(7743564, [0.0])[0] < 0: e["slowPercent"] = round(-100 * f[7743564][0])
-                if f.get(3337345, [0.0])[0] > 0: e["hullPercent"] = round(100 * f[3337345][0] / f.get(2824654, [1.0])[0], 2)
+                if f.get(3337345, [0.0])[0] > 0:   # (a BuffShieldDamageOverTime, with its hitShieldEffectColor, drains the shield)
+                    e["shieldPercent" if 7647328 in f else "hullPercent"] = round(100 * f[3337345][0] / f.get(2824654, [1.0])[0], 2)
             out.append(e)
             continue
         if "MovingBomb" not in m or not g(m, "MovingBomb", 7302911): continue
+        trigger = g(m, "MovingBomb", 9952365, 85.0)
         e = {"type": "mineLayer", **common,
              "damage": round(g(m, "MovingBomb", 1823019, 312.5) * MINE_DAMAGE),
              # (a thrown mine has no BasicMoveToTarget: its launch speed; one without a Lifetime its chasingLifeTime)
@@ -226,7 +228,7 @@ def mine_layers(D, comps):
              "lifeMs": round(1000 * g(m, "Lifetime", 4817287, g(m, "MovingBomb", 8779600, 5.0))),
              "hull": max(1, round(g(m, "Hull", 1929780, MINE_HULL_GOF3) * 60 / MINE_HULL_GOF3)),   # (the remake's 60 for GoF3's 72.9)
              "triggerRadius": round(g(m, "MovingBomb", 9952365, 85.0) * DEVICE_UNITS),
-             "blastRadius": round(g(m, "MovingBomb", 8595678, 170.0) * DEVICE_UNITS)}
+             "blastRadius": round((g(m, "MovingBomb", 8595678, 170.0) or trigger) * DEVICE_UNITS)}   # (none: its trigger's)
         for bv in c.get("Buffable", {}).get(5783157, []):
             b = ref(bv)
             if R.name(b) != "AbilitySlowdown": continue
