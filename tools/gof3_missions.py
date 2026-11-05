@@ -654,8 +654,77 @@ def weapon_control(D, mod_id):
     return mission("Weapon Control", offer, 28000, variables, steps, client)
 
 
+# ---------------------------------------------------------------------------------------------------- the pet drone
+# GoF3's pet drone (PetDrone: lootDetectionDistance / first- and secondWarningDistance, its Gen_secret_stash_* lines) finds
+# hidden stashes by reading out how close they are. GoF2 has nothing like it (its progression otherwise the remake's own:
+# Kaamo Club upgrades, Mk weapons, blueprints; the user's choice for the roadmap's G5): a bar mission, the visitor's scanner
+# drone flying beside the player, its readings on the screen; smugglers come for their stashes after the second.
+
+STASH_AREA = (20000, 4000, 70000)
+STASH_READ = (40000, 25000, 12000)   # detected, nearby, very close (shown): 2 km, 1.25 km, 600 m
+DRONE = "Scanner drone"
+
+
+def stash_hunt(D):
+    client = "midorian Prospector"
+    rng = random.Random(9)
+    stashes = []
+    while len(stashes) < 3:
+        a, r = rng.uniform(0, 2 * math.pi), rng.uniform(12000, 32000)
+        p = (STASH_AREA[0] + r * math.cos(a), STASH_AREA[1] + rng.uniform(-6000, 6000), STASH_AREA[2] + r * math.sin(a))
+        if all(math.dist(p, q) > 22000 for q in stashes): stashes.append(p)
+    say = lambda name, fallback: {"type": "title", "subtitle": f"{DRONE}: " + text(D, name, fallback=fallback), "seconds": 3}
+    offer = ("My scanner drone picked up traces of a smuggler's stash out there, three containers or more. Take it along: it "
+             "reads out how close you are. Whatever you find is paid for, but whoever hid it may come back for it.")
+    intro = ["The drone will follow you. Fly into the search area and listen to it: the closer the signal, the closer the stash."]
+    variables, steps = start("STASH HUNT", "Find the hidden stashes", intro,
+                             [{"name": "found", "value": 0}, {"name": "told", "value": 0}] + [{"name": f"s{i + 1}", "value": 0} for i in range(len(stashes))],
+                             purpose="to the search area", speaker=client)
+    steps += [{"type": "spawn", "who": ONCE, "ship": 32, "race": "midorian", "behaviour": "friendly", "name": DRONE, "hull": 3},
+              {"type": "shipfollow", "ship": DRONE, "leader": "player", "offset": "0 400 -1500", "escort": False},
+              {"type": "waypoint", "station": "{st}", "at": xyz(STASH_AREA)},
+              {"type": "objective", "text": "Search the area with the scanner drone", "station": "{st}"}]
+    near_area = f"distance(player, {STASH_AREA[0]}, {STASH_AREA[1]}, {STASH_AREA[2]})"
+    far = " and ".join(f"distance(player, {p[0]:.0f}, {p[1]:.0f}, {p[2]:.0f}) > {STASH_READ[0]}" for p in stashes)
+    steps += [{"type": "every", "seconds": 2, "steps": [   # in the area, nothing in reach: said once
+        {"type": "if", "condition": f"done == 0 and told == 0 and {near_area} >= 0 and {near_area} <= 15000 and {far}", "then": [
+            {"type": "set", "variable": "told", "value": "1"}, {"type": "waypoint"},
+            say("Gen_out_stash_area", "There is no item of interest around...")]}]}]
+    for i, p in enumerate(stashes):
+        v, at = f"s{i + 1}", xyz(p)
+        d = f"distance(player, {p[0]:.0f}, {p[1]:.0f}, {p[2]:.0f})"
+        def reading(level, name, fallback, extra=()):
+            return {"type": "if", "condition": f"done == 0 and {v} < {level} and {d} >= 0 and {d} <= {STASH_READ[level - 1]}", "then": [
+                {"type": "set", "variable": v, "value": str(level)}, {"type": "set", "variable": "told", "value": "1"},
+                {"type": "waypoint"}, {"type": "sound", "sound": "lock" if level < 3 else "charge"}, say(name, fallback)] + list(extra)}
+        steps += [{"type": "every", "seconds": 1, "steps": [
+            reading(1, f"Gen_secret_stash_detected_0{i + 1}", "My scans have detected something of interest."),
+            reading(2, f"Gen_secret_stash_nearby_0{i + 1}", "The signal is nearby."),
+            reading(3, f"Gen_secret_stash_close_0{i + 1}", "The signal is very close now.",
+                    [{"type": "pickup", "station": "{st}", "at": at, "name": f"Stash {i + 1}"}])]},
+                  {"type": "on", "trigger": "near", "station": "{st}", "at": at, "radius": RADIUS_M, "steps": [
+                      {"type": "if", "condition": f"done == 0 and {v} == 3", "then": [
+                          {"type": "set", "variable": v, "value": "4"},
+                          {"type": "set", "variable": "found", "value": "found + 1"},
+                          {"type": "pickup", "action": "remove", "name": f"Stash {i + 1}"},
+                          {"type": "sound", "sound": "success"},
+                          {"type": "title", "subtitle": text(D, "Stash collected", fallback="Container collected") + f": {{found}} of {len(stashes)}", "seconds": 2},
+                          {"type": "if", "condition": "found == 2", "then": [   # the smugglers come back for their goods
+                              {"type": "spawn", "ship": 22, "race": "pirate", "count": 3, "behaviour": "enemy", "name": "Smuggler"},   # (ahead of the player)
+                              {"type": "sound", "sound": "alarm"},
+                              say("Gen_pet_enemy_alert", "Cloaking...")]}]}]}]
+    steps += [{"type": "waituntil", "condition": f"found == {len(stashes)}"},
+              {"type": "title", "subtitle": text(D, "Gen_all_items_found", fallback="You found all the secret items in this location."), "seconds": 3},
+              {"type": "if", "condition": 'alive("Smuggler") > 0', "then": [
+                  {"type": "objective", "text": "Drive off the smugglers", "station": "{st}"},
+                  {"type": "waituntil", "condition": 'alive("Smuggler") == 0'}]},
+              {"type": "shipaction", "ship": DRONE, "action": "jump"}]
+    steps += finish("")
+    return mission("Stash Hunt", offer, 18000, variables, steps, client)
+
+
 MISSIONS = {"gof3_sprint": sprint, "gof3_orb_rush": orb_rush, "gof3_obstacle_race": obstacle_race, "gof3_pickup_return": pickup_and_return,
-            "gof3_errand_boy": errand_boy, "gof3_evacuation": evacuation}
+            "gof3_errand_boy": errand_boy, "gof3_evacuation": evacuation, "gof3_stash_hunt": stash_hunt}
 TYPED = {"gof3_hijack": (hijack, HIJACK_TYPE), "gof3_the_trap": (the_trap, TRAP_TYPE),   # (need their NPC ship type)
          "gof3_blackout": (blackout, RELAY_TYPE), "gof3_weapon_control": (weapon_control, SATELLITE_TYPE)}
 
@@ -672,7 +741,7 @@ def build(D, out, ships=(), mod_id="gof3_ships", log=print):
     for name, make in made.items():
         json.dump(make(D), open(os.path.join(folder, name + ".gof2mission"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     if types: json.dump(types, open(os.path.join(out, "npcships.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-    log(f"missions: {len(made)} bar missions (GoF3's freelance challenges, distress calls and contracts GoF2 has no counterpart for), "
+    log(f"missions: {len(made)} bar missions (GoF3's freelance challenges, distress calls, contracts and stash hunt GoF2 has no counterpart for), "
         f"{len(types)} NPC ship types")
     return len(made)
 

@@ -57,6 +57,7 @@ import gof3_sounds
 import capitals
 import gof3_wanted
 import gof3_missions
+import gof3_wingmen
 import gof3_shading
 import gof3_crates
 
@@ -1782,6 +1783,8 @@ def main():
     if os.path.isdir(os.path.join(ASSETS, "collectables", "geometry", "002")):
         gof3_crates.build(OUT, ASSETS, log=phase)
         for s in ships + cap_ships: s["crate"] = gof3_crates.crate_for(s["race"])
+    # GoF3's wingman devices on its hulls and its wingmen's radio lines for the bars' wingmen (gof3_wingmen.py)
+    gof3_wingmen.build(D, ships, OUT, log=phase)
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)

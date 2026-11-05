@@ -102,6 +102,11 @@ Three of GoF3's contracts as well: Evacuation (destroy the drones taking freight
 Blackout (stop four waves of bombers before three of them reach a communications relay) and Weapon Control (hack two
 satellites by staying close, then stop a stolen weapon transport before it gets away). The relay and the satellites are
 GoF3's mining satellite. The other contracts are GoF2's own Protection, Defense, Escort and Recovery missions.
+Stash Hunt: a visitor lends you a scanner drone (GoF3's pet drone) that reads out how close three hidden stashes are
+until you can see them; smugglers come back for them.
+Wingmen: now and then a bar's wingmen fly GoF3 hulls, each with its GoF3 wingman device (Hull Repair mends your hull when
+it is low, Ammo Supply restocks your secondary weapon, Charged Shots hit harder for a while), and talk on the radio with
+GoF3's wingman lines.
 Rifts (encounters.json): the cruise drive now and then finds a rift (from rank 5; the remake sets how often): stages of
 raiders, then a boss, here one of GoF3's 31 in its own hull, as strong against the raiders as in GoF3 (its hull + shield over a GoF3 pirate fighter's: 4 to
 20 raiders' hulls), flying for its own race with that race's fighters guarding it. With the ES2 Ships mod on too, the rifts stay as frequent and their bosses come from both mods.
