@@ -41,7 +41,8 @@ The remake's criminal from it:
               GoF3's damage + damage x (weakness - strength)) against the player's guns, measured from its ordinary guns so
               that GoF2's difficulty holds (damage_taken): a helper boss takes 143 % from its weak family (GoF2's category
               for it and the mod's three GoF3 guns of it in each mark), 96 % from missiles
-  devices     its boss devices (DeviceEquip: teleport, front / back shield, energy absorber, radar jammer, flash grenade) as
+  devices     its boss devices (DeviceEquip: teleport, front / back shield, energy absorber, radar jammer, flash grenade,
+              mind control, bomb spreader) as
               the remake's NPC devices with GoF3's durations, cooldowns and triggers, distances x 11.4 (`devices`)
   description its quote, its place under its act's big boss and its weakness
 
@@ -77,7 +78,7 @@ DEVICE_UNITS = 11.4   # GoF3's distances in GoF2's units (build_gof3_mod.DEVICE_
 # GoF3's device configurations by their type id (Device deviceConfigurationId 9702497's ObjectRef field 2: the records are
 # named per boss, DeviceConfigurationRadarJammerDrak...) -> the remake's device type
 DEVICE_TYPES = {2326139: "teleport", 8768747: "frontShield", 8571177: "energyAbsorber", 3237451: "radarJammer",
-                5079556: "flashGrenade"}
+                5079556: "flashGrenade", 4241927: "mindControl", 271172: "bombSpreader"}
 
 
 def slug(s):
@@ -149,7 +150,7 @@ def damage_taken(e, mod_id, weapon_id):
 def devices(D, comps):
     """A boss's wanted.json "devices" from its DeviceEquip (8493051): each Device's configuration (9702497) and behaviour
     (42738), field ids from libgofm.so's descriptors. Durations and cooldowns (s) the non-premium ones; distances x
-    DEVICE_UNITS; GoF3's mind control, bomb spreader, insanity and smart bombs have no remake device yet (left out)."""
+    DEVICE_UNITS; GoF3's insanity (Ti-Nung) and smart bombs (Mortak: no configuration) have no remake device (left out)."""
     R = D.R
     def rec(fields, k):
         v = fields.get(k)
@@ -194,6 +195,8 @@ def devices(D, comps):
         elif kind == "flashGrenade":
             e["delayMs"] = round(1000 * num(c, 1823032, 3.0))
             e["durationMs"] = round(1000 * num(c, 5161318, 7.0))   # (the flash's own time; the device's 1 s is the throw)
+        elif kind == "bombSpreader" and num(c, 1134537):
+            e["bombEveryMs"] = round(1000 * num(c, 1134537))   # timeBetweenBombs (the mines' blast stays the remake's)
         elif kind in ("frontShield", "backShield") and num(c, 9394563):
             e["blockPercent"] = round(100 * (1.0 - num(c, 9394563)))
         out.append(e)
