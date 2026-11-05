@@ -41,6 +41,8 @@ The remake's criminal from it:
               GoF3's damage + damage x (weakness - strength)) against the player's guns, measured from its ordinary guns so
               that GoF2's difficulty holds (damage_taken): a helper boss takes 143 % from its weak family (GoF2's category
               for it and the mod's three GoF3 guns of it in each mark), 96 % from missiles
+  devices     its boss devices (DeviceEquip: teleport, front / back shield, energy absorber, radar jammer, flash grenade) as
+              the remake's NPC devices with GoF3's durations, cooldowns and triggers, distances x 11.4 (`devices`)
   description its quote, its place under its act's big boss and its weakness
 
 The same bosses are the mod's rift bosses (encounters.json: a "rift" entry adding them to the cruise drive's rift, the
@@ -71,6 +73,11 @@ FAMILIES = {"ID_PW_Laser": (["Laser"], ["000", "006", "008"], "lasers"),
             "ID_PW_Plasma": (["Blaster"], ["001", "002", "005"], "plasma guns and blasters"),
             "ID_PW_Ballistic": (["Auto-cannon", "Scatter gun"], ["003", "004", "007"], "ballistic guns")}
 PRIMARIES, SECONDARIES = "ID_PW_AllPrimaries", "AllSecondaries"
+DEVICE_UNITS = 11.4   # GoF3's distances in GoF2's units (build_gof3_mod.DEVICE_UNITS: the player devices' scale)
+# GoF3's device configurations by their type id (Device deviceConfigurationId 9702497's ObjectRef field 2: the records are
+# named per boss, DeviceConfigurationRadarJammerDrak...) -> the remake's device type
+DEVICE_TYPES = {2326139: "teleport", 8768747: "frontShield", 8571177: "energyAbsorber", 3237451: "radarJammer",
+                5079556: "flashGrenade"}
 
 
 def slug(s):
@@ -139,6 +146,60 @@ def damage_taken(e, mod_id, weapon_id):
     return out or None, line
 
 
+def devices(D, comps):
+    """A boss's wanted.json "devices" from its DeviceEquip (8493051): each Device's configuration (9702497) and behaviour
+    (42738), field ids from libgofm.so's descriptors. Durations and cooldowns (s) the non-premium ones; distances x
+    DEVICE_UNITS; GoF3's mind control, bomb spreader, insanity and smart bombs have no remake device yet (left out)."""
+    R = D.R
+    def rec(fields, k):
+        v = fields.get(k)
+        sub = R.sub(v[0]) if v else {}
+        r = sub.get(1)
+        return (sub.get(2), R.name(r) or "", R.fields(r)) if r in R.p.recs else (None, "", {})
+    def num(f, k, default=None):
+        v = f.get(k)
+        return v[0] if v else default
+    out = []
+    for v in comps.get("DeviceEquip", {}).get(8493051, []):
+        dev = R.sub(v).get(1)
+        if dev not in R.p.recs: continue
+        d = R.resolved(dev)[0].get("Device", {})
+        ctype, cname, c = rec(d, 9702497)
+        _, bname, b = rec(d, 42738)
+        kind = DEVICE_TYPES.get(ctype)
+        if not kind: continue
+        # a back shield: its flag (isBackShield 3924296), else "back" in its names (Th'ashiik's takes the front shield's
+        # configuration with the back shield's behaviour)
+        if kind == "frontShield" and (num(c, 3924296) or any("back" in n.lower() for n in (cname, bname, R.name(dev) or ""))):
+            kind = "backShield"
+        e = {"type": kind}
+        if num(c, 1866048) is not None: e["durationMs"] = round(1000 * num(c, 1866048))
+        if num(c, 1389757) is not None: e["cooldownMs"] = round(1000 * num(c, 1389757))
+        if bname.startswith("DeviceBehaviorConfigurationTeleport"):
+            e["everyMs"] = round(1000 * num(b, 2824654, 15.0))
+            if num(b, 7388956, 1.0) < 1.0: e["chance"] = round(100 * num(b, 7388956))
+        else:
+            if num(b, 5552041): e["onHit"] = True
+            if num(b, 7031197) and num(b, 5833490): e["everyMs"] = round(1000 * num(b, 5833490))
+            if e.get("everyMs") and num(b, 1577749, 1.0) < 1.0: e["chance"] = round(100 * num(b, 1577749))
+            if num(b, 940086) and num(b, 940086) < 100000:   # (the radar jammer's is given without its flag: it counts;
+                                                             # 10,000,000 = anywhere)
+                e["range"] = [round(num(b, 9435688, 0.0) * DEVICE_UNITS), round(num(b, 940086) * DEVICE_UNITS)]
+            if num(b, 1019876) and num(b, 6389205): e["ahead"] = round(num(b, 6389205))
+            if num(b, 8586907) and num(b, 8635967): e["notAhead"] = round(num(b, 8635967))
+            if num(b, 8386305) and num(b, 3620249): e["facing"] = round(num(b, 3620249))
+        if kind == "teleport":
+            lo, hi = num(c, 3283432, 100.0), num(c, 7528228, 200.0)
+            e["distance"] = [round(lo * DEVICE_UNITS), round(hi * DEVICE_UNITS)]
+        elif kind == "flashGrenade":
+            e["delayMs"] = round(1000 * num(c, 1823032, 3.0))
+            e["durationMs"] = round(1000 * num(c, 5161318, 7.0))   # (the flash's own time; the device's 1 s is the throw)
+        elif kind in ("frontShield", "backShield") and num(c, 9394563):
+            e["blockPercent"] = round(100 * (1.0 - num(c, 9394563)))
+        out.append(e)
+    return out
+
+
 def bosses(D):
     """[{rid, title, quote, lines, tier, order, act, hull, race, shape, portrait, informants, weapons}] of the campaign's
     bosses."""
@@ -168,7 +229,8 @@ def bosses(D):
              "race": comps.get("Identity", {}).get(9536365, [7])[0], "shape": shape,
              "portrait": (comps.get("GuiAttribute", {}).get(1210092) or [b""])[0].decode("utf-8", "replace"),
              "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
-             "lines": entourage(D, b), "weak": modifiers(D, comps, 2467134), "strong": modifiers(D, comps, 462890)}
+             "lines": entourage(D, b), "weak": modifiers(D, comps, 2467134), "strong": modifiers(D, comps, 462890),
+             "devices": devices(D, comps)}
         if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
     return sorted(found.values(), key=lambda e: e["order"])
 
@@ -271,6 +333,7 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         e["weapon"], e["secondary"] = entry["weapon"], entry["secondary"]   # (its rift boss's too)
         if escorts: entry["escorts"] = escorts
         if taken: entry["damageTaken"] = taken
+        if e["devices"]: entry["devices"] = e["devices"]
         taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
         if taunt: entry["taunt"] = taunt
         if (act, tier) in music: entry["music"] = music[(act, tier)]
