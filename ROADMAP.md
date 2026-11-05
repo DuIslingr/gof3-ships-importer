@@ -26,7 +26,7 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 |---|---|---|---|---|
 | G1 | Devices, about 40: Carom Deflector, EMP generator and projectile, Shield Disruptor, Shield Overcharger (front, sphere), Cluster Module, Proximity Mine, Radar Jammer, Teleport, Engine Booster, Flash Grenade, Loot Magnet, Spark Collector, Mind Control, Cloak, Front Shield, Super Charger, Blast Amplifier, Bomb Spreader, Dynamic Wormhole Generator, wingman devices | `DeviceConfiguration*`, `DeviceBehaviorConfiguration*`, `DeviceUpgradeLevel`, `DeviceSystem`, `DeviceAgentSystem`, `EffectZoneSystem` | the remake's active devices (`device` 136, `Flight.Device`, `PlayerDevices`) and `cloakCooldownMs` | the 8 player devices done: the remake's device system (quick menu, keys 4-6, HUD slots, the NPC slow over multiplayer) and the importer's items (`device_items`: GoF3's sounds, lore-image icons); untested in Play mode; the NPC / boss devices open (G3) |
 | G2 | Weapon abilities and buffs: armour piercing, burst hit, shield bypass, chain effect, slowdown; damage / shield drain over time | `Ability*`, `Buff*`, `StrengthAndWeakness` | gun traits | done for the player's weapons 2026-11-02: only two carry abilities (Buffable.onCreationBuffs): the Slowdeath's AbilitySlowdown and the Hunter-XT's AbilityBypassShield, now the remake's slowMs / slowPercent and shieldBypass; GoF3's primaries carry none. The NPC / boss buffs (damage over time, energy drain, StrengthAndWeakness on 43 bosses) wait for G3 |
-| G3 | Bosses: info and difficulty, weak points, minions, taunts, portraits | `BossInfo`, `BossSetting`, `BossDifficulty`, `Weakpoint`, `Minion`, `TauntTable` | Most Wanted, capital ship subsystems | Most Wanted done 2026-11-02 (`tools/gof3_wanted.py`, the remake's `wanted.json` with its `escorts` / `taunt` / `music`): the 31 campaign bosses (BossInfo bossType, progressionPosition, infoSource0-2 the informants, quoteSnippet, entourageSnippets; portrait GuiAttribute 1210092) with their hulls, first primary, launcher, portraits as characters, an HB's informants' hulls as its escorts, its first entourage line as its taunt, the HB / UB / BB hierarchy as requiredBounties; strength and bounty by GoF2's rules (the user: GoF2's difficulty, not GoF3's; see "Difficulty: GoF3 against GoF2"); untested in Play mode. Boss music done: each act's and tier's combat_low + combat_high layers from its sector's bank (trim / porros / rigant: annikett, khador, ti_nung) as one 128 s loop, 9 tracks, ~10 MB; GoF3's intensity crossfade, warm-ups and stingers not kept. Open: weak points, the NPC / boss devices and buffs, the events' bosses |
+| G3 | Bosses: info and difficulty, weak points, minions, taunts, portraits | `BossInfo`, `BossSetting`, `BossDifficulty`, `Weakpoint`, `Minion`, `TauntTable` | Most Wanted, capital ship subsystems | Most Wanted done 2026-11-02 (`tools/gof3_wanted.py`, the remake's `wanted.json` with its `escorts` / `taunt` / `music`): the 31 campaign bosses (BossInfo bossType, progressionPosition, infoSource0-2 the informants, quoteSnippet, entourageSnippets; portrait GuiAttribute 1210092) with their hulls, first primary, launcher, portraits as characters, an HB's informants' hulls as its escorts, its first entourage line as its taunt, the HB / UB / BB hierarchy as requiredBounties; strength and bounty by GoF2's rules (the user: GoF2's difficulty, not GoF3's; see "Difficulty: GoF3 against GoF2"); untested in Play mode. Boss music done: each act's and tier's combat_low + combat_high layers from its sector's bank (trim / porros / rigant: annikett, khador, ti_nung) as one 128 s loop, 9 tracks, ~10 MB; GoF3's intensity crossfade, warm-ups and stingers not kept. Weaknesses done 2026-11-04 (the remake's wanted.json "damageTaken", `damage_taken`): GoF3 adds damage x (weakness - strength) (StrengthAndWeaknessSystem::modifyDamage); 30 bosses are weak to one family (laser / plasma / ballistic, by the guns' DamageIdentifier), measured from their ordinary guns so GoF2's difficulty holds: +43 % from it (Sh'gaal +15, Khador +56) on GoF2's category for it and the mod's three GoF3 guns of it, 96 % from missiles (Khador 74); the board's text says it; untested in Play mode. Weak points: only the Hulk event boss has them (Left / RightHulkTurret, makesParentInvincible: the remake's capital "shields" objects). Open: the boss devices (below, "Boss devices"), their turrets (Backfire Turret on 12 bosses, four Tank Turrets on 6), the events' bosses |
 | G4 | Missions: side missions, contracts, distress calls, freelance challenges and seasons (task types kill, escort, find, escape, scan area, protect NPC); story dialogue and actors | `Sidemission`, `ContractSpawnSchedule`, `DistressCallSchedule`, `Freelance*`, `*Task`, `Story*` | bar missions, event graphs | open |
 | G5 | Progression: blueprints and parts, ship / weapon / tier upgrades, wingmen and pet drones | `Blueprint*`, `ShipUpgrade*`, `WeaponUpgrade*`, `TierUpgrade`, `Wingman`, `PetDrone` | blueprints.json, wingmen | open |
 | G6 | AI: flocking, formations, perception, danger levels, evasive rolls | `FlockingSystem`, `FormationSystem`, `PerceptionSystem`, `AIDangerSystem`, `NPCBanking` | the remake's own (GoF2) AI | open, least needed |
@@ -86,6 +86,32 @@ GoF3 ships' stats were scaled to GoF2's ranges from the start (build_gof3_mod.py
   seeing the shots, beams and waves; the deflector against other players; GoF3's device upgrades (levels 1-5).
 - NPC / boss devices (teleport, front / back shields, radar jammer, flash grenade, mind control, clones, minions,
   carrier, bomb spreader, wormhole) need an NPC device AI and the bosses as enemies first (G3).
+
+## Boss devices (surveyed 2026-11-04)
+
+Each campaign boss's DeviceEquip (data.pdb; field names from libgofm.so's protobuf descriptors): a Device (configuration +
+behaviour: when it fires) per entry. The behaviour (DeviceBehaviorConfigurationUniversal): on hit, on an interval
+(intervalTime, intervalProbability), the player within playerInRangeMin/MaxDist, in / out of an angle, aligned. GoF3 units.
+
+| Device | Bosses | Configuration (non-premium) | Behaviour |
+|---|---|---|---|
+| FlashGrenade | Vh'arus Tengs, Kl'tark, Bl'arek, T'hebuk, Nheeta (Inan Kazu, Mortak list it) | flashDelay 3 s, flashStrength 10, flashDuration 7 s, duration 1, cooldown 15 | player within 1500, aligned within 80 deg |
+| FrontShield | Rkkt Bkkt, Tsun Kha (Sh'gaal, Ti-Nung list it) | duration 10 s, cooldown 10, regenDelay 5 | every 10 s, player within 30 deg ahead |
+| BackShield | Reid Sladek, Ica'brn, Surman Rod, Th'ashiik, San-Kabaah, Jodie Millstorm | the same, isBackShield | on hit, every 10 s |
+| Teleport | Th'rrshr, Denyse Cadler, Vhitarr, Sh'tare, Korgus Rhena, Dharvok (Khador lists it) | 0.5 s, cooldown 15, min 100 / max 200 radius, minDistanceToPlayer 10, turns toward the player | every 15 s |
+| EnergyAbsorberDevice | Ulrus, Sh'orhn, Sh'tare, Jaden Thee, Dharvok | duration 4 s, cooldown 12.5 (dmgToHpRatio unset: 0?) | on hit, then blocked 5 s (deviceBlockTime) |
+| RadarJammer | D'rak, Inan Kazu, Snotch, R'hakesh | duration 10 s, cooldown 20 | player within 1500 |
+| MindControlDevice | Th'ashiik, Ti-Nung | duration 12 s, cooldown 40 (playerEnemyShieldStop) | on an interval (its time unset) |
+| BombSpreaderDevice | Jodie Millstorm (Sh'gaal, Ti-Nung list it) | 6 s, cooldown 30, spreadAngle 45, a bomb every 1.2 s at 100; the owner moves 800 units for 10 s first | player 0-2000, out of angle |
+| Device_Active_Insanity | Ti-Nung | 8 s, cooldown 20; "PlayerCloakMakesBossMiss" | player within range |
+| Smart Bombs | Mortak | (no configuration) | |
+
+Sh'gaal and Khador (the act bosses) carry none in DeviceEquip; their StrengthAndWeakness lists name their abilities
+(Sh'gaal: shielding minions, front shield, bomb spreader; Khador: wormhole, teleport, cloning), done by their levels'
+scripts. Turrets (EntityAttachment typedAttachments): a Backfire Turret (rear) on 12 bosses, four Tank Turrets on 6.
+The remake has none of these for NPCs yet: an NPC device runner (on a criminal, by a wanted.json "devices" list) is the
+next step; teleport, front / back shield, radar jammer and flash grenade map onto what the remake already draws (the
+player's devices' effects, the cloak, the HUD).
 
 ## Level scenery (surveyed 2026-11-02)
 

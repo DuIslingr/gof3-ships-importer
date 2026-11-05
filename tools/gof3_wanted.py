@@ -37,7 +37,11 @@ The remake's criminal from it:
               (music_stream_trim / porros / rigant.bank: act 1 "annikett", 2 "khador", 3 "ti_nung") holds per tier a
               combat_low and a combat_high layer, 64 s loops each; GoF3 crossfades them by intensity (FMOD), the mod plays
               low then high as one 128 s loop (music/gof3_boss_<act>_<tier>.ogg); its warm-up and attention stingers left out
-  description its quote and its place under its act's big boss
+  damageTaken its weak and strong spots (StrengthAndWeakness: weaknessList 2467134 / strengthList 462890 of DamageModifiers,
+              GoF3's damage + damage x (weakness - strength)) against the player's guns, measured from its ordinary guns so
+              that GoF2's difficulty holds (damage_taken): a helper boss takes 143 % from its weak family (GoF2's category
+              for it and the mod's three GoF3 guns of it in each mark), 96 % from missiles
+  description its quote, its place under its act's big boss and its weakness
 
 The same bosses are the mod's rift bosses (encounters.json: a "rift" entry adding them to the cruise drive's rift, the
 remake's EVERSPACE 2 rift run, Modding/README.md "Cruise drives"): the boss stage brings one of the 31 at random, its hull "raiders"
@@ -61,6 +65,12 @@ RAIDER_SHIP = "Ship_NPC_Pirate_Terran_Fighter_Groza_T3"   # GoF3's pirate fighte
 RAIDER_HP = 240.625 + 240.625                              # (its hull + shield, should the record be missing)
 RIFT = {"id": "gof3_rift", "kind": "rift"}   # (the rift's chance and stages are the remake's: the mod only adds its bosses)
 SKIP = re.compile(r"NOT USED|Test|Clones|_2$|FakeBoss|Vortex")
+# GoF3's weapon families (each gun record's DamageIdentifier in data.pdb) -> the GoF2 categories that stand for them and the
+# mod's GoF3 gun families (build_gof3_mod.GOF3_WEAPONS) of it, and the board's word for them
+FAMILIES = {"ID_PW_Laser": (["Laser"], ["000", "006", "008"], "lasers"),
+            "ID_PW_Plasma": (["Blaster"], ["001", "002", "005"], "plasma guns and blasters"),
+            "ID_PW_Ballistic": (["Auto-cannon", "Scatter gun"], ["003", "004", "007"], "ballistic guns")}
+PRIMARIES, SECONDARIES = "ID_PW_AllPrimaries", "AllSecondaries"
 
 
 def slug(s):
@@ -92,6 +102,43 @@ def hull_of(D, rid):
     return f"{m.group(1)}_{m.group(2)}" if m else None
 
 
+def modifiers(D, comps, field):
+    """[(identifier, value)] of a StrengthAndWeakness list (weaknessList 2467134 / strengthList 462890): its DamageModifiers
+    (identifier 6884541, value 2765105); the device entries beside them (0_BackShield...) are the boss screen's, no modifier."""
+    out = []
+    for v in comps.get("StrengthAndWeakness", {}).get(field, []):
+        r = D.R.sub(v).get(1)
+        if r not in D.R.p.recs: continue
+        f = D.R.fields(r)
+        if 2765105 not in f or 6884541 not in f: continue
+        i = D.R.sub(f[6884541][0]).get(1)
+        out.append((D.R.name(i) if i in D.R.p.recs else None, f[2765105][0]))
+    return out
+
+
+def damage_taken(e, mod_id, weapon_id):
+    """A boss's wanted.json "damageTaken" and the board's line for it, from its GoF3 DamageModifiers. GoF3
+    (StrengthAndWeaknessSystem::modifyDamage) adds damage x (weakness - strength): its helper bosses take 70 % from every
+    gun but 100 % from their weak family (AllPrimariesStrength 0.3, a weakness 0.3), 67 % from secondaries (0.33). The mod
+    keeps GoF2's difficulty (its hulls are GoF2's ladder), so its other guns stay at 100 % and the rest is measured from them:
+    the weak family 100 / 70 = 143 %, secondaries 67 / 70 = 96 %."""
+    weak, strong = e["weak"], e["strong"]
+    base = 1.0 - sum(v for i, v in strong if i == PRIMARIES)
+    if base <= 0.05: return None, None
+    out, words = {}, []
+    sec = round(100 * (1.0 - sum(v for i, v in strong if i == SECONDARIES)) / base)
+    if sec != 100: out["secondary"] = sec
+    for ident, (cats, fams, word) in FAMILIES.items():
+        pct = round(100 * (1.0 + sum(v for i, v in weak if i == ident) - sum(v for i, v in strong if i in (ident, PRIMARIES))) / base)
+        if pct == 100: continue
+        for c in cats: out[c] = pct
+        for f in fams:
+            for mk in (1, 2, 3): out[f"{mod_id}:{weapon_id(f, mk)}"] = pct
+        words.append(f"{'weak' if pct > 100 else 'strong'} against {word} ({pct - 100:+d} %)")
+    line = ("It is " + " and ".join(words) + ".") if words else None
+    return out or None, line
+
+
 def bosses(D):
     """[{rid, title, quote, lines, tier, order, act, hull, race, shape, portrait, informants, weapons}] of the campaign's
     bosses."""
@@ -121,7 +168,7 @@ def bosses(D):
              "race": comps.get("Identity", {}).get(9536365, [7])[0], "shape": shape,
              "portrait": (comps.get("GuiAttribute", {}).get(1210092) or [b""])[0].decode("utf-8", "replace"),
              "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
-             "lines": entourage(D, b)}
+             "lines": entourage(D, b), "weak": modifiers(D, comps, 2467134), "strong": modifiers(D, comps, 462890)}
         if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
     return sorted(found.values(), key=lambda e: e["order"])
 
@@ -215,13 +262,15 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
                 f"One of {boss}'s lieutenants." if tier == 3 and boss else
                 f"A captain under {boss}." if boss else "")
         quote = re.sub(r"\s+", " ", e["quote"] or "").strip()
-        entry = {"id": wid, "name": title, "description": (f"“{quote}” " if quote else "") + role,
+        taken, weakness = damage_taken(e, mod_id, weapon_id)
+        entry = {"id": wid, "name": title, "description": " ".join(x for x in ((f"“{quote}”" if quote else ""), role, weakness or "") if x),
                  "board": BOARD.get(act, "terran"), "race": RACE_WORD.get(race, "pirate"),
                  "ship": f"{mod_id}:{ship}", "weapon": f"{mod_id}:{weapon_id(fam.group(1) if fam else '000', mk)}",
                  "secondary": f"{mod_id}:{secondary}", "hitpoints": hp, "reward": reward,
                  "loot": loot, "lootAmount": amount, "wingmen": wingmen, "requiredBounties": required}
         e["weapon"], e["secondary"] = entry["weapon"], entry["secondary"]   # (its rift boss's too)
         if escorts: entry["escorts"] = escorts
+        if taken: entry["damageTaken"] = taken
         taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
         if taunt: entry["taunt"] = taunt
         if (act, tier) in music: entry["music"] = music[(act, tier)]
