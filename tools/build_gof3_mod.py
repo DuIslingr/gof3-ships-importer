@@ -1790,7 +1790,7 @@ def main():
     if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     # GoF3's bosses on the Most Wanted boards, their portraits as characters (gof3_wanted.py)
-    n_wanted = gof3_wanted.build(D, {s["id"] for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase)
+    n_wanted = gof3_wanted.build(D, {s["id"]: sum(1 for m in s.get("mounts", []) if m.get("slotType") == 2) for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase)
     # GoF3's shading per kind (hull bodies, glass as GoF3's specular, guns, capital ships: gof3_shading.py)
     gof3_shading.ships(OUT, ASSETS, log=phase)
     json.dump({

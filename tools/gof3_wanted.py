@@ -44,6 +44,8 @@ The remake's criminal from it:
   devices     its boss devices (DeviceEquip: teleport, front / back shield, energy absorber, radar jammer, flash grenade,
               mind control, bomb spreader) as
               the remake's NPC devices with GoF3's durations, cooldowns and triggers, distances x 11.4 (`devices`)
+  turrets     its Backfire / Tank Turrets (EntityAttachment typedAttachments) as GoF2 turret items by tier on the hull's
+              own turret mounts, as many as it has (`turrets`, TURRET)
   description its quote, its place under its act's big boss and its weakness
 
 The same bosses are the mod's rift bosses (encounters.json: a "rift" entry adding them to the cruise drive's rift, the
@@ -64,6 +66,11 @@ RACE_WORD = {0: "terran", 1: "vossk", 2: "nivelian", 3: "midorian", 8: "pirate"}
 SECONDARY = {2: "gof3_crrocket", 3: "gof3_lrturretschreck", 4: "gof3_lrhuntdown"}
 LOOT = {2: (113, 5), 3: (165, 2), 4: (165, 5)}
 WINGMEN_MIN = {2: 2, 3: 2, 4: 4}
+# Its turrets (EntityAttachment typedAttachments, type 6: GoF3's Backfire Turret behind, its Tank Turrets around) as GoF2
+# turret items by tier, on the hull's own turret mounts (as many as it has): GoF2's difficulty, not GoF3's (the Backfire
+# Turret's 27 x 3 shots a second, the Tank Turrets' 17-60 x 2.5-3.5). By tier: the Hammerhead D1; the D2A2 (the Vossk
+# L'ksaar); the Matador TS. Sh'gaal's and Khador's ("_IGNORE": their levels' scripts) left out.
+TURRET = {2: lambda race: 47, 3: lambda race: 49 if race == 1 else 48, 4: lambda race: 224}
 RAIDER_SHIP = "Ship_NPC_Pirate_Terran_Fighter_Groza_T3"   # GoF3's pirate fighter at its steady tier (T3-T7 alike)
 RAIDER_HP = 240.625 + 240.625                              # (its hull + shield, should the record be missing)
 RIFT = {"id": "gof3_rift", "kind": "rift"}   # (the rift's chance and stages are the remake's: the mod only adds its bosses)
@@ -122,6 +129,19 @@ def modifiers(D, comps, field):
         i = D.R.sub(f[6884541][0]).get(1)
         out.append((D.R.name(i) if i in D.R.p.recs else None, f[2765105][0]))
     return out
+
+
+def turrets(D, comps):
+    """The number of GoF3 turrets on a boss (its EntityAttachment 6912863 typedAttachments 7441251 of type 6 with an
+    attachedEntity 3890171), those named "_IGNORE" left out."""
+    R = D.R
+    n = 0
+    for v in comps.get("EntityAttachment", {}).get(7441251, []):
+        a = R.sub(v).get(1)
+        if a not in R.p.recs or "IGNORE" in (R.name(a) or ""): continue
+        f = R.fields(a)
+        if f.get(3926629, [0])[0] == 6 and 3890171 in f: n += 1
+    return n
 
 
 def damage_taken(e, mod_id, weapon_id):
@@ -233,7 +253,7 @@ def bosses(D):
              "portrait": (comps.get("GuiAttribute", {}).get(1210092) or [b""])[0].decode("utf-8", "replace"),
              "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
              "lines": entourage(D, b), "weak": modifiers(D, comps, 2467134), "strong": modifiers(D, comps, 462890),
-             "devices": devices(D, comps)}
+             "devices": devices(D, comps), "turrets": turrets(D, comps)}
         if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
     return sorted(found.values(), key=lambda e: e["order"])
 
@@ -292,7 +312,7 @@ def boss_music(merged, out, log=print):
 
 def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log=print):
     """Writes <out>/wanted.json, characters.json, portraits/, music/ and encounters.json (the rift); returns the number of
-    criminals."""
+    criminals. 'ship_ids': the mod's hulls, each with its number of turret mounts."""
     all_b = bosses(D)
     music = boss_music(merged, out, log)
     big = {e["act"]: e for e in all_b if e["tier"] == 4}
@@ -337,6 +357,8 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         if escorts: entry["escorts"] = escorts
         if taken: entry["damageTaken"] = taken
         if e["devices"]: entry["devices"] = e["devices"]
+        n = min(e["turrets"], ship_ids[ship])
+        if n: entry["turrets"] = [TURRET[tier](race)] * n
         taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
         if taunt: entry["taunt"] = taunt
         if (act, tier) in music: entry["music"] = music[(act, tier)]
@@ -363,5 +385,6 @@ if __name__ == "__main__":
     sys.argv = [sys.argv[0], folder]
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import build_gof3_mod as B
-    ids = {s["id"] for s in json.load(open(os.path.join(folder, "ships.json"), encoding="utf-8"))}
+    ids = {s["id"]: sum(1 for m in s.get("mounts", []) if m.get("slotType") == 2)
+           for s in json.load(open(os.path.join(folder, "ships.json"), encoding="utf-8"))}
     build(B.Data(), ids, folder, B.MERGED, B.MOD_ID, B.weapon_id, B.mixed_case, B.RACE)
