@@ -87,6 +87,17 @@ taunts you over the radio with its GoF3 line when found, and the fight plays GoF
 rank (music/). Their strength and bounties follow Galaxy on Fire 2's own
 boards (7,000-10,000 hull, 60,000-140,000 credits up the ladder) and its difficulty setting; the under and big bosses
 drop Golden Cores, and the boss hulls their own blueprint.
+Bar missions (events/): four of GoF3's freelance challenges, the ones Galaxy on Fire 2 has nothing like, offered by
+visitors in the Space Lounges of every station (now and then, each in about one bar in eight) with Mkkt Bkkt on the
+radio: Sprint (twelve checkpoints in order against the clock, each one adding time), Orb Rush (a track of gates with orbs
+along it: at least 25 of them, then the finish), Obstacle Race (each gate's orb is shielded until its power nodes are
+shot) and Pick-up and Return (orbs scattered around the orbit, carried one at a time to the drop-off zone while raiders
+try to stop you). GoF3's other challenges are GoF2's own freelance missions already (Junk removal, Challenge, Intercept,
+Defense, Wanted) and are left out. Three of GoF3's distress calls join them: Hijack (shoot the turrets off a stranded
+Vossk frigate, then its guards, without destroying it), The Trap (destroy the traps holding a civilian frigate before the
+time runs out, past pirate turrets and scouts; then it jumps away) and Errand Boy (stay near each of three distress beacons
+while your scanner reads it out, raiders arriving at every one). Siege and Clean Up are GoF2's Protection and Junk
+removal and are left out; GoF3's mines aren't in the game.
 Rifts (encounters.json): the cruise drive now and then finds a rift (from rank 5; the remake sets how often): stages of
 raiders, then a boss, here one of GoF3's 31 in its own hull, as strong against the raiders as in GoF3 (its hull + shield over a GoF3 pirate fighter's: 4 to
 20 raiders' hulls), flying for its own race with that race's fighters guarding it. With the ES2 Ships mod on too, the rifts stay as frequent and their bosses come from both mods.
