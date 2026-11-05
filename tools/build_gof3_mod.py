@@ -1794,7 +1794,7 @@ def main():
     # chase, leading shots, evasive rolls; Options > Gameplay "NPC dogfighting"), the bosses' hulls too; not the capital ships
     for s in ships: s.setdefault("traffic", {})["ai"] = "gof3"
     # GoF3's NPC fighters' mine drops by danger level (gof3_loadouts.py; the remake's "traffic": { "devices" })
-    gof3_loadouts.apply(D, ships, {k: v.get("class") for k, v in info.items() if isinstance(v, dict)}, log=phase)
+    gof3_loadouts.apply(D, ships, {k: v.get("class") for k, v in info.items() if isinstance(v, dict)}, MOD_ID, log=phase)
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)

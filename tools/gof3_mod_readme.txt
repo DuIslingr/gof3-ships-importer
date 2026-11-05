@@ -161,7 +161,9 @@ die to one hit. Never sold.
 Mine drops (ships.json "traffic": { "devices" }): as in GoF3, its fighters drop mines behind them once you are seasoned:
 from rank 8 a quarter of them sphere mines (a 43 m field for 15 s: the Terran ones drain your shield fast, the Vossk ones
 slow you and drain it, the Nivelian and pirate ones eat your hull, at most 5 % a second), from rank 16 biter mines
-instead, which chase you and leave you a fifth of your speed for 10 s (shoot them down).
+instead, which chase you and leave you a fifth of your speed for 10 s (shoot them down). A quarter of its gunships
+fire GoF3 homing missiles from rank 6 and cluster missiles from rank 18 (ships.json "traffic": { "secondaries" }), at
+their own guns' damage.
 The Manticore (stations.json "mobile"): GoF3's Hades, the Manticore of GoF3's story, as a moving station that roams every
 system: two hours in one (half an hour past each of its stations, so you can leave and come back to it), then another (by the
 real clock, so it moves on while you're away). The star map marks where it is and when it leaves. Docked, the system shown is

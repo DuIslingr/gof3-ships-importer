@@ -182,7 +182,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   drone): they ram their target and blow up, lay chasing mines behind them and throw others at you, behind a front shield
   (needs a remake with ships.json `"traffic": { "devices" }`).
 - From rank 8 a quarter of the GoF3 fighters drop GoF3's sphere mines (each race's: shield drain, slow, or hull damage),
-  from rank 16 its biter mines, which chase you and slow you hard (`tools/gof3_loadouts.py`).
+  from rank 16 its biter mines, which chase you and slow you hard; a quarter of its gunships fire GoF3 homing missiles from
+  rank 6 and cluster missiles from rank 18 (`tools/gof3_loadouts.py`).
 - The Manticore, GoF3's Hades, is a moving station that roams every system, two hours in each (half an hour per orbit); the
   star map marks where it is and when it leaves. Find it in that orbit, lock it and dock into its own hangar (GoF3's Hades hangar,
   `tools/hangar_room.py`); it has no Space Lounge.

@@ -2,8 +2,9 @@
 
 GoF3 hands its NPCs a secondary weapon by race, class and danger level (data.pdb's SW_DL_<race>_0N_*: ShipType 531157,
 race 3704837, levelFrom 3920418, the weapon 8694459): gunships homing missiles from level 3 and cluster missiles from 9,
-fighters sphere mines from 4 and biter mines from 8. The remake's NPCs fire no secondaries (but the Most Wanted
-criminals'), so the gunships' missiles are left out; the fighters' mines become devices of the mod's GoF3 fighter hulls:
+fighters sphere mines from 4 and biter mines from 8. The gunships' missiles become the mod's GoF3 missiles as their
+hulls' "traffic": { "secondaries" } (homing: SW_CR_Homing's gof3_crhoming, cluster: SW_MR_Cluster's gof3_mrcluster; an
+NPC's second weapon does its gun's damage, GoF2's); the fighters' mines become devices of the mod's GoF3 fighter hulls:
 
   sphere mine   SW_NPC_SphereMineDrop<race>: one every 5 s behind it, the player 1140 units off or more; the mine is an
                 EffectZone (75 units, 15 s), each race's its own: the Terran one drains 70 % of the shield a second
@@ -18,7 +19,7 @@ GoF3's levels as the remake's ranks x RANK_PER_LEVEL (sphere mines from rank 8, 
 SHARE of the hull's NPCs carry them (GoF3 gives each NPC one loadout; its sphere entry's "chance" 1 is unclear, and
 GoF2's fighters carry none: a share keeps them from every ship). The race of each hull's own (pirate hulls the pirates').
 
-apply(D, ships, classes) adds them to the fighter hulls' traffic; returns how many hulls got them."""
+apply(D, ships, classes, mod_id) adds them to the hulls' traffic; returns how many fighter hulls got mines."""
 import gof3_wanted
 
 RACES = {0: "Terran", 1: "Vossk", 2: "Nivelian", 8: "Pirate"}
@@ -26,7 +27,8 @@ WEAPON = {"sphere": {"Terran": "SW_NPC_SphereMineDropTerran", "Vossk": "SW_NPC_V
                      "Nivelian": "SW_NPC_SphereMineDropNivelian", "Pirate": "SW_NPC_Pirate_SphereMineDrop"},
           "biter": {"Terran": "SW_NPC_BiterMineDropTerran", "Vossk": "SW_NPC_Vossk_BiterMineDrop",
                     "Nivelian": "SW_NPC_BiterMineDropNivelian", "Pirate": "SW_NPC_Pirate_BiterMineDrop"}}
-LEVEL = {"sphere": 4, "biter": 8}    # SW_DL_*_02_Sphere / _04_Biter levelFrom
+LEVEL = {"sphere": 4, "biter": 8, "homing": 3, "cluster": 9}   # SW_DL_*_0N_* levelFrom
+MISSILES = (("homing", "gof3_crhoming"), ("cluster", "gof3_mrcluster"))   # (the gunships': build_gof3_mod.SECONDARIES)
 RANK_PER_LEVEL = 2
 SHARE = 25                           # % of a hull's NPCs with each
 SLOW_PERCENT = 80                    # (GoF3's x 0 for 10 s stops the ship dead; the remake leaves it a fifth)
@@ -64,8 +66,23 @@ def _ref(rid):
     return b"\x08" + varint(rid)
 
 
-def apply(D, ships, classes, log=print):
+def secondaries(mod_id):
+    """A gunship hull's "secondaries": homing missiles from GoF3's level 3, cluster missiles from 9 (taking over)."""
+    out = []
+    for i, (kind, item) in enumerate(MISSILES):
+        e = {"item": f"{mod_id}:{item}", "minRank": LEVEL[kind] * RANK_PER_LEVEL, "share": SHARE}
+        if i + 1 < len(MISSILES): e["maxRank"] = LEVEL[MISSILES[i + 1][0]] * RANK_PER_LEVEL - 1
+        out.append(e)
+    return out
+
+
+def apply(D, ships, classes, mod_id, log=print):
     cache, n = {}, 0
+    gunships = 0
+    for s in ships:
+        if classes.get(s["id"]) == "gunship" and not (s.get("traffic") or {}).get("boss"):
+            s.setdefault("traffic", {})["secondaries"] = secondaries(mod_id)
+            gunships += 1
     for s in ships:
         if classes.get(s["id"]) != "fighter" or (s.get("traffic") or {}).get("boss"): continue
         race = RACES.get(s.get("race"))
@@ -75,5 +92,6 @@ def apply(D, ships, classes, log=print):
         s.setdefault("traffic", {}).setdefault("devices", []).extend(dict(d) for d in cache[race])
         n += 1
     sample = next(iter(cache.values()), [])
-    log(f"loadouts: {n} fighter hulls with GoF3's mine drops ({', '.join(d['type'] for d in sample)})")
+    log(f"loadouts: {n} fighter hulls with GoF3's mine drops ({', '.join(d['type'] for d in sample)}), {gunships} gunship "
+        "hulls with its missiles")
     return n
