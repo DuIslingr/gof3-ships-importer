@@ -112,8 +112,8 @@ Wingmen: now and then a bar's wingmen fly GoF3 hulls, each with its GoF3 wingman
 it is low, Ammo Supply restocks your secondary weapon, Charged Shots hit harder for a while), and talk on the radio with
 GoF3's wingman lines.
 Dogfighting: NPC fighters in GoF3 hulls fight GoF3's way (attack runs that veer off, sitting on your tail, teasing in
-front of your nose, leading their shots, barrel-rolling away from hits); Options > Gameplay "NPC dogfighting" turns it
-off or gives it to every fighter.
+front of your nose, leading their shots, barrel-rolling away from hits) and patrol in V formations; Options > Gameplay
+"NPC dogfighting" turns it off or gives it to every fighter.
 Rifts (encounters.json): the cruise drive now and then finds a rift (from rank 5; the remake sets how often): stages of
 raiders, then a boss, here one of GoF3's 31 in its own hull, as strong against the raiders as in GoF3 (its hull + shield over a GoF3 pirate fighter's: 4 to
 20 raiders' hulls), flying for its own race with that race's fighters guarding it. With the ES2 Ships mod on too, the rifts stay as frequent and their bosses come from both mods.
