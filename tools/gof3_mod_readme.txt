@@ -86,7 +86,9 @@ first, escorted by their two informants' ships, the under bosses once some of th
 taunts you over the radio with its GoF3 line when found, and the fight plays GoF3's boss music of its act and
 rank (music/). Their strength and bounties follow Galaxy on Fire 2's own
 boards (7,000-10,000 hull, 60,000-140,000 credits up the ladder) and its difficulty setting; the under and big bosses
-drop Golden Cores, and the boss hulls their own blueprint.
+drop Golden Cores, and the boss hulls their own blueprint. Eight of them (D'rak, Kl'tark, Rkkt Bkkt, Ica'brn, Vhitarr,
+Snotch, Mortak, Surman Rod) lay mines behind them in the fight (Mortak's stay put, the others chase you); each goes off close by,
+slowing you; shoot it down first. Mudshark leaves a nanobite cloud behind it that halves your speed inside it.
 Bar missions (events/): four of GoF3's freelance challenges, the ones Galaxy on Fire 2 has nothing like, offered by
 visitors in the Space Lounges of every station (now and then, each in about one bar in eight) with Mkkt Bkkt on the
 radio: Sprint (twelve checkpoints in order against the clock, each one adding time), Orb Rush (a track of gates with orbs

@@ -44,7 +44,10 @@ The remake's criminal from it:
               for it and the mod's three GoF3 guns of it in each mark), 96 % from missiles
   devices     its boss devices (DeviceEquip: teleport, front / back shield, energy absorber, radar jammer, flash grenade,
               mind control, bomb spreader) as
-              the remake's NPC devices with GoF3's durations, cooldowns and triggers, distances x 11.4 (`devices`)
+              the remake's NPC devices with GoF3's durations, cooldowns and triggers, distances x 11.4 (`devices`); its
+              mine layer (an Arming weapon with ArmingSmartBomb whose projectile is a chasing MovingBomb: 8 bosses) as the
+              remake's "mineLayer" device, a smart bomb whose projectile is an EffectZone (Mudshark's nanobite fog) as
+              its "cloud" device (`mine_layers`)
   turrets     its Backfire / Tank Turrets (EntityAttachment typedAttachments) as GoF2 turret items by tier on the hull's
               own turret mounts, as many as it has (`turrets`, TURRET)
   description its quote, its place under its act's big boss and its weakness
@@ -168,6 +171,67 @@ def damage_taken(e, mod_id, weapon_id):
     return out or None, line
 
 
+MINE_DAMAGE = 350.0 / 312.5   # GoF3's usual boss mine (312.5) as GoF2's AMR Saber blast (350), the remake's default
+
+
+def mine_layers(D, comps):
+    """The boss's mine layers as wanted.json "mineLayer" devices: its Arming weapons with ArmingSmartBomb (minesPerBurst
+    4134512 timeBetweenMines 9890336 apart, every timeBetweenBursts 8141998, the player distanceMin 810044 / distanceMax
+    809766 off) whose ShootingProjectile (forwardSpawningOffset 8989439) is a MovingBomb chasing the player (detectionRadius
+    7302911 > 0: Ica'Brn's static race mines and Mudshark's nanobite zone are left out): BasicMoveToTarget speed 8069543,
+    Lifetime 4817287, triggerExplosionRadius 9952365, damageRadiusOnExplosion 8595678, damageAmountOnExplosion 1823019 (x
+    MINE_DAMAGE); the layer's AbilitySlowdown (speedFactor 4680223, slowdownDuration 5260033) as the mine's slow. A projectile
+    that is an EffectZone (basicEffectZoneRadius 4214561, Lifetime) is a "cloud": its applyBuffsOnEnter (9508173)
+    maxLinearVelocityPostFactor (7743564) the slow inside it, a BuffDamageOverTime's damagePercentagePerInterval (3337345)
+    per interval (2824654, default 1 s) its hull loss a second."""
+    R = D.R
+    def ref(v):
+        try: return R.sub(v).get(1)
+        except Exception: return None
+    def g(c, comp, k, d=None):
+        v = c.get(comp, {}).get(k)
+        return v[0] if v else d
+    out = []
+    for v in comps.get("Arming", {}).get(9719173, []):
+        w = ref(v)
+        if w not in R.p.recs: continue
+        c = R.resolved(w)[0]
+        if "ArmingSmartBomb" not in c: continue
+        pr = ref(c.get("ShootingProjectile", {}).get(8922695, [b""])[0])
+        m = R.resolved(pr)[0] if pr in R.p.recs else {}
+        n, between = max(1, g(c, "ArmingSmartBomb", 4134512, 1)), g(c, "ArmingSmartBomb", 9890336, 1.0)
+        run = round(1000 * between * (n - 1)) + 100
+        common = {"durationMs": run, "bombEveryMs": round(1000 * between),
+                  "cooldownMs": max(0, round(1000 * g(c, "ArmingSmartBomb", 8141998, 15.0)) - run),
+                  "range": [round(g(c, "ArmingSmartBomb", 810044, 0.0) * DEVICE_UNITS), round(g(c, "ArmingSmartBomb", 809766, 1500.0) * DEVICE_UNITS)],
+                  "layBehind": round(abs(g(c, "ShootingProjectile", 8989439, 0.0)) * DEVICE_UNITS)}
+        if "EffectZone" in m and g(m, "EffectZone", 4214561):
+            e = {"type": "cloud", **common, "cloudRadius": round(g(m, "EffectZone", 4214561) * DEVICE_UNITS),
+                 "lifeMs": round(1000 * g(m, "Lifetime", 4817287, 12.0)), "slowPercent": 0}
+            for bv in m["EffectZone"].get(9508173, []):
+                f = R.fields(ref(bv)) if ref(bv) in R.p.recs else {}
+                if f.get(7743564, [0.0])[0] < 0: e["slowPercent"] = round(-100 * f[7743564][0])
+                if f.get(3337345, [0.0])[0] > 0: e["hullPercent"] = round(100 * f[3337345][0] / f.get(2824654, [1.0])[0], 2)
+            out.append(e)
+            continue
+        if "MovingBomb" not in m or not g(m, "MovingBomb", 7302911): continue
+        e = {"type": "mineLayer", **common,
+             "damage": round(g(m, "MovingBomb", 1823019, 312.5) * MINE_DAMAGE),
+             "seekSpeed": round(g(m, "BasicMoveToTarget", 8069543, 0.0) * DEVICE_UNITS),
+             "seekRange": round(g(m, "MovingBomb", 7302911) * DEVICE_UNITS),
+             "lifeMs": round(1000 * g(m, "Lifetime", 4817287, 5.0)),
+             "triggerRadius": round(g(m, "MovingBomb", 9952365, 85.0) * DEVICE_UNITS),
+             "blastRadius": round(g(m, "MovingBomb", 8595678, 170.0) * DEVICE_UNITS)}
+        for bv in c.get("Buffable", {}).get(5783157, []):
+            b = ref(bv)
+            if R.name(b) != "AbilitySlowdown": continue
+            f = R.fields(b)
+            factor, secs = f.get(4680223, [0.0])[0], f.get(5260033, [0.0])[0]
+            if factor < 0 and secs > 0: e["slowMs"], e["slowPercent"] = round(1000 * secs), round(-100 * factor)
+        out.append(e)
+    return out
+
+
 def devices(D, comps):
     """A boss's wanted.json "devices" from its DeviceEquip (8493051): each Device's configuration (9702497) and behaviour
     (42738), field ids from libgofm.so's descriptors. Durations and cooldowns (s) the non-premium ones; distances x
@@ -254,7 +318,7 @@ def bosses(D):
              "portrait": (comps.get("GuiAttribute", {}).get(1210092) or [b""])[0].decode("utf-8", "replace"),
              "informants": [R.sub(v).get(1) for k in (362122, 362123, 362124) for v in b.get(k, [])], "weapons": weapons,
              "lines": entourage(D, b), "weak": modifiers(D, comps, 2467134), "strong": modifiers(D, comps, 462890),
-             "devices": devices(D, comps), "turrets": turrets(D, comps)}
+             "devices": devices(D, comps) + mine_layers(D, comps), "turrets": turrets(D, comps)}
         if title not in found or e["hull"] > found[title]["hull"]: found[title] = e
     return sorted(found.values(), key=lambda e: e["order"])
 

@@ -149,6 +149,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   characters): act 1 on the Vossk boards, act 2 on the Nivelian, act 3 on the Terran, the helper bosses first, then the
   under bosses, the big boss last; their informants' ships escort them, each taunts with its GoF3 line, and the fight
   plays GoF3's boss music (needs ffmpeg and vgmstream). Strength and bounties follow GoF2's boards and difficulty.
+  Eight of them lay GoF3's chasing mines behind them, Mudshark its slowing nanobite cloud (needs a remake with the
+  "mineLayer" and "cloud" boss devices).
   Runs on its own over a built mod too: `python tools/gof3_wanted.py <mod folder>`.
 - The same 31 bosses are rift bosses (encounters.json: the mod's `rift` entry adds them to the remake's EVERSPACE 2 rift
   run on the cruise drive, whose chance is the remake's): its boss stage may bring one of them, its hull as many pirate raiders' as GoF3 makes it, its hull +
