@@ -29,7 +29,7 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 | G3 | Bosses: info and difficulty, weak points, minions, taunts, portraits | `BossInfo`, `BossSetting`, `BossDifficulty`, `Weakpoint`, `Minion`, `TauntTable` | Most Wanted, capital ship subsystems | Most Wanted done 2026-11-02 (`tools/gof3_wanted.py`, the remake's `wanted.json` with its `escorts` / `taunt` / `music`): the 31 campaign bosses (BossInfo bossType, progressionPosition, infoSource0-2 the informants, quoteSnippet, entourageSnippets; portrait GuiAttribute 1210092) with their hulls, first primary, launcher, portraits as characters, an HB's informants' hulls as its escorts, its first entourage line as its taunt, the HB / UB / BB hierarchy as requiredBounties; strength and bounty by GoF2's rules (the user: GoF2's difficulty, not GoF3's; see "Difficulty: GoF3 against GoF2"); untested in Play mode. Boss music done: each act's and tier's combat_low + combat_high layers from its sector's bank (trim / porros / rigant: annikett, khador, ti_nung) as one 128 s loop, 9 tracks, ~10 MB; GoF3's intensity crossfade, warm-ups and stingers not kept. Weaknesses done 2026-11-04 (the remake's wanted.json "damageTaken", `damage_taken`): GoF3 adds damage x (weakness - strength) (StrengthAndWeaknessSystem::modifyDamage); 30 bosses are weak to one family (laser / plasma / ballistic, by the guns' DamageIdentifier), measured from their ordinary guns so GoF2's difficulty holds: +43 % from it (Sh'gaal +15, Khador +56) on GoF2's category for it and the mod's three GoF3 guns of it, 96 % from missiles (Khador 74); the board's text says it; untested in Play mode. Weak points: only the Hulk event boss has them (Left / RightHulkTurret, makesParentInvincible: the remake's capital "shields" objects). Boss devices done 2026-11-04 for 27 bosses (the remake's wanted.json "devices", World.NpcDevices; `devices`): teleport, front / back shield, energy absorber, radar jammer, flash grenade, mind control, bomb spreader with GoF3's durations, cooldowns and triggers; untested in Play mode. Turrets done 2026-11-05 for 17 bosses (the remake's wanted.json "turrets"; `turrets`): GoF3's Backfire / Tank Turrets (EntityAttachment typedAttachments of type 6) as GoF2 turret items by tier (Hammerhead D1; D2A2 or the Vossk L'ksaar; Matador TS) on the hull's own turret mounts, as many as it has (Sh'tare and Ti-Nung 2 of their 4); untested in Play mode. Open: insanity, smart bombs (no remake device), the act bosses' scripted abilities (Sh'gaal, Khador, their "_IGNORE" turrets included), the events' bosses (surveyed 2026-11-05: level-script entities, "Event Boss 01/02" with phases, clones and cutscenes, no data to export) |
 | G4 | Missions: side missions, contracts, distress calls, freelance challenges and seasons (task types kill, escort, find, escape, scan area, protect NPC); story dialogue and actors | `Sidemission`, `ContractSpawnSchedule`, `DistressCallSchedule`, `Freelance*`, `*Task`, `Story*` | bar missions, event graphs | freelance done 2026-11-05 (`tools/gof3_missions.py`, see "Missions"): 4 of the 10 challenges as bar missions at every GoF2 station, the other 6 being GoF2's own; distress calls done 2026-11-05: 3 of the 5 (Hijack, The Trap, Errand Boy) the same way, Siege and Clean Up being GoF2's Protection and Junk removal; contracts done 2026-11-05: 3 of the 8 and the 3 contract events (Evacuation, Blackout, Weapon Control), the rest being GoF2's own; untested in Play mode |
 | G5 | Progression: blueprints and parts, ship / weapon / tier upgrades, wingmen and pet drones | `Blueprint*`, `ShipUpgrade*`, `WeaponUpgrade*`, `TierUpgrade`, `Wingman`, `PetDrone` | blueprints.json, wingmen | done 2026-11-05 (see "Progression"): GoF2's own systems for the upgrades (the user's choice), GoF3's wingmen (the remake's ships.json "wingmanDevice" and wingmen.json, `tools/gof3_wingmen.py`) and its pet drone (the bar mission Stash Hunt); untested in Play mode |
-| G6 | AI: flocking, formations, perception, danger levels, evasive rolls | `FlockingSystem`, `FormationSystem`, `PerceptionSystem`, `AIDangerSystem`, `NPCBanking` | the remake's own (GoF2) AI | open, least needed |
+| G6 | AI: flocking, formations, perception, danger levels, evasive rolls | `FlockingSystem`, `FormationSystem`, `PerceptionSystem`, `AIDangerSystem`, `NPCBanking` | the remake's own (GoF2) AI | done 2026-11-05 (see "AI"): the remake's option "NPC dogfighting" (attack runs, veer-offs, tease, chase, leading shots, evasive rolls) for the mod's hulls (`"traffic": { "ai": "gof3" }`); formations, flocking, bursts and flee left out; untested in Play mode |
 
 
 ## Difficulty: GoF3 against GoF2 (to look over later)
@@ -170,6 +170,34 @@ wingmen.json: Modding/README.md "Wingmen"): each hull's device from its tier rec
 warn: 108; the player-death and revive lines left out, GoF2's death ends the flight). The pet drone (PetDrone: detect /
 warn distances x ~11, its Gen_secret_stash_* lines) as the bar mission Stash Hunt: three hidden stashes shown only once
 very close, readings from a scanner drone flying beside the player, smugglers after the second.
+
+## AI (surveyed 2026-11-05, against the remake's GoF2 AI)
+
+GoF3 (libgofm.so; decompiled dumps /tmp/claude-1000/gof3_ai/*.c, gone with the session): a job stack per NPC
+(AIJobComponent) whose jobs set weights on steering behaviours (MoveToTarget, MoveAwayFromTarget, ChasePrey, Tease,
+FollowLeader, Flocking, Avoid...). Fighting (AIJob_Fight): only formation leaders pick targets, the best of hostile ones in
+sensorRange by 0.5-1 (the attacker budget) x min(1, 1000 / distance) x the angle x playerAttackBonus 1.3; attack runs
+(AttackApproach up to ~13 s, then VeerOff 5-6 s away, a 30 % FightIdle of ~2 s at a distance), Tease (flying just ahead of
+the player's nose, 4-6 s) and ChasePrey (on its tail at 1.6x speed for 8 s); speed matched to the target head-on. Firing
+leads the target (aimingPoint) with an inaccuracy settling from 1 to 0 over 0.5 s, bursts of 4-6 s, 3 s pauses, the best
+weapon group by hit chance. AIDanger: an attacker budget, the player's defenseLevel 2 against fighters' attackLevel 1, so
+two fighters attack it at a time (bosses, turrets, kamikazes 0: unlimited; a station's harbour 30). NPCBanking: on a hit a
+barrel roll (left / right animation stretched to 1.8 s, 1.5 s invulnerable) by chance (fighters 0.33 x the difficulty's
+multiplier, capped Easy 0 / Medium 0.15 / Hard 0.25 / Boss 0.66). Flee below half shield and hull (behind a flag nothing
+in the data sets). Formations: V (horizontal, mirrored, vertical) and fours, spacing from the leader's radius, followers
+stick within 90 units. Difficulty: speed control (Easy 0.33, Medium 0.75), the evade caps, Hard +2.5 % hull / shield and
++4.2 % damage a wave; the danger level only scales hull, shield and damage.
+
+GoF2 (the remake's NpcShip, PlayerFighter::update): every fighter picks (the player first in its list, a 5 s re-roll;
+the remake's option "Smarter NPC targeting" is nearest-first with 2 + difficulty attackers a target, GoF3's budget in all
+but name), turns at a fixed rate without inertia, fires one gun inside a +-0.0076 cone within 35 000 at the target (no
+lead; turrets lead), circles away inside 8000, boosts 5 % of the time every 5 s or after losing 40 % (panic), never rolls
+or evades, no formations (only escorts on a freighter, the remake's), no flee. To port, if wanted: the evasive roll on a
+hit (the biggest difference in feel), attack runs with veer-offs and tease / chase, leading with settling inaccuracy, V
+formations for groups; as an option or for GoF3 hulls only, since they change GoF2's difficulty.
+Ported (the user's choice, option 2): the rolls, the attack pattern (runs, veer-offs, hold-backs, tease, chase) and the
+lead as Flight.Gof3Dogfight behind Options > Gameplay "NPC dogfighting" (Original / GoF3 on mod hulls, the default / GoF3
+for all); every GoF3 hull of the mod's ships.json carries "traffic": { "ai": "gof3" }. GoF3's distances x 11.4.
 
 ## Level scenery (surveyed 2026-11-02)
 

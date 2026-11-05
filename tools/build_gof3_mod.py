@@ -1785,6 +1785,9 @@ def main():
         for s in ships + cap_ships: s["crate"] = gof3_crates.crate_for(s["race"])
     # GoF3's wingman devices on its hulls and its wingmen's radio lines for the bars' wingmen (gof3_wingmen.py)
     gof3_wingmen.build(D, ships, OUT, log=phase)
+    # GoF3's NPC fighters fight its way (the remake's ships.json "traffic": { "ai": "gof3" }: attack runs, veer-offs, tease,
+    # chase, leading shots, evasive rolls; Options > Gameplay "NPC dogfighting"), the bosses' hulls too; not the capital ships
+    for s in ships: s.setdefault("traffic", {})["ai"] = "gof3"
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
