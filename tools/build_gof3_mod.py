@@ -113,6 +113,8 @@ BOOSTERS = {
 BOOSTER_BASE, BOOSTER_RECHARGE = 73, 12000
 # Secondary slots per class (GoF3 arms one launcher each; the user, 2026-11-02: fighters 2, gunships 3, scouts as GoF3).
 SECONDARY_SLOTS = {"scout": 1, "fighter": 2, "gunship": 3}
+# GoF3's evadeChanceBase by class at tier 3+ (Template_NPC_* NPCBanking; scouts never roll), the remake's "traffic": { "evade" }
+EVADE_BASE = {"scout": 0.0, "fighter": 0.33, "gunship": 1.0}
 # GoF3's Device_Revive_Cloak (24 of the 32 player ships): when the ship is destroyed it comes back cloaked for a moment
 # (DeviceConfigurationCloak: 4 and 10 s). GoF2's own Emergency System (185) is that: the hull's end turned into 10 s of
 # invulnerability, once a sortie (a built-in one used up is back at the next docking).
@@ -1793,6 +1795,12 @@ def main():
     # GoF3's NPC fighters fight its way (the remake's ships.json "traffic": { "ai": "gof3" }: attack runs, veer-offs, tease,
     # chase, leading shots, evasive rolls; Options > Gameplay "NPC dogfighting"), the bosses' hulls too; not the capital ships
     for s in ships: s.setdefault("traffic", {})["ai"] = "gof3"
+    # their evasive roll's base chance (GoF3's evadeChanceBase, ConfigNpc's templates: T3+ fighters 0.33, gunships 1.0, scouts
+    # 0, the bosses 0.1; the remake's "traffic": { "evade" }, capped by the difficulty); the hulls' tiers aren't NPC tiers, so
+    # the T3+ values (GoF3's T1-T2 NPCs, 0, only fly at the lowest danger levels)
+    for s in ships:
+        t = s["traffic"]
+        t["evade"] = 0.1 if t.get("boss") else EVADE_BASE.get(info.get(s["id"], {}).get("class"), 0.33)
     # GoF3's NPC fighters' mine drops by danger level (gof3_loadouts.py; the remake's "traffic": { "devices" })
     gof3_loadouts.apply(D, ships, {k: v.get("class") for k, v in info.items() if isinstance(v, dict)}, MOD_ID, log=phase)
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
