@@ -1,4 +1,4 @@
-Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.3
+Galaxy on Fire 3 Ships (mod id gof3_ships), version 2.5
 
 The ships of Galaxy on Fire 3: Manticore for the Galaxy on Fire 2 Unity Remake, as customizable ships (the remake's ship
 kits, like the EVERSPACE 2 ships). One ship per GoF3 hull; they are sold by visitors in the Space Lounges (ships.json
@@ -98,12 +98,12 @@ along it: at least 25 of them, then the finish), Obstacle Race (each gate's orb 
 shot) and Pick-up and Return (orbs scattered around the orbit, carried one at a time to the drop-off zone while raiders
 try to stop you). GoF3's other challenges are GoF2's own freelance missions already (Junk removal, Challenge, Intercept,
 Defense, Wanted) and are left out. Three of GoF3's distress calls join them: Hijack (shoot the turrets off a stranded
-Vossk frigate, then its guards, without destroying it), The Trap (destroy the traps holding a civilian frigate before the
-time runs out, past pirate turrets and scouts; then it jumps away) and Errand Boy (stay near each of three distress beacons
+Vossk frigate, then the UFOs guarding it, without destroying it), The Trap (destroy the traps holding a civilian frigate
+before the time runs out, past pirate turrets and UFOs; then it jumps away) and Errand Boy (stay near each of three distress beacons
 while your scanner reads it out, raiders arriving at every one). Siege and Clean Up are GoF2's Protection and Junk
 removal and are left out; GoF3's mines aren't in the game.
 Three of GoF3's contracts as well: Evacuation (destroy the drones taking freighters apart until their crews are out),
-Blackout (stop four waves of bombers before three of them reach a communications relay) and Weapon Control (hack two
+Blackout (stop four waves of GoF3 bombers, Terran, Vossk or Nivelian, before three of them reach a communications relay) and Weapon Control (hack two
 satellites by staying close, then stop a stolen weapon transport before it gets away). The relay and the satellites are
 GoF3's mining satellite. The other contracts are GoF2's own Protection, Defense, Escort and Recovery missions.
 Stash Hunt: a visitor lends you a scanner drone (GoF3's pet drone) that reads out how close three hidden stashes are
@@ -146,18 +146,28 @@ helix), offered in GoF3's engine colours. They sit on the ship's own exhausts an
 hull's exhausts carry their nozzle's outline where it was measured cleanly ("outline", from the glowing nozzle surface), so
 other mods' exhausts fit them too.
 
-Capital ships (ships.json "traffic": { "capital" }, the remake's mod capital ships): GoF3's nine large ships at GoF3's own
+Capital ships (ships.json "traffic": { "capital" }, the remake's mod capital ships): GoF3's seventeen large ships at GoF3's own
 size, baked from GoF3's structure files (their tiled plating and baked light maps into one texture each, structures/): the
 battleships Nemesis (Terran, 4.4 km), Tiamat (Vossk) and Garuda (Nivelian) and the frigates Proteus, Absu and Agni park in
 the orbits' capital ship special (Terran and Vossk systems now and then instead of the game's battleships, Nivelian systems,
 which have none, in a third of the orbits with freighters), up to 8 of their GoF3 turret points armed with the race's heavy
-turret; the freighters Morpheus, Ashnan and Varuna cruise among the orbits' freighters. They come at the Gameplay option
+turret; the freighters Morpheus, Ashnan and Varuna cruise among the orbits' freighters. GoF3's other large ships (props of
+its levels, unnamed in its data, so named here in each race's way) join them: the Terran battleships Typhon (8.4 km, the
+largest) and Hyperion and the freighters Hypnos (the Morpheus' hull in dark grey) and Hermes; the Vossk dreadnought
+Ereshkigal and frigate Nergal; the Nivelian carrier Surya and frigate Vayu. Those
+without a light map of their own in GoF3's files are lit evenly (no window lights). They come at the Gameplay option
 "Mod ships in traffic" (off: none). Never sold.
 Kamikazes (ships.json "traffic": { "role": "detonator", "devices" }): GoF3's ramming drones, each race's own model
 (Terran, Vossk, Nivelian, pirate), fly among that race's fighters at the same option: they hold their guns and fly into
 you to blow up, lay mines behind them that chase you (one every 4 s, 170 m to 1.4 km off) and throw others at you from close
 in front (every 5 s), and stop two thirds of your hits from in front with their shield while they close in. Their mines
 die to one hit. Never sold.
+UFOs (ships.json "traffic", "npcTurrets"): GoF3's defence drones of a Grey design, each race's own model (Terran, Vossk,
+Nivelian, pirate), fly among that race's fighters at the same option: no guns of their own, a light turret above and one
+below (the Hammerhead D1). The Hijack and The Trap missions' guards are UFOs, as in GoF3. Never sold.
+Bombers: GoF3's heavily armoured bombers (Terran, Vossk, Nivelian), which never dogfight; Blackout's waves are bombers of
+one race, picked for the mission as GoF3 does. Not in the traffic (the remake has no ship that goes for capital ships and
+stations rather than you). Never sold.
 Mine drops (ships.json "traffic": { "devices" }): as in GoF3, its fighters drop mines behind them once you are seasoned:
 from rank 8 a quarter of them sphere mines (a 43 m field for 15 s: the Terran ones drain your shield fast, the Vossk ones
 slow you and drain it, the Nivelian and pirate ones eat your hull, at most 5 % a second), from rank 16 biter mines

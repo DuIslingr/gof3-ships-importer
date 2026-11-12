@@ -22,6 +22,8 @@ are GoF2's measure (a ship's ~2.5 units/ms, GoF2's freelance pay), the texts GoF
 """
 import json, math, os, random
 
+from gof3_props import bomber_id, ufo_id, BOMBERS   # (the ids only: gof3_props builds those ships)
+
 MOD_SPEAKER = "vossk Mkkt Bkkt"   # GoF3's organizer of the races (a race and a name: the remake draws a Vossk face)
 CHANCE = 12                        # % of the bars offering each one (the remake's default is 35)
 RADIUS_M = 150                     # a checkpoint / orb counts within this (metres; the server checks every 0.25 s)
@@ -299,12 +301,13 @@ def pickup_and_return(D):
 #   Siege (DC01)        enemy waves besieging a freighter, destroy them: GoF2's Protection / Defense, left out
 #   Clean Up (DC02)     toxic waste containers and their guards, destroy them: GoF2's Junk removal, left out
 #   Hijack (DC03)       a stranded Vossk frigate's turrets shot off, its guards destroyed: new (HIJACK_TYPE's turret parts)
-#   The Trap (DC04)     traps holding a civilian frigate destroyed before time runs out, turrets and scouts about: new
+#   The Trap (DC04)     traps holding a civilian frigate destroyed before time runs out, turrets and UFOs about: new
 #                       (TRAP_TYPE: the traps are parts on the frigate's hull, which they shield; then it jumps away)
 #   Errand Boy (DC05)   three beacons scanned by staying near each, raiders at every one, then the rest of them: new
 #                       (the remake's distance(player, x, y, z); GoF3 left it unfinished, without texts of its own: its
 #                       task lines "Investigate ... distress beacon" / "Scan finished" and the mod's own words)
-# GoF3's mines (The Trap's) have no remake counterpart; its "UFOs" (Hijack's guards) are Vossk fighters here.
+# GoF3's mines (The Trap's) have no remake counterpart. Its UFOs (Hijack's guards, The Trap's DC_04-Counter UFOs) are
+# GoF3's own (gof3_props: the Vossk ones and the pirates').
 
 HIJACK_TYPE, TRAP_TYPE = "hijack_frigate", "trapped_frigate"
 HIJACK_HULL, TRAP_HULL = "capital_vossk_002", "capital_terran_002"   # capitals.CAPITALS: the Absu, the Proteus
@@ -345,12 +348,12 @@ def npc_types(ships, mod_id):
 def hijack(D, mod_id):
     client = "terran Salvage broker"
     offer = " ".join(x for x in (text(D, "DC_03-Intro 0"), text(D, "DC_03-Hijack_Desc") + ".") if x.strip(" ."))
-    intro = [text(D, "DC_03-Intro 2", edits=[("the UFOs protecting it", "the fighters guarding it")])]
+    intro = [text(D, "DC_03-Intro 2")]
     variables, steps = start("HIJACK", text(D, "DC_03-Hijack_Desc", fallback="Disable all turrets"), intro,
                              purpose="to the frigate", speaker=client)
     at = xyz(FRIGATE_AT)
     steps += [{"type": "spawntype", "who": ONCE, "npc": f"{mod_id}:{HIJACK_TYPE}", "name": "Vossk frigate", "at": at},
-              {"type": "spawn", "ship": 9, "race": "vossk", "count": 4, "behaviour": "enemy", "name": "Frigate guard",
+              {"type": "spawn", "ship": f"{mod_id}:{ufo_id('vossk')}", "race": "vossk", "count": 4, "behaviour": "enemy", "name": "UFO",
                "at": xyz((FRIGATE_AT[0], FRIGATE_AT[1] + 6000, FRIGATE_AT[2] - 20000))},
               {"type": "waypoint", "station": "{st}", "at": at},
               {"type": "objective", "text": text(D, "DC_03-Hijack_Obj1", fallback="Disable all turrets"), "station": "{st}"}]
@@ -365,7 +368,7 @@ def hijack(D, mod_id):
               {"type": "title", "subtitle": text(D, "DC_03-Kill Task Completion", fallback="Success: All turrets destroyed"), "seconds": 3},
               {"type": "objective", "text": text(D, "DC_03-Hijack_Obj2", fallback="Eliminate all enemies"), "station": "{st}"},
               {"type": "waypoint"},
-              {"type": "waituntil", "condition": 'alive("Frigate guard") == 0'}]
+              {"type": "waituntil", "condition": 'alive("UFO") == 0'}]
     steps += finish("")
     return mission("Hijack", offer, 30000, variables, steps, client)
 
@@ -381,7 +384,7 @@ def the_trap(D, mod_id):
                              [{"name": "traps", "value": len(TRAP_MOUNTS)}], purpose="to the trapped frigate")
     at = xyz(FRIGATE_AT)
     steps += [{"type": "spawntype", "who": ONCE, "npc": f"{mod_id}:{TRAP_TYPE}", "name": "Trapped frigate", "at": at},
-              {"type": "spawn", "ship": 32, "race": "pirate", "count": 3, "behaviour": "enemy", "name": "Scout",
+              {"type": "spawn", "ship": f"{mod_id}:{ufo_id('pirates')}", "race": "pirate", "count": 3, "behaviour": "enemy", "name": "UFO",
                "at": xyz((FRIGATE_AT[0] - 8000, FRIGATE_AT[1], FRIGATE_AT[2] - 25000))},
               {"type": "waypoint", "station": "{st}", "at": at},
               {"type": "objective", "text": text(D, "DC_04-Task Kill Traps", fallback="Destroy the traps"), "station": "{st}"}]
@@ -399,7 +402,7 @@ def the_trap(D, mod_id):
               {"type": "shipaction", "ship": "Trapped frigate", "action": "jump"},
               {"type": "waypoint"},
               {"type": "objective", "text": text(D, "DC_04-Task Kill Remaining Enemies", fallback="Kill the remaining enemies"), "station": "{st}"},
-              {"type": "waituntil", "condition": 'alive("Scout") == 0'}]
+              {"type": "waituntil", "condition": 'alive("UFO") == 0'}]
     steps += finish("")
     return mission("The Trap", offer, 25000, variables, steps, MOD_SPEAKER)
 
@@ -570,9 +573,11 @@ def blackout(D, mod_id):
     intro = [text(D, "CM06_Intro Cutscene 0", edits=[("Nirai has hired us to protect their relay", "We have been hired to protect this relay")]),
              text(D, "CM06_Intro Cutscene 2", edits=[(" Earn your pay, for the glory of Manticore!", "")])]
     variables, steps = start("BLACKOUT", text(D, "CM06_Break_Down_Objective02", fallback="Let no attacker through"), intro,
-                             [{"name": "hits", "value": 0}, {"name": "sent", "value": 0}]
+                             [{"name": "hits", "value": 0}, {"name": "sent", "value": 0}, {"name": "bomberrace", "value": 0}]
                              + [{"name": f"hit{k + 1}", "value": 0} for k in range(waves * per_wave)],
                              purpose="to the relay", speaker=client)
+    # the bombers' race, one for the mission (GoF3's "Bomber Race Random": a Terran, Nivelian or Vossk bomber)
+    steps += [{"type": "set", "variable": "bomberrace", "value": f"random(1, {len(BOMBERS)})"}]
     steps += [{"type": "spawntype", "who": ONCE, "npc": f"{mod_id}:{RELAY_TYPE}", "name": "Communications relay", "at": xyz(RELAY_AT)},
               {"type": "waypoint", "station": "{st}", "at": xyz(RELAY_AT)},
               {"type": "objective", "text": text(D, "CM06_Break_Down_Objective01", fallback="Get to the communication relay"), "station": "{st}"},
@@ -604,8 +609,13 @@ def blackout(D, mod_id):
                   {"type": "sound", "sound": "alarm"}]
         for j in range(per_wave):
             k = w * per_wave + j + 1
-            steps += [{"type": "spawn", "who": ONCE, "ship": 22, "race": "pirate", "behaviour": "enemy", "name": f"Bomber {k}",
-                       "at": xyz((src[0] + (j - 1) * 2500, src[1], src[2]))},
+            # GoF3's bomber of the mission's race (gof3_props), flown by the pirates (no standing lost for it)
+            spawn = lambda race: {"type": "spawn", "who": ONCE, "ship": f"{mod_id}:{bomber_id(race)}", "race": "pirate",
+                                  "behaviour": "enemy", "name": f"Bomber {k}", "at": xyz((src[0] + (j - 1) * 2500, src[1], src[2]))}
+            choice = spawn(BOMBERS[-1])
+            for i in range(len(BOMBERS) - 2, -1, -1):
+                choice = {"type": "if", "condition": f"bomberrace == {i + 1}", "then": [spawn(BOMBERS[i])], "else": [choice]}
+            steps += [choice,
                       {"type": "shipgoto", "ship": f"Bomber {k}", "to": relay, "speed": 1.4, "radius": 2500, "then": "vanish"}]
         steps += [{"type": "spawn", "ship": 32, "race": "pirate", "count": 2, "behaviour": "enemy", "name": "Raider",
                    "at": xyz((src[0], src[1] + 3000, src[2]))}]

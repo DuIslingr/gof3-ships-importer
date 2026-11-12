@@ -28,6 +28,7 @@ import ae4_meshgroup, ae4_scene, ae4_texture
 import structure_materials as sm
 
 LIGHT_FLOOR = 0.45            # the light map's A scales the colour from this to 1 (full: too dark under the remake's own light)
+FLAT_LIGHT = 0.35             # convert(light=FLAT_LIGHT): a model without a light map of its own, lit like its siblings
 LIGHT_GLOW = 1.4              # the light map's RGB as emission
 WINDOW_GLOW = 0.6             # the plating's emissive mask (alpha) as emission
 OWN_SIZE = 1024               # an own material's tiled texture at most this size
@@ -350,14 +351,52 @@ def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_impor
                            + js + struct.pack("<II", len(binc), 0x004E4942) + binc)
 
 
-def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None, extra=()):
+def body_nodes(scene, model_dir, name):
+    """The hull's meshgroups when the scene doesn't name one <name>_lod_000_body: GoF3's props aren't consistent. A single
+    *_lod_000_body (the UFOs': terran_ufo_000_lod_000_body without "structure_", the Nivelian one's scene misspelt
+    "structures_"), or a hull in parts *_lod_000_body_partNN (the Nivelian largeship 003), the first as the body and the
+    rest as extras. Only nodes with a meshgroup beside the scene. -> (body, [extras]) or (None, [])."""
+    names = [n["name"] for n in scene.values() if os.path.exists(f"{model_dir}/{n['name']}.ae4meshgroup")]
+    whole = [n for n in names if n.endswith("_lod_000_body")]
+    if whole: return whole[0], []
+    parts = sorted(n for n in names if re.search(r"_lod_000_body_part\d+$", n))
+    return (parts[0], parts[1:]) if parts else (None, [])
+
+
+def light_map(sdir, names, race, light=None, log=print):
+    """The model's baked light map (<model>_light_ao, else its _lod_light_ao) for the first of 'names' that has one, in
+    materials/multi or any other folder of the race (structure_terran_largeship_004's is in textures/textures_helios);
+    'light' an explicit one (a model reusing another's hull and UV1 unwrap: the largeship variants without their own).
+    Else the race's default, said so: a flat full light (64 x 64, A 1, no coloured lights), so no occlusion and no window
+    lights, and brighter than the models lit by their own (convert's light=FLAT_LIGHT matches them)."""
+    if light: return light
+    found = {}
+    for root, _, files in os.walk(sdir):
+        for f in files:
+            if f.endswith("_light_ao.tga.ae4texture"): found.setdefault(f, os.path.join(root, f))
+    first = f"{sdir}/materials/multi"
+    for n in names:
+        for f in (f"{n}_light_ao.tga.ae4texture", f"{n}_lod_light_ao.tga.ae4texture"):
+            if os.path.exists(f"{first}/{f}"): return f"{first}/{f}"
+            if f in found: return found[f]
+    if names: log(f"  {names[0]}: no light map of its own, lit by the {race} default (flat, full light)")
+    return f"{first}/structure_{race}_default_light_ao.tga.ae4texture"
+
+
+def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None, extra=(), light=None, scene_name=None, log=print):
     """body: the hull meshgroup's name when it isn't <name>_lod_000_body (the loot containers' collectables_002_<race>_body,
-    lit by their race's default light map). extra: further meshgroups of the scene (its parts' bodies: a satellite's
-    wings) baked into the same model, each at its own node."""
-    body_name = body or f"{name}_lod_000_body"
+    lit by their race's default light map); without it a scene that has no <name>_lod_000_body finds its hull itself
+    (body_nodes). extra: further meshgroups of the scene (its parts' bodies: a satellite's wings) baked into the same model,
+    each at its own node. light: an explicit light map (light_map's path), or a number: a flat one of that light (FLAT_LIGHT:
+    the largeships without their own). scene_name: the .ae4scene's name when it isn't <name> (the Nivelian UFO's
+    "structures_")."""
     assets = assets or model_dir.replace("\\", "/").split("/structures/")[0]
     sdir = f"{assets}/structures/{race}"
-    scene = ae4_scene.read(f"{model_dir}/{name}.ae4scene")
+    scene = ae4_scene.read(f"{model_dir}/{scene_name or name}.ae4scene")
+    if body is None and not any(n["name"] == f"{name}_lod_000_body" for n in scene.values()):
+        found, more = body_nodes(scene, model_dir, name)
+        if found: body, extra = found, list(more) + list(extra)
+    body_name = body or f"{name}_lod_000_body"
     W = world_matrices(scene)
     body = next((i for i, n in scene.items() if n["name"] == body_name), None)
     M = W[body] if body is not None else np.eye(4)
@@ -378,9 +417,20 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None, e
         sections += es
         parts += classify(es, sm.section_materials(ep, assets), sm.race_plating(race, assets))
         where.update({id(x): W[node] for x in es})
-    lm_path = f"{sdir}/materials/multi/{name}_light_ao.tga.ae4texture"
-    if not os.path.exists(lm_path): lm_path = f"{sdir}/materials/multi/structure_{race}_default_light_ao.tga.ae4texture"
-    light = _tex(lm_path)
+    # the light map by the model's name, then its hull's (a "structure_"-less or misspelt scene): the body's stem
+    stem = re.sub(r"_lod_000_body(_part\d+)?$", "", body_name)
+    names = list(dict.fromkeys([name, stem, f"structure_{stem}" if not stem.startswith("structure") else stem,
+                                name.replace("structures_", "structure_")]))
+    if body is not None and not body_name.endswith(("_lod_000_body",)) and not re.search(r"_part\d+$", body_name):
+        names = [name]   # (an explicitly named body that isn't a hull's: the loot containers keep their race's default)
+    if isinstance(light, (int, float)) and not isinstance(light, bool):
+        # a flat light map of that light (A) and no coloured lights: a model without its own, lit like its siblings (their
+        # light maps' A averages ~0.34 where they cover; the race's default is a flat 1.0, which lit it half as bright again)
+        level = float(light)
+        light = np.zeros((4, 4, 4), np.float32)
+        light[..., 3] = level
+    else:
+        light = _tex(light_map(sdir, names, race, light, log))
     items, own, glows = [], {}, {}
     for s, part in zip(sections, parts):
         if part is None: continue

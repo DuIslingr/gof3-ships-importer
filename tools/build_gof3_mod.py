@@ -57,6 +57,7 @@ import gof3_sounds
 import capitals
 import gof3_wanted
 import gof3_kamikaze
+import gof3_props
 import gof3_loadouts
 import gof3_missions
 import gof3_wingmen
@@ -1786,6 +1787,9 @@ def main():
         # GoF3's kamikazes: race drones ramming their targets and laying mines (gof3_kamikaze.py; ships.json "traffic":
         # { "role": "detonator", "devices" })
         cap_ships += gof3_kamikaze.build(D, OUT, ASSETS, log=phase)
+        # GoF3's UFOs (its races' defence drones, turrets above and below, in their traffic) and bombers (Blackout's)
+        # (gof3_props.py)
+        cap_ships += gof3_props.build(OUT, ASSETS, log=phase)
     # GoF3's loot containers, each ship leaving its race's (gof3_crates.py; the remake's ships.json "crate")
     if os.path.isdir(os.path.join(ASSETS, "collectables", "geometry", "002")):
         gof3_crates.build(OUT, ASSETS, log=phase)
@@ -1819,13 +1823,14 @@ def main():
     # GoF3's shading per kind (hull bodies, glass as GoF3's specular, guns, capital ships: gof3_shading.py)
     gof3_shading.ships(OUT, ASSETS, log=phase)
     json.dump({
-        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.4", "author": "DuIslingr",
+        "id": "gof3_ships", "name": "Galaxy on Fire 3 Ships", "version": "2.5", "author": "DuIslingr",
         "description": f"{len(ships)} ships from Galaxy on Fire 3: Manticore as customizable ships, sold by visitors in the Space "
                        f"Lounges of their race's systems: {len(skins)} GoF3 paint schemes to pick in the hangar's Customize "
                        "screen, GoF3 guns that follow the weapons mounted, and GoF3 turrets. Names, descriptions, races and "
                        "stats come from the game's own data (data.pdb), scaled to Galaxy on Fire 2's ranges. "
                        f"{sum(1 for s in cap_ships if s.get('traffic', {}).get('capital') and s['id'] != gof3_missions.SATELLITE_HULL)} GoF3 capital ships (battleships, frigates, freighters) in the orbits' traffic, "
-                       f"{sum(1 for s in cap_ships if s['id'].startswith('gof3_kamikaze_'))} kamikaze drones among the races' fighters, and the "
+                       f"{sum(1 for s in cap_ships if s['id'].startswith('gof3_kamikaze_'))} kamikaze drones and "
+                       f"{sum(1 for s in cap_ships if s['id'].startswith('gof3_ufo_'))} UFOs among the races' fighters, and the "
                        "Manticore: GoF3's Hades as a moving station in the Magnetar system, with its own hangar (no Space Lounge). "
                        f"{n_wanted} GoF3 bosses on the Most Wanted boards, from Vh'arus Tengs to Ti-Nung, and as the bosses of its rifts.",
         "credits": "Ships, guns, textures and texts: Galaxy on Fire 3: Manticore (c) Deep Silver FISHLABS. For personal use.",

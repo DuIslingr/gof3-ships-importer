@@ -1,6 +1,7 @@
 """GoF3's capital ships and the Hades (as the Manticore, a mobile station) for the GoF3 Ships mod.
 
-The nine capital ships (structures/<race>/geometry/props/largeships/000-002: per race a battleship, a freighter and a frigate)
+The capital ships (structures/<race>/geometry/props/largeships/000-002: per race a battleship, a freighter and a frigate; and
+eight of GoF3's other large ships, 003-009, its levels' props: CAPITALS, their light maps LIGHT_FROM / FLAT)
 are baked by structures.convert into structures/<race>_<n>.glb and written as ships.json ships the remake flies in its traffic
 ("traffic": { "capital": ... }, Modding.ModCapitalShips): the battleships and frigates parked in the orbits' capital ship
 special with their turret helpers armed (npcTurrets, at most MAX_TURRETS: the multiplayer copies carry 8), the freighters
@@ -37,7 +38,24 @@ CAPITALS = [   # race, model number, role, name, description
     ("nivelian", "000", "battleship", "Garuda", "The Nivelian battleship, the pride of the Nivelian fleet."),
     ("nivelian", "001", "freighter", "Varuna", "A Nivelian freighter, plying the trade routes of the Nivelian systems."),
     ("nivelian", "002", "frigate", "Agni", "A Nivelian frigate, fast for its size and heavily armed."),
+    # GoF3's other large ships (props of its levels: convoys, fleets, backdrops; no names in its data, so named here after each
+    # race's: Terran Greek, Vossk Mesopotamian, Nivelian Hindu). Left out, other ships' hulls again (their own meshes, the
+    # same UV1 unwrap: lit by the other's light map they look the same): terran 005 (the Morpheus'), 006 (the Nemesis'),
+    # 007 (the Proteus'), vossk 003 (the Tiamat's), nivelian 003 (the Garuda's, in four parts). Terran 003 stays: the
+    # Morpheus' hull too, but its vertex colours darken it to a grey livery of its own.
+    ("terran", "003", "freighter", "Hypnos", "A Terran freighter on the Morpheus' hull, in a dark grey livery."),
+    ("terran", "004", "freighter", "Hermes", "A fast Terran transport, the convoys' courier between the systems."),
+    ("terran", "008", "battleship", "Typhon", "The largest Terran warship, over eight kilometres from bow to stern."),
+    ("terran", "009", "battleship", "Hyperion", "A Terran battlecruiser, built for speed as much as for its guns."),
+    ("vossk", "004", "battleship", "Ereshkigal", "A Vossk dreadnought, six kilometres of the Empire's might."),
+    ("vossk", "005", "frigate", "Nergal", "A Vossk frigate, a raider that hunts at the edges of the Empire."),
+    ("nivelian", "004", "battleship", "Surya", "The great Nivelian carrier, six kilometres long."),
+    ("nivelian", "005", "frigate", "Vayu", "A Nivelian frigate, swift and lightly armoured."),
 ]
+# The light maps of the models without their own (structures.light_map): a reused hull's from the model it reuses, else
+# flat (structures.FLAT_LIGHT; the race's default would light it half as bright again as its siblings)
+LIGHT_FROM = {("terran", "003"): "structure_terran_largeship_000"}
+FLAT = {("terran", "008"), ("terran", "009"), ("vossk", "004"), ("vossk", "005"), ("nivelian", "004"), ("nivelian", "005")}
 HADES_SCALE = 0.5
 MANTICORE_SYSTEM = 14                     # its home, Magnetar (Dis, where every multiplayer pilot starts)
 # It roams every system ("route": "any"), two hours in each before it moves on, so a pilot who leaves it can come back to it
@@ -107,7 +125,11 @@ def build(out_dir, assets, log=print):
     for race, n, role, name, desc in CAPITALS:
         model_dir = f"{assets}/structures/{race}/geometry/props/largeships/{n}"
         glb = f"structures/{race}_{n}.glb"
-        info = structures.convert(model_dir, f"structure_{race}_largeship_{n}", race, os.path.join(out_dir, glb), 2048, assets)
+        light = (f"{assets}/structures/{race}/materials/multi/{LIGHT_FROM[(race, n)]}_light_ao.tga.ae4texture"
+                 if (race, n) in LIGHT_FROM else structures.FLAT_LIGHT if (race, n) in FLAT else None)
+        if not os.path.isdir(model_dir): log(f"capital {name}: no model ({model_dir})"); continue
+        info = structures.convert(model_dir, f"structure_{race}_largeship_{n}", race, os.path.join(out_dir, glb), 2048, assets,
+                                  light=light, log=log)
         size = np.asarray(info["max"]) - np.asarray(info["min"])
         length = float(size[2] * K)
         helpers = list(info["helpers"].items())

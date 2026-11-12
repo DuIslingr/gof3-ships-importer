@@ -175,9 +175,14 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   **Weapon models** row hides them, with their pylons, for a bare hull (the weapons still fire).
 - The engines burn with GoF3's engine effects (each race's flare and exhaust, the Nivelian helix). The mod also brings
   the three GoF3 drives as exhaust styles any ship can wear.
-- GoF3's nine capital ships fly in the orbits' traffic: the battleships and frigates parked with their turrets armed (in
+- GoF3's seventeen capital ships fly in the orbits' traffic: the battleships and frigates parked with their turrets armed (in
   Terran and Vossk systems now and then instead of the game's battleships, in Nivelian systems on their own), the
-  freighters cruising among the orbit's freighters ("Mod ships in traffic" option).
+  freighters cruising among the orbit's freighters ("Mod ships in traffic" option). Nine are GoF3's named ones; the other
+  eight are its levels' large ships, named in each race's way (`tools/capitals.py` CAPITALS). Those without a light map of
+  their own in GoF3's files are lit evenly (no window lights).
+- GoF3's UFOs fly among the Terran, Vossk, Nivelian and pirate fighters (`tools/gof3_props.py`, each race's own defence
+  drone): no guns, a light turret above and below. Hijack's and The Trap's guards are UFOs. GoF3's bombers (Terran,
+  Vossk, Nivelian) fly Blackout's waves, one race per mission.
 - GoF3's kamikazes fly among the Terran, Vossk, Nivelian and pirate fighters (`tools/gof3_kamikaze.py`, each race's own
   drone): they ram their target and blow up, lay chasing mines behind them and throw others at you, behind a front shield
   (needs a remake with ships.json `"traffic": { "devices" }`).
