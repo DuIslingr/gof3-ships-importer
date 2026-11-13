@@ -417,9 +417,12 @@ def boss_music(merged, out, log=print):
     return tracks
 
 
-def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log=print):
+def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log=print, skins=None):
     """Writes <out>/wanted.json, characters.json, portraits/, music/ and encounters.json (the rift); returns the number of
-    criminals. 'ship_ids': the mod's hulls, each with its number of turret mounts."""
+    criminals. 'ship_ids': the mod's hulls, each with its number of turret mounts. 'skins': the kit's skin ids (a skin the
+    kit left out, the same as another, by its id: skin -> id); a boss flies its gang's paint (gof3_boss_skins, wanted.json
+    "skin")."""
+    import gof3_boss_skins
     all_b = bosses(D)
     music = boss_music(merged, out, log)
     big = {e["act"]: e for e in all_b if e["tier"] == 4}
@@ -469,6 +472,9 @@ def build(D, ship_ids, out, merged, mod_id, weapon_id, mixed_case, race_map, log
         taunt = re.sub(r"\s+", " ", (e["lines"] or [quote])[0] or "").strip()
         if taunt: entry["taunt"] = taunt
         if (act, tier) in music: entry["music"] = music[(act, tier)]
+        skin = gof3_boss_skins.skin_of(e["record"])
+        if skin and skins is not None: skin = skins.get(skin)
+        if skin: entry["skin"] = skin   # (the kit's skin id, as builds name them: "skin=<id>")
         src = os.path.join(merged, "swf", e["portrait"] + ".png") if e["portrait"] else None
         if src and os.path.exists(src):
             Image.open(src).convert("RGBA").resize((320, 384), Image.LANCZOS).save(os.path.join(out, "portraits", f"{wid}.png"), optimize=True)

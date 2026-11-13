@@ -54,9 +54,23 @@ if T4 is None:  # no colormask (Colorize slot 0 or not found): no paint
 body, _ = ae4_material.read(BODY)
 body.setdefault("Colorize_Color1", (1, 1, 1, 1)); body.setdefault("Colorize_Color2", (1, 1, 1, 1))
 
-def colorize(mat, mask):
+def cleaned(d, mask, k):
+    """A skin's "clean" (0-1, data_skins.json; the key art's polished plates): the diffuse's grime, scratches and worn
+    edges smoothed out and the colour mask's chipped paint closed, the panel seams (narrow dark lines) kept."""
+    from scipy import ndimage
+    lum = d @ LUM
+    seam = np.clip((ndimage.grey_closing(lum, size=(7, 7)) - lum - 0.06) * 8, 0, 1)[..., None]   # narrow dark lines
+    smooth = np.dstack([ndimage.gaussian_filter(ndimage.median_filter(d[..., i], size=9), 2) for i in range(3)])
+    d = d + (smooth * (1 - seam) + d * seam - d) * k
+    m = mask.copy()
+    r = ndimage.gaussian_filter(ndimage.grey_closing(ndimage.median_filter(m[..., 0], size=9), size=(5, 5)), 1.5)
+    m[..., 0] = m[..., 0] + (np.clip((r - 0.5) * 3 + 0.5, 0, 1) - m[..., 0]) * k   # painted or not, no chips
+    return d, m
+
+def colorize(mat, mask, clean=0.0):
     c1 = np.array(mat["Colorize_Color1"][:3], np.float32); c2 = np.array(mat["Colorize_Color2"][:3], np.float32)
     d = T1[..., :3] * np.array(mat["Diffuse_Color"][:3], np.float32)
+    if clean: d, mask = cleaned(d, mask, clean)
     col = c1 + (c2 - c1) * mask[..., 3:4]
     return d + (col * d - d) * mask[..., 0:1]
 
@@ -124,9 +138,13 @@ def clear_z(t):
     n = np.dstack([t[..., 0] * 2 - 1, t[..., 1] * 2 - 1, np.ones(t.shape[:2], np.float32)])
     return n / np.linalg.norm(n, axis=-1, keepdims=True) * 0.5 + 0.5
 save(clear_z(T3), f"{name}_normal.png")
-def glass_texture(path, quiet=False):
+def glass_texture(path, quiet=False, color=None, opacity=1.0):
     """The canopy: (lit) diffuse x Diffuse_Color, with the override emission over it where the glass shader has one;
-    opacity = the diffuse alpha (or the glass's own textures, terran/031)."""
+    opacity = the diffuse alpha (or the glass's own textures, terran/031). color (a mod skin's "glass_color",
+    data_skins.json): another hull's canopy look on this one, whose canopy texels differ (the Nereus's canopy is painted
+    orange-brown in its diffuse at ~45 % opacity, the Sutoe-Shii's is white and opaque, so the Nereus glass's override
+    emission alone turns it a pale glowing peach): the diffuse's own shading, normalised over the opaque texels, x that
+    colour, no emission; opacity ("glass_opacity"): the opacity x this."""
     gmat, gslots = ae4_material.read(path)
     a = T1[..., 3:4]
     rgb = T1[..., :3]
@@ -135,11 +153,17 @@ def glass_texture(path, quiet=False):
         g2 = tex(R["GlassOpacity"], (g1.shape[1], g1.shape[0])) if R.get("GlassOpacity") else np.ones_like(g1)
         a = g2[..., 3:4] * gmat.get("Opacity_Amount", 0.5)
         if not quiet: print("glass textures", os.path.basename(R["GlassDiffuse"]), "opacity x", gmat.get("Opacity_Amount", 0.5))
+    if color is not None:
+        shade = rgb.mean(-1, keepdims=True)
+        opaque = a[..., 0] > 0.5
+        mean = float(shade[opaque].mean()) if opaque.any() else float(shade.mean())
+        rgb = np.clip(shade / max(mean, 1e-3), 0.3, 1.7) * np.array(color[:3], np.float32)
+        return np.dstack([np.clip(rgb, 0, 1), np.clip(a * opacity, 0, 1)])
     rgb = rgb * np.array(gmat.get("Diffuse_Color", (1, 1, 1, 1))[:3], np.float32)   # diffuseTexel = T1.rgb * custom_Diffuse_Color
     if gmat.get("Emissive_EmissiveColorOverwrite"):   # glass: (lit) diffuse * (1 - e) + override emission, opacity = A
         rgb = rgb * (1 - a) + emission(gmat, rgb, a, glass=True)
         if not quiet: print("glass emissive override", np.round(gmat["Emissive_Color"][:3], 2))
-    return np.dstack([rgb, a])
+    return np.dstack([rgb, np.clip(a * opacity, 0, 1)])
 if GLASS and os.path.exists(GLASS):
     save(glass_texture(GLASS), f"{name}_glass.png")
 save(T1[..., :3], f"{name}_diffuse_raw.png"); save(T1[..., 3], f"{name}_emissive_mask.png", "L")
@@ -179,10 +203,15 @@ for sk in (R or {}).get("data_skins", []):
     if sk.get("specular"):         # a material pack's specular values given directly
         vmat.update({k: (tuple(v) + (1.0,) if isinstance(v, list) else v) for k, v in sk["specular"].items()})
     mask = tex(sk["mask"], SIZE) if sk.get("mask") else T4   # no mask slot (the Gold tiers): the ship's own
-    vbase = colorize(vmat, mask)
+    vbase = colorize(vmat, mask, sk.get("clean", 0.0))
     save(vbase * (1 - E), f"{name}_basecolor_{sk['scheme']}.png")
     save(emission(vmat, vbase, T1[..., 3:4]), f"{name}_emissive_{sk['scheme']}.png")
     own_spec = scheme_specular(vmat, mask, sk["scheme"])
+    if sk.get("glass_from") and GLASS and os.path.exists(GLASS):
+        # a skin of the mod's own with another glass material on its canopy (data_skins.json "glass_from"; GoF3's presets
+        # never change the glass): the ship's canopy texture through that material, as the game draws its own glass
+        save(glass_texture(sk["glass_from"], quiet=True, color=sk.get("glass_color"), opacity=sk.get("glass_opacity", 1.0)), f"{name}_glass_{sk['scheme']}.png")
+        print("data skin", sk["scheme"], "canopy", os.path.basename(sk["glass_from"]))
     print("data.pdb skin", sk["scheme"], "preset", sk.get("preset") or sk.get("preset_record"), np.round(sk["color1"], 3), "/", np.round(sk["color2"], 3),
           "mask", os.path.basename(sk.get("mask") or "colormask_000"), "+ emissive" if sk.get("emissive_color") else "", "+ specular" if own_spec else "")
 

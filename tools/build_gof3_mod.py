@@ -273,7 +273,8 @@ SCHEME = {"001": "Scheme 1", "002": "Scheme 2", "003": "Scheme 3", "000": "Schem
           "gold": "Gold", "red": "R.E.D.", "grgath": "Gr'Gath", "blackred": "Black Red", "mkktbkkt": "Mkkt Bkkt",
           "sutoeshii": "Sutoé-Shii Event", "khador_e2017s03": "Season 3", "dragon": "Dragon", "atlas2": "Atlas II",
           "acheron2": "Acheron II", "mardk2": "Mar'Dk II", "moornta2": "Moornta II", "shamash2": "Black Red",
-          "greyshadow": "Grey Shadow", "goldgorgon": "Golden Gorgon"}
+          "greyshadow": "Grey Shadow", "goldgorgon": "Golden Gorgon",
+          "keyart": "Key Art"}   # (the mod's own: the Switch key art's red Sutoe-Shii, data_skins.json)
 SCHEME_ORDER = ["001", "002", "003", "000", "pirate", "huawei"]   # then the data.pdb skins by name, Gold last
 MAX_TURRETS = 2
 # Hulls GoF3 models the other way round from their concept art: turned about the up axis (degrees) before anything reads them,
@@ -1355,23 +1356,35 @@ def glb_image(path, role):
     return None, None
 
 
+SKIN_IDS = {}   # skins_of: every scheme's skin id in the kit, the one it shares when the same paint (None: the hull's own)
+
+
 def skins_of(base, man, sw, engine_colour):
     """The hull's paint schemes as kit skins: [{id, name, types, materials, engineColor?}]."""
     tex = os.path.join(CONV, base, "textures")
     plain = {k: os.path.join(tex, f"{base}_{k}.png") for k in ("basecolor", "emissive", "roughness", "glass")}
-    seen = {file_hash(plain["basecolor"])}
+    base_glb = os.path.join(CONV, base, base + ".glb")
+    base_decals, _ = glb_image(base_glb, "decals")
+    hash_of = lambda p: file_hash(p) if os.path.exists(p) else None
+    # a paint is its base colour, glow and decal sheet (a boss skin may differ from the hull's own only in those: Khador's)
+    variant_decals = lambda s: (glb_image(v, "decals")[0] if os.path.exists(v := os.path.join(CONV, f"{base}_{s}", f"{base}_{s}.glb"))
+                                else None)
+    look = lambda f, s: (hash_of(f["basecolor"]), hash_of(f["emissive"]), variant_decals(s) or base_decals)
+    seen = {(hash_of(plain["basecolor"]), hash_of(plain["emissive"]), base_decals): None}
+    rj = os.path.join(CONV, base, "resolve.json")
+    names = {sk["scheme"]: sk["name"] for sk in (json.load(open(rj, encoding="utf-8-sig")).get("data_skins", []) if os.path.exists(rj) else [])
+             if sk.get("name")}
     schemes = sorted({m.group(1) for f in os.listdir(tex) if (m := re.fullmatch(rf"{base}_basecolor_(\w+)\.png", f))})
     order = {s: i for i, s in enumerate(SCHEME_ORDER)}
     schemes.sort(key=lambda s: (order.get(s, 50 if s != "gold" else 99), SCHEME.get(s, s)))
     sid = base[len("ship_"):]
-    base_glb = os.path.join(CONV, base, base + ".glb")
-    base_decals, _ = glb_image(base_glb, "decals")
     out = []
     for s in schemes:
         f = {k: os.path.join(tex, f"{base}_{k}_{s}.png") for k in ("basecolor", "emissive", "roughness", "glass")}
-        h = file_hash(f["basecolor"])
-        if h in seen: continue                      # the same paint as the hull's own or another scheme
-        seen.add(h)
+        h = look(f, s)
+        if h in seen:                               # the same paint as the hull's own or another scheme
+            SKIN_IDS[f"{sid}_{s}"] = seen[h]; continue
+        seen[h] = SKIN_IDS[f"{sid}_{s}"] = f"{sid}_{s}"
         d = os.path.join("skins", sid); os.makedirs(os.path.join(OUT, d), exist_ok=True)
         body = {"material": f"{base}_body", "diffuse": sw.write(f["basecolor"], "color", f"{d}/{s}_basecolor")}
         if os.path.exists(f["emissive"]) and file_hash(f["emissive"]) != file_hash(plain["emissive"]):
@@ -1399,7 +1412,7 @@ def skins_of(base, man, sw, engine_colour):
                 tmp = os.path.join(OUT, d, f"{s}_decals_src.png"); open(tmp, "wb").write(raw)
                 mats.append({"material": f"{base}_decals", "diffuse": sw.write(tmp, "alpha", f"{d}/{s}_decals")})
                 os.remove(tmp)
-        skin = {"id": f"{sid}_{s}", "name": SCHEME.get(s, s.replace("_", " ").title()), "types": [sid], "materials": mats}
+        skin = {"id": f"{sid}_{s}", "name": names.get(s) or SCHEME.get(s, s.replace("_", " ").title()), "types": [sid], "materials": mats}
         col = engine_colour(f["emissive"] if "emission" in body else None)
         if col is not None: skin["engineColor"] = col
         out.append(skin)
@@ -1817,7 +1830,8 @@ def main():
     if os.path.exists(os.path.join(REMAKE, "Assets/Resources/GoF2Data/items.json")):   # (the goods' prices)
         json.dump(blueprints(ships, info, D), open(os.path.join(OUT, "blueprints.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     # GoF3's bosses on the Most Wanted boards, their portraits as characters (gof3_wanted.py)
-    n_wanted = gof3_wanted.build(D, {s["id"]: sum(1 for m in s.get("mounts", []) if m.get("slotType") == 2) for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase)
+    n_wanted = gof3_wanted.build(D, {s["id"]: sum(1 for m in s.get("mounts", []) if m.get("slotType") == 2) for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase,
+                                 skins=SKIN_IDS)
     # GoF3's freelance challenges GoF2 has no counterpart for, as bar missions (gof3_missions.py)
     gof3_missions.build(D, OUT, ships + cap_ships, MOD_ID, log=phase)
     # GoF3's shading per kind (hull bodies, glass as GoF3's specular, guns, capital ships: gof3_shading.py)

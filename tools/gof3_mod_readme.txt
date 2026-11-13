@@ -13,7 +13,10 @@ Customize (the hangar, under Inspect ship):
   Skin      every paint scheme of the hull: GoF3's schemes 1-3, Pirate / Huawei where the hull has them, and the data.pdb
             skins that used to be ships of their own in version 1 (Gold, Gr'Gath, R.E.D., Black Red, Atlas II, Grey Shadow,
             Dragon, ...). A skin swaps the hull's textures (and its glass, decal sheet and engine glow where the scheme has
-            its own); it changes no stats. The skins load when picked.
+            its own); it changes no stats. The skins load when picked. One skin is the mod's own: the Sutoé-Shii's Key Art, the
+            glossy crimson with an orange canopy (the Nereus's canopy colour) of the Switch release's key art, whose paint isn't in the game's files.
+            The Most Wanted bosses' gang paints are skins too (Gr'Gath Boss, Grey Shadow Boss, Vortex Yellow / Orange /
+            Green, from each boss's data.pdb record) on the hulls they fly, and the bosses fly in them.
   Weapon colour  the energy weapons' and energy turrets' shots in one colour (the remake's Weapon colour row), from GoF3's
             own projectile colours (shipkits.json palette "weapons": the Colorize_Color1 of each GoF3 weapon effect's
             material): Burst Laser violet, Pulse Laser sky blue, Ion Cannon teal, Pirate Ion Cannon red, Plasma Sprayer green,

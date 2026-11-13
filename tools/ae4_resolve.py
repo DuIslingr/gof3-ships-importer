@@ -109,12 +109,13 @@ class Resolver:
         g = body if which == "body" else glass
         if g and g in self.mat_by_guid: return self._best(self.mat_by_guid[g], d)
         if which == "glass" and not g: return None
-        # the ship's own stand-ins with the same textures: the plain material (inouac/601), the dissolve variant (same
-        # slots and colours, only the unused emissive colour differs), the NPC version
+        # the ship's own stand-ins with the same textures: the plain material (inouac/601), the NPC version (the boss hulls
+        # terran/021, vossk/121: the material their NPCs fly with), then the dissolve variant (its slots, but not always its
+        # colours: terran/021's colour 1 is 0.52 there, 0.22 in the NPC version)
         n = 1 if which == "body" else 2
         for c in ([f"{d}/{name}.ae4material"] if which == "body" else []) + [
-                f"{d}/{name}_matid0{n}_{which}_dissolve.ae4material", f"{d}/npc_{name}_matid0{n}_{which}.ae4material",
-                f"{d}/npc_{name[5:]}_matid0{n}_{which}.ae4material"]:
+                f"{d}/npc_{name}_matid0{n}_{which}.ae4material", f"{d}/npc_{name[5:]}_matid0{n}_{which}.ae4material",
+                f"{d}/{name}_matid0{n}_{which}_dissolve.ae4material"]:
             if os.path.exists(c): return c
         return None
 
@@ -219,6 +220,8 @@ class Resolver:
                     e["emissive_color"] = [x / 255 for x in presets[sk["emissive_preset"]][0][:3]]
                 if sk.get("specular_from"):     # the material whose specular look a pack copies
                     e["specular_from"] = os.path.join(self.assets, sk["specular_from"])
+                if sk.get("glass_from"):        # the glass material a skin of the mod's own puts on the canopy
+                    e["glass_from"] = os.path.join(self.assets, sk["glass_from"])
                 out["data_skins"].append(e)
         return out
 

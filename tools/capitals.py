@@ -52,10 +52,13 @@ CAPITALS = [   # race, model number, role, name, description
     ("nivelian", "004", "battleship", "Surya", "The great Nivelian carrier, six kilometres long."),
     ("nivelian", "005", "frigate", "Vayu", "A Nivelian frigate, swift and lightly armoured."),
 ]
-# The light maps of the models without their own (structures.light_map): a reused hull's from the model it reuses, else
-# flat (structures.FLAT_LIGHT; the race's default would light it half as bright again as its siblings)
+# The light maps of the models without their own: most name the one they reuse in their .ae4model (structures.model_light_map,
+# which convert reads by itself: terran 008 / 009 the 001's / 002's, vossk 004 / 005 the 000's / 002's, nivelian 005 the 002's,
+# GoF3's own, found 2026-11-12; until then these were lit flat); terran 003 names none but reuses the 000's hull and unwrap;
+# the Surya (nivelian 004) names none at all: flat (structures.FLAT_LIGHT; the race's default would light it half as bright
+# again as its siblings)
 LIGHT_FROM = {("terran", "003"): "structure_terran_largeship_000"}
-FLAT = {("terran", "008"), ("terran", "009"), ("vossk", "004"), ("vossk", "005"), ("nivelian", "004"), ("nivelian", "005")}
+FLAT = {("nivelian", "004")}
 HADES_SCALE = 0.5
 MANTICORE_SYSTEM = 14                     # its home, Magnetar (Dis, where every multiplayer pilot starts)
 # It roams every system ("route": "any"), two hours in each before it moves on, so a pilot who leaves it can come back to it

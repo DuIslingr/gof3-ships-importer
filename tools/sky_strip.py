@@ -79,6 +79,19 @@ def convert(material_path, out_png, assets, flips=None):
     return cube
 
 
+def convert_env(cube, out_png):
+    """A material's environment cube (GoF3's generic cubes: monochrome, four blurs in R G B A, R the sharpest; the ships'
+    ShipShader picks between them by gloss) as a 6:1 RGBA strip in the remake's layout (the skies' faces and order), its
+    channels as they are: no tint, the alpha kept (the remake's GoF2/Hull GoF3ShipShader, a material's "environmentCube")."""
+    fs = faces(cube)
+    w = fs[0].size[0]
+    strip = Image.new("RGBA", (w * 6, w))
+    for i, src in enumerate(STRIP):
+        strip.paste(fs[src].convert("RGBA"), (i * w, 0))
+    strip.save(out_png)
+    return out_png
+
+
 if __name__ == "__main__":
     print(convert(sys.argv[1], sys.argv[2], sys.argv[3]))
 

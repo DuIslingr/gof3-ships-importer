@@ -152,6 +152,10 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   Each fights with its GoF3 boss devices (teleports, shields, flash grenades, mines, clouds, Khador's shadow clones and wormholes,
   Sh'gaal's shield drones; needs a remake with the "mineLayer", "cloud", "shadowClone", "minions" and "wormhole" boss devices).
   Runs on its own over a built mod too: `python tools/gof3_wanted.py <mod folder>`.
+- Each boss flies in its gang's paint (`tools/gof3_boss_skins.py`: its data.pdb record's Customization, Gr'Gath act 1,
+  Grey Shadow act 2, Vortex act 3) as a skin of its hull (data_skins.json `"boss": true`, one per hull and paint),
+  wanted.json `"skin"` (needs a remake that reads it, 2026-11-11). `python tools/gof3_boss_skins.py --write` regenerates
+  the entries from data.pdb.
 - The same 31 bosses are rift bosses (encounters.json: the mod's `rift` entry adds them to the remake's EVERSPACE 2 rift
   run on the cruise drive, whose chance is the remake's): its boss stage may bring one of them, its hull as many pirate raiders' as GoF3 makes it, its hull +
   shield over a GoF3 pirate fighter's (the Groza: 4 to 20; GoF3 scales a boss's hull by the same danger factor as a grind
@@ -178,8 +182,10 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
 - GoF3's seventeen capital ships fly in the orbits' traffic: the battleships and frigates parked with their turrets armed (in
   Terran and Vossk systems now and then instead of the game's battleships, in Nivelian systems on their own), the
   freighters cruising among the orbit's freighters ("Mod ships in traffic" option). Nine are GoF3's named ones; the other
-  eight are its levels' large ships, named in each race's way (`tools/capitals.py` CAPITALS). Those without a light map of
-  their own in GoF3's files are lit evenly (no window lights).
+  eight are its levels' large ships, named in each race's way (`tools/capitals.py` CAPITALS). Each is lit by the light map
+  GoF3 draws it with: the one its model file names (`structures.model_light_map`: Typhon, Hyperion, Ereshkigal, Nergal and
+  Vayu reuse their sibling's, the UFOs theirs), else its materials', else its own by name; only the Surya has none (lit
+  evenly, no window lights).
 - GoF3's UFOs fly among the Terran, Vossk, Nivelian and pirate fighters (`tools/gof3_props.py`, each race's own defence
   drone): no guns, a light turret above and below. Hijack's and The Trap's guards are UFOs. GoF3's bombers (Terran,
   Vossk, Nivelian) fly Blackout's waves, one race per mission.
@@ -214,6 +220,12 @@ python tools/build_gof3_systems.py --pdb <Android data.pdb> --assets <merged GoF
   specular colour and gloss and its normal maps (the remake's specular workflow); antennas, glass and decals keep their
   own tiled textures. GoF3 gives these no cubemap reflection (only its glass and solar panels have one, which raises their
   specular here).
+- Their effect layers (`tools/gof3_fx.py`): glows, sprites, spotlight cones, engine flames, holograms and plasma, GoF3's
+  BlendMode 2 materials, each a glow layer of its own in the model (a glTF material with `"additive": true` extras), its
+  colour baked from GoF3's effect shaders and its angle fade, pulse, sprite billboards and scroll done by the remake's
+  GoF2/ModGlow (needs a remake with glTF glow layers, 2026-11-12).
+- The ship hulls reflect GoF3's own environment cube (`env/cubemap_generic_000.png`, the hulls' "environmentCube"), as
+  GoF3's ship shader does, not the place's surroundings (needs a remake with `environmentCube`, 2026-11-12).
 - What moves in GoF3 moves here: the Terran gates' rotator, the Vossk gates' two rings, the stations' turning and sliding
   parts (their looping clips; the cutscenes, damage and docking clips are left out).
 - The gates glow as in GoF3: their energy ring, glow and scrolling electricity in the race's colours (additive layers;

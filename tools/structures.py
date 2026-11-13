@@ -292,7 +292,7 @@ def own_material(name, tex, v):
 
 def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_importer structures.py", nodes=None, animations=None):
     """A .glb of several meshes. meshes: [{"name", "primitives": [{"positions", "normals", "uvs", "tangents" (optional),
-    "colors" (optional, rgba), "indices", "material"}]}]; materials: glTF materials whose texture indices are image indices; images: [(bytes, mime,
+    "colors" (optional, rgba), "uvs1" (optional, TEXCOORD_1), "indices", "material"}]}]; materials: glTF materials whose texture indices are image indices; images: [(bytes, mime,
     name, repeat)]. nodes: glTF nodes (default one per mesh under a root). animations: one glTF animation of
     [{"node", "times" (s), "translation", "rotation", "scale"}] (linear keys)."""
     blobs, views, accessors = [], [], []
@@ -317,6 +317,7 @@ def write_glb_parts(path, meshes, materials, images, generator="gof3_ships_impor
                      "NORMAL": acc(nrm, "VEC3", 5126, 34962), "TEXCOORD_0": acc(np.asarray(p["uvs"], np.float32), "VEC2", 5126, 34962)}
             if p.get("tangents") is not None: attrs["TANGENT"] = acc(np.asarray(p["tangents"], np.float32), "VEC4", 5126, 34962)
             if p.get("colors") is not None: attrs["COLOR_0"] = acc(np.asarray(p["colors"], np.float32), "VEC4", 5126, 34962)
+            if p.get("uvs1") is not None: attrs["TEXCOORD_1"] = acc(np.asarray(p["uvs1"], np.float32), "VEC2", 5126, 34962)
             prims.append({"attributes": attrs, "indices": acc(np.asarray(p["indices"], np.uint32), "SCALAR", 5125, 34963),
                           "material": p["material"]})
         out_meshes.append({"name": mesh["name"], "primitives": prims})
@@ -361,6 +362,43 @@ def body_nodes(scene, model_dir, name):
     if whole: return whole[0], []
     parts = sorted(n for n in names if re.search(r"_lod_000_body_part\d+$", n))
     return (parts[0], parts[1:]) if parts else (None, [])
+
+
+def model_light_map(meshgroups, assets):
+    """The light map a model's .ae4model files name for its meshgroups (their LODs' light-map override, by resource id: the
+    largeship variants reuse their base ship's, 000_A -> structure_terran_largeship_000_light_ao; the race drones their
+    race's stations atlas), the full one before its _lod_ one; None when they name none (their materials' then: the race's
+    default). GoF3 draws a model with that one over its materials' T7."""
+    import ae4_ids
+    from ae4unpack import unpack
+    idx = ae4_ids.index(assets)
+    found = []
+    for mg in meshgroups:
+        folder = os.path.dirname(mg)
+        stem = os.path.basename(mg).split("___")[0]
+        stem = stem[:-len(".ae4meshgroup")] if stem.endswith(".ae4meshgroup") else stem
+        for model in (os.path.join(folder, stem + ".ae4model"),):
+            if not os.path.exists(model): continue
+            try: b = unpack(open(model, "rb").read())
+            except Exception: b = open(model, "rb").read()
+            for o in range(len(b) - 7):
+                f = idx.get(int.from_bytes(b[o:o + 8], "little"))
+                if f and f.endswith("_light_ao.tga.ae4texture") and f not in found: found.append(f)
+    full = [f for f in found if "_lod_light_ao" not in f]
+    if full or found: return (full or found)[0]
+    # else the one its materials name in their light-map slot (LightMap_TextureSlot), unless that's the race's default
+    # (the hangar's GatchaShip: ShipSelectionB_light_ao, its showroom's bake)
+    import ae4_material
+    for mg in meshgroups:
+        try: mats = sm.section_materials(mg, assets)
+        except Exception: continue
+        for m in mats:
+            if m is None: continue
+            v, slots = ae4_material.read(m.path)
+            h = slots.get(f"T{int(v.get('LightMap_TextureSlot', 7) or 7)}")
+            f = ae4_ids.resolve(assets, h) if h else None
+            if f and f.endswith("_light_ao.tga.ae4texture") and "_default_light_ao" not in f: return f
+    return None
 
 
 def light_map(sdir, names, race, light=None, log=print):
@@ -430,6 +468,9 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None, e
         light = np.zeros((4, 4, 4), np.float32)
         light[..., 3] = level
     else:
+        if light is None:   # the light map the model files name (a variant's base ship's, a drone's stations atlas)
+            light = model_light_map([mg_path] + [f"{model_dir}/{eb}.ae4meshgroup" for eb in extra], assets)
+            if light: log(f"  {name}: the light map its model / materials name: {os.path.basename(light)}")
         light = _tex(light_map(sdir, names, race, light, log))
     items, own, glows = [], {}, {}
     for s, part in zip(sections, parts):

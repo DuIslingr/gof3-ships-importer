@@ -86,13 +86,32 @@ def glass_terms(v):
             "rim": 0.0, "highlightMultiplier": float(v.get("Specular_Multiplier", 1.0)), "multiplierInMap": False}
 
 
+def environment_cube(mod, material_path, assets, made):
+    """The mod's strip of the environment cube a GoF3 material names (its Cube slot: the hulls' cubemap_generic_000), written
+    once into env/ (sky_strip.convert_env), as the "environmentCube" extra the remake reads; None when it names none."""
+    import sky_strip
+    if not os.path.exists(material_path): return None
+    cube = sky_strip.cubemap_of(material_path, assets)
+    if cube is None: return None
+    rel = "env/" + os.path.basename(cube).split(".")[0] + ".png"
+    if rel not in made:
+        os.makedirs(os.path.join(mod, "env"), exist_ok=True)
+        sky_strip.convert_env(cube, os.path.join(mod, rel))
+        made.add(rel)
+    return rel
+
+
 def ships(mod, assets, log=print):
-    """gof3_ships: hulls, guns and structures (see the header)."""
-    count = {"bodies": 0, "glass": 0, "guns": 0, "structures": 0}
+    """gof3_ships: hulls, guns and structures (see the header). A hull's body and glass also get the environment cube their
+    GoF3 material reflects ("environmentCube", env/*.png), so GoF3ShipShader reflects GoF3's own cube, not the place."""
+    count = {"bodies": 0, "glass": 0, "guns": 0, "structures": 0, "cubes": 0}
+    cubes = set()
     for path in sorted(glob.glob(os.path.join(mod, "hulls", "*.glb"))):
         hull = os.path.basename(path)[:-4]
         d, base = _ship_dir(assets, hull)
         body, glass = _material(f"{d}/{base}_matid01_body.ae4material"), _material(f"{d}/{base}_matid02_glass.ae4material")
+        body_cube = environment_cube(mod, f"{d}/{base}_matid01_body.ae4material", assets, cubes)
+        glass_cube = environment_cube(mod, f"{d}/{base}_matid02_glass.ae4material", assets, cubes)
 
         def edit(j):
             changed = False
@@ -101,6 +120,7 @@ def ships(mod, assets, log=print):
                 sg = m.get("extensions", {}).get("KHR_materials_pbrSpecularGlossiness")
                 if sg is not None and name.endswith("_body"):
                     m.setdefault("extras", {}).update(ship_terms(body) if body else SHIP); count["bodies"] += 1; changed = True
+                    if body_cube: m["extras"]["environmentCube"] = body_cube; count["cubes"] += 1
                 elif name.endswith("_glass") and m.get("alphaMode") == "BLEND":
                     v = glass or {}
                     pbr = m.get("pbrMetallicRoughness", {})
@@ -111,6 +131,7 @@ def ships(mod, assets, log=print):
                     ext["diffuseFactor"] = srgb_to_linear(dc) + [round(float(v.get("Opacity_Amount", 1.0)), 4)]
                     m.setdefault("extensions", {})["KHR_materials_pbrSpecularGlossiness"] = ext
                     m.setdefault("extras", {}).update(glass_terms(v))
+                    if glass_cube: m["extras"]["environmentCube"] = glass_cube; count["cubes"] += 1
                     used = j.setdefault("extensionsUsed", [])
                     if "KHR_materials_pbrSpecularGlossiness" not in used: used.append("KHR_materials_pbrSpecularGlossiness")
                     count["glass"] += 1; changed = True
@@ -151,7 +172,7 @@ def ships(mod, assets, log=print):
             return changed
         glb_edit(path, edit)
     log(f"shading: {count['bodies']} hull bodies, {count['glass']} glass (now specular), {count['guns']} guns, "
-        f"{count['structures']} structure materials")
+        f"{count['structures']} structure materials, {count['cubes']} with their GoF3 environment cube ({', '.join(sorted(cubes))})")
     return count
 
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Skins that exist only in data.pdb (no .ae4material): a ship record's Customization component = colour preset (slot 0x12fdc2), emissive preset (0x316b81), colour mask (0x7375c5), decal sheet (0x2eb3d0); Gold-tier records add a specular colour (0x674092) and Specular_Multiplier / Gloss_Multiplier floats (0x1d4676 / 0x26691a). Slot 0x4b861d (the Gold pack) is on every ship, the plain ones too: a reference to the gold version, not applied. ae4_resolve.py adds these to resolve.json, ae4_ship_textures.py bakes them as paint schemes (the ship's body material with the overrides), ae4_scheme_variant.py builds a model. preset / emissive_preset = data.pdb names (ae4_pdb_colors.py); emissive_color / specular = values given directly; mask relative to the assets dir; decals = the decal sheet texture. no_iridescence = the skin's material is a _noiri one (no iridescence: dropped from the model).",
+  "_comment": "Skins that exist only in data.pdb (no .ae4material): a ship record's Customization component = colour preset (slot 0x12fdc2), emissive preset (0x316b81), colour mask (0x7375c5), decal sheet (0x2eb3d0); Gold-tier records add a specular colour (0x674092) and Specular_Multiplier / Gloss_Multiplier floats (0x1d4676 / 0x26691a). Slot 0x4b861d (the Gold pack) is on every ship, the plain ones too: a reference to the gold version, not applied. ae4_resolve.py adds these to resolve.json, ae4_ship_textures.py bakes them as paint schemes (the ship's body material with the overrides), ae4_scheme_variant.py builds a model. preset / emissive_preset = data.pdb names (ae4_pdb_colors.py); emissive_color / specular = values given directly; mask relative to the assets dir; decals = the decal sheet texture. no_iridescence = the skin's material is a _noiri one (no iridescence: dropped from the model). Entries may also be the mod's own (no record or preset: the colours given directly), e.g. nivelian/208's keyart; glass_from = another glass material on the canopy (assets-relative; ae4_ship_textures.py), only such a skin changes the glass; glass_color = that canopy's colour on this hull's canopy shading instead (sampled from the other hull's canopy; no emission), glass_opacity = its opacity x this; clean (0-1) = polished plates: the diffuse's grime, scratches and small painted markings smoothed and the mask's chipped paint closed, the panel seams kept (ae4_ship_textures.cleaned) (ae4_ship_textures.glass_texture).",
   "terran/008": [
     {
       "scheme": "goldgorgon",
@@ -31,6 +31,41 @@
       "game_name": "SUTOE-SHII (Ship_Scout_01_id208_Sutoe-Shii_0_T0, the Event_2017_S02 season reward): Customization = Colorize_Anila_MkktBkkt + Emissive_Anila_MkktBkkt + Anila_ColorMask_MkktBkkt (+ the Gold pack reference every ship has); the canopy stays the ship's (blue)"
     },
     {
+      "scheme": "keyart",
+      "color1": [
+        0.4,
+        0.1,
+        0.12
+      ],
+      "color2": [
+        0.13,
+        0.13,
+        0.15
+      ],
+      "specular": {
+        "Specular_Color": [
+          1.0,
+          0.33,
+          0.38
+        ]
+      },
+      "game_name": "Not one of GoF3's: the paint of the 'Manticore - Galaxy on Fire' key art (the Switch release's: a glossy crimson Sutoe-Shii (crimson metal: the Gold scheme's specular look, Specular_Color crimson), an amber canopy), made for the mod on the hull's own colour mask, the canopy the Nereus's (its orange canopy colour, sampled: glass_color) (the art's paint isn't in the game files)",
+      "glass_from": "ships/terran/005/ship_terran_005_matid02_glass.ae4material",
+      "glass_color": [
+        0.62,
+        0.32,
+        0.14
+      ],
+      "glass_opacity": 0.8,
+      "clean": 1.0,
+      "emissive_color": [
+        0.85,
+        0.92,
+        1.0
+      ],
+      "specular_from": "ships/nivelian/208/materials/ship_nivelian_208_matid01_body_gold.ae4material"
+    },
+    {
       "scheme": "gold",
       "record": "Ship_Scout_01_id208_Sutoe-Shii_0_T0_Gold",
       "game_name": "Gold tier (Ship_Scout_01_id208_Sutoe-Shii_0_T0_Gold)",
@@ -60,6 +95,33 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB02_TsunKha"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/nivelian/208/colormasks/ship_nivelian_208_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB02_TsunKha",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB02_TsunKha): Ship_A02_HB02_TsunKha's Customization"
     }
   ],
   "nivelian/222": [
@@ -147,6 +209,33 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_UB01_Mortak"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/nivelian/210/colormasks/ship_nivelian_210_cm_002.tga.ae4texture",
+      "record": "Ship_A02_UB01_Mortak",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_UB01_Mortak): Ship_A02_UB01_Mortak's Customization"
     }
   ],
   "vossk/122": [
@@ -267,6 +356,60 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB01_SurmanRod"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/terran/000/colormasks/ship_terran_000_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB01_SurmanRod",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB01_SurmanRod): Ship_A02_HB01_SurmanRod's Customization"
+    },
+    {
+      "scheme": "boss_vortexyellow",
+      "name": "Vortex Yellow",
+      "boss": true,
+      "records": [
+        "Ship_A03_HB02_San-Kabaah"
+      ],
+      "color1": [
+        0.3255,
+        0.2863,
+        0.2353
+      ],
+      "color2": [
+        0.8941,
+        1.0,
+        0.0
+      ],
+      "emissive_color": [
+        0.8941,
+        1.0,
+        0.0
+      ],
+      "decals": "ship_decals_003.png",
+      "mask": "ships/terran/000/colormasks/ship_terran_000_cm_003.tga.ae4texture",
+      "record": "Ship_A03_HB02_San-Kabaah",
+      "game_name": "Vortex Yellow: the Most Wanted bosses' paint (Ship_A03_HB02_San-Kabaah): Ship_A03_HB02_San-Kabaah's Customization"
     }
   ],
   "terran/001": [
@@ -324,6 +467,33 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB04_Vh'arusTengs"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/terran/001/colormasks/ship_terran_001_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB04_Vh'arusTengs",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB04_Vh'arusTengs): Ship_A01_HB04_Vh'arusTengs's Customization"
     }
   ],
   "terran/003": [
@@ -375,6 +545,60 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB08_Ulrus"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/terran/003/colormasks/ship_terran_003_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB08_Ulrus",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB08_Ulrus): Ship_A01_HB08_Ulrus's Customization"
+    },
+    {
+      "scheme": "boss_vortexorange",
+      "name": "Vortex Orange",
+      "boss": true,
+      "records": [
+        "Ship_A03_UB01_Jodie Millstorm"
+      ],
+      "color1": [
+        0.3255,
+        0.2863,
+        0.2353
+      ],
+      "color2": [
+        1.0,
+        0.2353,
+        0.0
+      ],
+      "emissive_color": [
+        1.0,
+        0.2353,
+        0.0
+      ],
+      "decals": "ship_decals_003.png",
+      "mask": "ships/terran/003/colormasks/ship_terran_003_cm_003.tga.ae4texture",
+      "record": "Ship_A03_UB01_Jodie Millstorm",
+      "game_name": "Vortex Orange: the Most Wanted bosses' paint (Ship_A03_UB01_Jodie Millstorm): Ship_A03_UB01_Jodie Millstorm's Customization"
     }
   ],
   "terran/004": [
@@ -489,6 +713,33 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB09_Nheeta"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/nivelian/206/colormasks/ship_nivelian_206_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB09_Nheeta",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB09_Nheeta): Ship_A02_HB09_Nheeta's Customization"
     }
   ],
   "vossk/102": [
@@ -509,6 +760,33 @@
       "preset_record": "Colorize_Boss_Porros#2953508639",
       "mask": "ships/vossk/102/colormasks/ship_vossk_102_cm_002.tga.ae4texture",
       "decals": "ship_decals_002.png"
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB06_DenyseCadler"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/vossk/102/colormasks/ship_vossk_102_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB06_DenyseCadler",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB06_DenyseCadler): Ship_A01_HB06_DenyseCadler's Customization"
     }
   ],
   "vossk/103": [
@@ -560,6 +838,33 @@
         "Specular_Multiplier": 5.0,
         "Gloss_Multiplier": 4.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB02_Sh'Orhn"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/vossk/103/colormasks/ship_vossk_103_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB02_Sh'Orhn",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB02_Sh'Orhn): Ship_A01_HB02_Sh'Orhn's Customization"
     }
   ],
   "vossk/108": [
@@ -611,6 +916,33 @@
         "Specular_Multiplier": 5.0,
         "Gloss_Multiplier": 4.0
       }
+    },
+    {
+      "scheme": "boss_vortexyellow",
+      "name": "Vortex Yellow",
+      "boss": true,
+      "records": [
+        "Ship_A03_HB03_Dharvok"
+      ],
+      "color1": [
+        0.3255,
+        0.2863,
+        0.2353
+      ],
+      "color2": [
+        0.8941,
+        1.0,
+        0.0
+      ],
+      "emissive_color": [
+        0.8941,
+        1.0,
+        0.0
+      ],
+      "decals": "ship_decals_003.png",
+      "mask": "ships/vossk/108/colormasks/ship_vossk_108_cm_003.tga.ae4texture",
+      "record": "Ship_A03_HB03_Dharvok",
+      "game_name": "Vortex Yellow: the Most Wanted bosses' paint (Ship_A03_HB03_Dharvok): Ship_A03_HB03_Dharvok's Customization"
     }
   ],
   "terran/006": [
@@ -711,6 +1043,87 @@
         "Specular_Multiplier": 5.0,
         "Gloss_Multiplier": 4.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB01_RkktBkkt"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/vossk/101/colormasks/ship_vossk_101_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB01_RkktBkkt",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB01_RkktBkkt): Ship_A01_HB01_RkktBkkt's Customization"
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB07_Mudshark"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/vossk/101/colormasks/ship_vossk_101_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB07_Mudshark",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB07_Mudshark): Ship_A02_HB07_Mudshark's Customization"
+    },
+    {
+      "scheme": "boss_vortexyellow",
+      "name": "Vortex Yellow",
+      "boss": true,
+      "records": [
+        "Ship_A03_HB01-R'Hakesh"
+      ],
+      "color1": [
+        0.3255,
+        0.2863,
+        0.2353
+      ],
+      "color2": [
+        0.8941,
+        1.0,
+        0.0
+      ],
+      "emissive_color": [
+        0.8941,
+        1.0,
+        0.0
+      ],
+      "decals": "ship_decals_003.png",
+      "mask": "ships/vossk/101/colormasks/ship_vossk_101_cm_003.tga.ae4texture",
+      "record": "Ship_A03_HB01-R'Hakesh",
+      "game_name": "Vortex Yellow: the Most Wanted bosses' paint (Ship_A03_HB01-R'Hakesh): Ship_A03_HB01-R'Hakesh's Customization"
     }
   ],
   "vossk/107": [
@@ -744,6 +1157,33 @@
         "Specular_Multiplier": 5.0,
         "Gloss_Multiplier": 4.0
       }
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB05_T'hebuk"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/vossk/107/colormasks/ship_vossk_107_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB05_T'hebuk",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB05_T'hebuk): Ship_A02_HB05_T'hebuk's Customization"
     }
   ],
   "vossk/110": [
@@ -810,6 +1250,60 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_UB01_D'rak"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/nivelian/210/colormasks/ship_nivelian_210_cm_001.tga.ae4texture",
+      "record": "Ship_A01_UB01_D'rak",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_UB01_D'rak): Ship_A01_UB01_D'rak's Customization"
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB04_Vhitarr"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/vossk/101/colormasks/ship_vossk_101_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB04_Vhitarr",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB04_Vhitarr): Ship_A02_HB04_Vhitarr's Customization"
     }
   ],
   "terran/005": [
@@ -843,6 +1337,60 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB03_ReidSladek"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/terran/005/colormasks/ship_terran_005_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB03_ReidSladek",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB03_ReidSladek): Ship_A01_HB03_ReidSladek's Customization"
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB06_KorgusRhena"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/terran/005/colormasks/ship_terran_005_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB06_KorgusRhena",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB06_KorgusRhena): Ship_A02_HB06_KorgusRhena's Customization"
     }
   ],
   "nivelian/209": [
@@ -909,6 +1457,60 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB07_Kl'Tark"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/nivelian/205/colormasks/ship_nivelian_205_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB07_Kl'Tark",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB07_Kl'Tark): Ship_A01_HB07_Kl'Tark's Customization"
+    },
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_UB03_Th'ashiik"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/nivelian/205/colormasks/ship_nivelian_205_cm_002.tga.ae4texture",
+      "record": "Ship_A02_UB03_Th'ashiik",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_UB03_Th'ashiik): Ship_A02_UB03_Th'ashiik's Customization"
     }
   ],
   "vossk/109": [
@@ -975,6 +1577,34 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB05_Th'Rrshr",
+        "Ship_A01_UB03_Ica'Brn"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/nivelian/207/colormasks/ship_nivelian_207_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB05_Th'Rrshr",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB05_Th'Rrshr, Ship_A01_UB03_Ica'Brn): Ship_A01_HB05_Th'Rrshr's Customization"
     }
   ],
   "terran/009": [
@@ -1041,6 +1671,33 @@
         "Specular_Multiplier": 5.0,
         "Gloss_Multiplier": 4.0
       }
+    },
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_HB09_InanKazu"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/vossk/100/colormasks/ship_vossk_100_cm_001.tga.ae4texture",
+      "record": "Ship_A01_HB09_InanKazu",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_HB09_InanKazu): Ship_A01_HB09_InanKazu's Customization"
     }
   ],
   "terran/022": [
@@ -1074,6 +1731,168 @@
         "Specular_Multiplier": 4.0,
         "Gloss_Multiplier": 2.0
       }
+    }
+  ],
+  "vossk/121": [
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_UB02_Bl'Arek"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "emissive_color": [
+        1.0,
+        0.7216,
+        0.1608
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/vossk/107/colormasks/ship_vossk_107_cm_001.tga.ae4texture",
+      "record": "Ship_A01_UB02_Bl'Arek",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_UB02_Bl'Arek): Ship_A01_UB02_Bl'Arek's Customization"
+    }
+  ],
+  "vossk/120": [
+    {
+      "scheme": "boss_grgath",
+      "name": "Gr'Gath Boss",
+      "boss": true,
+      "records": [
+        "Ship_A01_BB01_Sh'gaal"
+      ],
+      "color1": [
+        0.2392,
+        0.1373,
+        0.051
+      ],
+      "color2": [
+        0.302,
+        0.0118,
+        0.0235
+      ],
+      "decals": "ship_decals_001.png",
+      "mask": "ships/vossk/107/colormasks/ship_vossk_107_cm_001.tga.ae4texture",
+      "record": "Ship_A01_BB01_Sh'gaal_2",
+      "game_name": "Gr'Gath Boss: the Most Wanted bosses' paint (Ship_A01_BB01_Sh'gaal): Ship_A01_BB01_Sh'gaal_2's Customization"
+    }
+  ],
+  "nivelian/221": [
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_UB02_Sh'tare"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/vossk/107/colormasks/ship_vossk_107_cm_002.tga.ae4texture",
+      "record": "Ship_A02_UB02_Sh'tare",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_UB02_Sh'tare): Ship_A02_UB02_Sh'tare's Customization"
+    }
+  ],
+  "terran/021": [
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB03_JadenThee"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/terran/003/colormasks/ship_terran_003_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB03_JadenThee",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_HB03_JadenThee): Ship_A02_HB03_JadenThee's Customization"
+    },
+    {
+      "scheme": "boss_greyshadow_snotch",
+      "name": "Grey Shadow Boss (Snotch)",
+      "boss": true,
+      "records": [
+        "Ship_A02_HB08_Snotch"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "emissive_color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/vossk/102/colormasks/ship_vossk_102_cm_002.tga.ae4texture",
+      "record": "Ship_A02_HB08_Snotch",
+      "game_name": "Grey Shadow Boss (Snotch): the Most Wanted bosses' paint (Ship_A02_HB08_Snotch): Ship_A02_HB08_Snotch's Customization"
+    }
+  ],
+  "nivelian/220": [
+    {
+      "scheme": "boss_greyshadow",
+      "name": "Grey Shadow Boss",
+      "boss": true,
+      "records": [
+        "Ship_A02_BB01_Khador"
+      ],
+      "color1": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color2": [
+        0.2157,
+        0.2157,
+        0.2157
+      ],
+      "decals": "ship_decals_002.png",
+      "mask": "ships/nivelian/207/colormasks/ship_nivelian_207_cm_002.tga.ae4texture",
+      "record": "Ship_A02_BB01_Khador",
+      "game_name": "Grey Shadow Boss: the Most Wanted bosses' paint (Ship_A02_BB01_Khador): Ship_A02_BB01_Khador's Customization"
     }
   ]
 }

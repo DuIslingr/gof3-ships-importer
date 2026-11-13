@@ -23,9 +23,12 @@ for fn in os.listdir(tex_in):   # hard links: no extra space
 
 swap = {f"{name}_basecolor.png": f"{name}_basecolor_{scheme}.png", f"{name}_emissive.png": f"{name}_emissive_{scheme}.png"}
 rj = os.path.join(src, "resolve.json")
-DATA_SKIN = any(sk["scheme"] == scheme for sk in (json.load(open(rj, encoding='utf-8-sig')).get("data_skins", []) if os.path.exists(rj) else []))
-for part in (("specular", "roughness") if DATA_SKIN else ("glass", "specular", "roughness")):   # the scheme's own canopy /
-    # specular look, when it has one; a data.pdb skin never changes the glass (a material file's gold scheme does)
+SKINS = [sk for sk in (json.load(open(rj, encoding='utf-8-sig')).get("data_skins", []) if os.path.exists(rj) else []) if sk["scheme"] == scheme]
+DATA_SKIN = bool(SKINS)
+GLASS_TINT = any(sk.get("glass_from") for sk in SKINS)
+for part in (("specular", "roughness") + (("glass",) if GLASS_TINT else ()) if DATA_SKIN else ("glass", "specular", "roughness")):
+    # the scheme's own canopy / specular look, when it has one; a data.pdb skin never changes the glass (a material file's
+    # gold scheme does), a skin of the mod's own may ("glass_from", data_skins.json)
     if os.path.exists(os.path.join(tex_in, f"{name}_{part}_{scheme}.png")):
         swap[f"{name}_{part}.png"] = f"{name}_{part}_{scheme}.png"
 rj = os.path.join(src, "resolve.json")   # a data.pdb skin may use another decal sheet (tools/data_skins.json "decals")
@@ -45,12 +48,13 @@ for img in bpy.data.images:
     img.filepath = os.path.join(tex_out, new)
     img.name = new
     img.reload()
-for m in bpy.data.materials:
+for m in list(bpy.data.materials):   # (a list: Blender 5 re-sorts the collection on a rename, so a live loop met the
+    # renamed material again and again, ship_x_keyart_keyart_... up to the 63-character limit)
     if NO_IRI and "gof3_iridescence_mask" in m:   # a _noiri material (Shamash II): no thin film in the glTF
         del m["gof3_iridescence_mask"]
     if m.name.startswith(name + "_"):
         m.name = var + m.name[len(name):]
-for o in bpy.data.objects:
+for o in list(bpy.data.objects):
     if o.name == name or o.name.startswith(name + "_LOD") or o.name == f"{name}_decals":
         o.name = var + o.name[len(name):]
 bpy.context.preferences.filepaths.save_version = 0
