@@ -20,6 +20,23 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 | A6 | Level dressing: the gates' sky window, glow and electricity; beacons, satellites, signal lights, billboards, comets, space junk, wrecks; the sky's turn matched to the sun | `structures/*/props/jumpgates/*` (skywindow, glow, add, electricity), `scenery/`, level entities | gate and station models, stations.json orbit `skyRotation` | gates' glow, add, electricity and sky window done (2026-11-02: `scene_glb` effects=True, the remake's additive `materials` entries, GoF2/ModGlow; the window's cube, a mip-chained one, baked as GoF3 samples it); the scenery: painted into each orbit's own sky (the user: the skybox only), see below; the sky's turn done (every orbit's `skyRotation`, the strips no longer mirrored) |
 | A7 | Loot crates, lore images and texts, boss portraits | `collectables/crates`, `loreimages/` (175), data `LoreElement`, `swf/*Boss*` | crate models, descriptions, portraits | lore texts in (checked 2026-11-02: the Neox Guide's Trim and Porros entries, title + text + image, are the sectors' descriptions the systems build already gives each system's first station; GoF3 has none for Rigant, and its levels carry only a name, no per-hub text). Not wanted (the user, 2026-11-02): the codex (the 175 lore images, the History / Stories texts). Boss portraits done with G3. Loot crates done 2026-11-02 (`tools/gof3_crates.py`, the remake's ships.json "crate", Modding.ModCrates): GoF3's LootPickup box (collectables_002) in its Terran / Vossk / Nivelian platings as those races' ships' crates, the mining one (what GoF3 drops for every enemy) for the rest; fitted to GoF2's container size; not seen in game yet. (collectables/crates/* are the gacha screen's, not loot.) |
 
+## Icons in GoF2's own look (noted 2026-11-15, for later)
+
+- **Ship icons:** each is a Blender render of the GoF3 loadout model on GoF2's ship plate (the remake's `frame_ship`, else
+  `drawn_plate`), 180 x 88. The plate matches; the shot doesn't. GoF2's own (`Resources/GoF2Icons/hull_ship_*`,
+  `ship_*`) point the nose left, are taken low and from the side (the ship long across the plate) under harder, warmer
+  light with the engines lit; ICON_SCRIPT's camera sits ~35 degrees up on (1, 0.45, 0.75), most hulls face right, three
+  flat suns on a grey world, engines dark, the ship smaller in the plate. To do: recover GoF2's icon camera instead of
+  guessing it: render a few of GoF2's own ships (the project's models) and fit the view direction, framing and lights
+  until they match their original icons, then render GoF3's hulls with that camera and rebuild the icons.
+- **Weapon icons:** GoF3 has art for both kinds (`swf/`): the secondaries' `SW_*_MK1-3` (used: `secondary_icon`, on GoF2's
+  item plate) and the primaries' `PW_<CR|MR|LR><1-3>_<name>_MK1-3` (Burst Laser, Scatter Cannon, Machine Gun, Plasma
+  Sprayer, Pulse Laser, Ricochet Gun, Auto Cannon, Ion Cannon, Railgun; Gold variants of three), not used: the mod adds
+  no primary items (PRIMARY_GUNS only puts GoF3 gun models on GoF2's own weapons, which keep GoF2's icons). If GoF3
+  primaries become items, their icons come from there the way the secondaries' do.
+- **Device icons:** GoF3 has no item art for devices: `device_icon` cuts a lore banner to the plate, which reads as a scene,
+  not an item. Better: a render of the device's model (where it has one) with the same GoF2 icon camera.
+
 ## Gameplay (from the decompilation; each needs remake support)
 
 | # | What | GoF3 (data / systems) | Remake | Status |
