@@ -97,8 +97,22 @@ def measure(P, I, helpers, radius_of):
             mean = float(np.mean([np.hypot(x, y) for x, y in hull]))
             found.append((abs(np.log(mean / r)), hull))
         if not found: out.append(None); continue
-        out.append([(float(x), float(y)) for x, y in min(found, key=lambda f: f[0])[1]])
+        out.append(centred([(float(x), float(y)) for x, y in min(found, key=lambda f: f[0])[1]]))
     return out
+
+
+def centred(hull, share=0.1):
+    """The outline centred on its helper when it leans off it by more than 'share' of its radius: an engine pod open on a
+    side (the Vossk capitals') has walls on its inner side only, so the outline's middle sat inboard by up to 0.6 of the
+    radius, and the remake draws the plume at that middle. GoF3 draws its engine effect at the helper: the walls found and
+    their mirror through it."""
+    P = np.asarray(hull, float); Q = np.roll(P, -1, axis=0)
+    cross = P[:, 0] * Q[:, 1] - Q[:, 0] * P[:, 1]; a = cross.sum()
+    c = P.mean(0) if abs(a) < 1e-12 else ((P + Q) * cross[:, None]).sum(0) / (3 * a)
+    r = float(np.linalg.norm(P, axis=1).mean())
+    if r <= 0 or float(np.linalg.norm(c)) <= share * r: return hull
+    m = _hull([tuple(p) for p in np.vstack([P, -P])])
+    return [(float(x), float(y)) for x, y in m] if len(m) >= 3 else hull
 
 
 def read_glb(path):
