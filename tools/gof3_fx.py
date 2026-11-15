@@ -20,7 +20,7 @@ time. Left out: DistanceBlend (off or a no-op in the ships' materials), the flow
 
 layers(scene_path, dirs, assets) -> [(key, Material, [prim])] at the scene nodes' world matrices (structures.convert's space)
 write(glb_path, layers, assets): merged into a converted .glb as meshes of their own under its root."""
-import io, json, os, struct, sys, tempfile
+import io, json, os, re, struct, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import ae4_ids, ae4_material, ae4_meshgroup, ae4_scene, structures
@@ -101,14 +101,18 @@ def _prim(secs, M):
     return prim, billboard
 
 
-def layers(scene_path, dirs, assets):
-    """[(key, Material, [prim], billboard)] of a scene's effect sections, grouped by material and sprite-ness."""
+def layers(scene_path, dirs, assets, skip=None):
+    """[(key, Material, [prim], billboard)] of a scene's effect sections, grouped by material and sprite-ness. 'dirs': the
+    folders holding the nodes' meshgroups, or a function node name -> meshgroup path (scene_glb.meshgroup's); 'skip': node
+    index -> True to leave a node out (scene_glb: the parts that animate, whose glows would stay behind)."""
     scene = ae4_scene.read(scene_path)
     W = structures.world_matrices(scene)
     groups = {}
     for i, n in scene.items():
-        if "collision" in n["name"]: continue
-        mg = next((f"{d}/{n['name']}.ae4meshgroup" for d in dirs if os.path.exists(f"{d}/{n['name']}.ae4meshgroup")), None)
+        if "collision" in n["name"] or re.search(r"_lod_0*[1-9]\d*_", n["name"]): continue   # (the lower LODs: drawn once)
+        if skip and skip(i): continue
+        if callable(dirs): mg = dirs(n["name"])
+        else: mg = next((f"{d}/{n['name']}.ae4meshgroup" for d in dirs if os.path.exists(f"{d}/{n['name']}.ae4meshgroup")), None)
         if mg is None: continue
         secs = ae4_meshgroup.read_all(mg)
         mats = sm.section_materials(mg, assets)

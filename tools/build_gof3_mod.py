@@ -1762,13 +1762,17 @@ def main():
             png = os.path.join(tmp, s["id"] + ".png")
             folder = info[s["id"]]["folder"]
             src = turned(os.path.join(LOAD, folder + ".glb"), TURN.get(folder), os.path.join(tmp, folder + "_turned.glb"))
-            subprocess.run([BLENDER, "-b", "-P", script, "--", src, png],
-                           capture_output=True)
+            r = subprocess.run([BLENDER, "-b", "-P", script, "--", src, png], capture_output=True, text=True, errors="replace")
             if os.path.exists(png): icon(png, out_png)
+            render.why[s["id"]] = (r.stdout + r.stderr)[-1500:]
             return s["id"], os.path.exists(png)
+        render.why = {}
         with ThreadPoolExecutor(6) as ex:
-            for sid, ok in ex.map(render, ships):
-                if not ok: print("icon failed:", sid)
+            failed = [sid for sid, ok in ex.map(render, ships) if not ok]
+        for sid in failed:   # once more, alone (six Blenders at once can run a machine out of memory)
+            ok = render(next(s for s in ships if s["id"] == sid))[1]
+            print(f"icon {'rendered on the second try' if ok else 'failed'}: {sid}")
+            if not ok: print("  Blender's last output:\n    " + render.why.get(sid, "").strip().replace("\n", "\n    "))
         prev = Image.new("RGB", (640, 360), (14, 18, 28)); d = ImageDraw.Draw(prev)
         for i, sid in enumerate(PREVIEW):
             png = os.path.join(tmp, sid + ".png")
@@ -1820,6 +1824,9 @@ def main():
         t["evade"] = 0.1 if t.get("boss") else EVADE_BASE.get(info.get(s["id"], {}).get("class"), 0.33)
     # GoF3's NPC fighters' mine drops by danger level (gof3_loadouts.py; the remake's "traffic": { "devices" })
     gof3_loadouts.apply(D, ships, {k: v.get("class") for k, v in info.items() if isinstance(v, dict)}, MOD_ID, log=phase)
+    for s in ships + cap_ships:   # an icon that wasn't rendered (or --no-icons): the game's default picture, not a missing file
+        if s.get("icon") and not os.path.exists(os.path.join(OUT, s["icon"])):
+            print(f"no icon for {s['id']}: {s['icon']} left out of ships.json"); del s["icon"]
     json.dump(ships + cap_ships, open(os.path.join(OUT, "ships.json"), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
     for name, data in (("stations.json", cap_stations), ("interiors.json", cap_interiors)):
         if data: json.dump(data, open(os.path.join(OUT, name), "w", encoding='utf-8'), indent=1, ensure_ascii=False)
@@ -1832,6 +1839,17 @@ def main():
     # GoF3's bosses on the Most Wanted boards, their portraits as characters (gof3_wanted.py)
     n_wanted = gof3_wanted.build(D, {s["id"]: sum(1 for m in s.get("mounts", []) if m.get("slotType") == 2) for s in ships}, OUT, MERGED, MOD_ID, weapon_id, mixed_case, RACE, log=phase,
                                  skins=SKIN_IDS)
+    # a boss's "skin" (its gang's paint) only for a remake that reads it (2026-11-13, ModWanted): the releases before log
+    # "unknown field" for it once per boss on every load. Without a remake checkout (--remake) it stays in.
+    wanted_cs = os.path.join(REMAKE, "Assets/Scripts/Runtime/Modding/ModWanted.cs")
+    if os.path.exists(wanted_cs) and '"skin"' not in open(wanted_cs, encoding="utf-8", errors="replace").read():
+        wp = os.path.join(OUT, "wanted.json")
+        if os.path.exists(wp):
+            w = json.load(open(wp, encoding="utf-8")); n = 0
+            for e in (w if isinstance(w, list) else w.get("wanted", [])):
+                if isinstance(e, dict) and e.pop("skin", None) is not None: n += 1
+            json.dump(w, open(wp, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+            if n: print(f"wanted.json: the bosses' {n} skins left out (the remake at {REMAKE} doesn't read them yet)")
     # GoF3's freelance challenges GoF2 has no counterpart for, as bar missions (gof3_missions.py)
     gof3_missions.build(D, OUT, ships + cap_ships, MOD_ID, log=phase)
     # GoF3's shading per kind (hull bodies, glass as GoF3's specular, guns, capital ships: gof3_shading.py)

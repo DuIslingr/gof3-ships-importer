@@ -3,7 +3,7 @@ the remake's ships.json "sounds" and the kit's hardpoint rules' "sound".
 
 sfx.bank is an FMOD Studio bank around an FSB5 of 500 waves in FMOD's FADPCM, which only vgmstream decodes: a native
 vgmstream-cli (GOF3_VGMSTREAM, the PATH, ~/.local/bin), else FModel's Windows copy (~/Downloads/FModel/Output/.data) through
-Wine. The waves are decoded once into ~/.cache/gof3_ships_importer (by the bank's size and date) and only those the mod uses
+Wine. The waves are decoded once into ~/.cache/gof3_ships_importer (or $GOF3_CACHE; by the bank's size and date) and only those the mod uses
 go into it, as Ogg Vorbis through ffmpeg (else .wav: the game takes a .wav of the same name in an .ogg's place, so the JSON
 stays the same).
 
@@ -54,7 +54,7 @@ def vgmstream():
     own = os.environ.get("GOF3_VGMSTREAM")
     for c in [own, shutil.which("vgmstream-cli"), os.path.expanduser("~/.local/bin/vgmstream-cli")]:
         if c and os.path.exists(c):
-            return (["wine", c] if c.lower().endswith(".exe") else [c])
+            return (["wine", c] if c.lower().endswith(".exe") and os.name != "nt" else [c])   # (Windows runs it itself)
     exe = os.path.expanduser("~/Downloads/FModel/Output/.data/vgmstream-cli.exe")
     if os.path.exists(exe) and (os.name == "nt" or shutil.which("wine")):
         return [exe] if os.name == "nt" else ["wine", exe]
@@ -64,7 +64,9 @@ def vgmstream():
 def decode_bank(bank):
     """Every wave of the bank as <cache>/<name>.wav (decoded once); the folder, or None without vgmstream."""
     st = os.stat(bank)
-    cache = os.path.expanduser(f"~/.cache/gof3_ships_importer/sfx_{st.st_size}_{int(st.st_mtime)}")
+    # GOF3_CACHE: elsewhere than ~/.cache (a machine where the home folder can't be written)
+    root = os.environ.get("GOF3_CACHE") or os.path.expanduser("~/.cache/gof3_ships_importer")
+    cache = os.path.join(root, f"sfx_{st.st_size}_{int(st.st_mtime)}")
     if os.path.exists(os.path.join(cache, ".done")): return cache
     cmd = vgmstream()
     if not cmd: return None

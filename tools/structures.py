@@ -520,6 +520,10 @@ def convert(model_dir, name, race, out_glb, size=2048, assets=None, body=None, e
         prims.append(p)
     write_glb_parts(out_glb, [{"name": name, "primitives": prims}], materials, images,
                     nodes=[{"name": name, "mesh": 0}])
+    # its effect layers (glows, sprites, spotlight cones, flames, holograms: gof3_fx), each a glow layer of its own
+    import gof3_fx
+    fx = gof3_fx.write(out_glb, gof3_fx.layers(f"{model_dir}/{scene_name or name}.ae4scene", [model_dir], assets), assets)
+    if fx: log(f"  {name}: {len(fx)} effect layers")
     pos = hull["positions"]; idx = np.concatenate([p["indices"] for p in prims])
     if len(prims) > 1: pos = np.concatenate([p["positions"] for p in prims])
     helpers = {}

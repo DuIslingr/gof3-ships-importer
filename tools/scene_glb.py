@@ -324,6 +324,10 @@ def convert(scene_path, out_glb, assets, skip=None, effects=False):
                  for k in keys]
     structures.write_glb_parts(out_glb, meshes, materials, [], "gof3_ships_importer scene_glb.py", nodes=[root] + nodes,
                                animations=animation)
+    if not effects:   # its effect layers (gof3_fx; a gate's own come in above), not on the parts that move
+        import gof3_fx
+        gof3_fx.write(out_glb, gof3_fx.layers(scene_path, lambda nm: meshgroup(nm, assets), assets,
+                                              skip=lambda i: (skip and skip(scene[i]["name"])) or animated_above(i) is not None), assets)
     return {"min": lo.tolist(), "max": hi.tolist(), "groups": groups, "nodes": len(nodes), "parts": len(order), "triangles": tris,
             "animated": len(animation)}
 

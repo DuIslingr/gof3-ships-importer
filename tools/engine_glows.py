@@ -59,6 +59,14 @@ def convex_hull(pts):
     return lo[:-1] + hi[:-1]
 
 
+def area_centroid(poly):
+    """A polygon's area centroid (a side with more vertices doesn't pull it); its vertex mean when it has no area."""
+    P = np.asarray(poly, dtype=float); Q = np.roll(P, -1, axis=0)
+    cross = P[:, 0] * Q[:, 1] - Q[:, 0] * P[:, 1]; a = cross.sum()
+    if abs(a) < 1e-12: return P.mean(0)
+    return ((P + Q) * cross[:, None]).sum(0) / (3.0 * a)
+
+
 def engines(path, radius_frac=0.09, emissive=None):
     """emissive: a PNG path standing in for the body material's emissive texture (a paint scheme's)."""
     j, b, n = read(path)
@@ -136,6 +144,13 @@ def engines(path, radius_frac=0.09, emissive=None):
             off = core[:, :2] - c[:2]
             if len(off) >= 8: off = off[np.linalg.norm(off, axis=1) <= np.percentile(np.linalg.norm(off, axis=1), 90)]
             hull = convex_hull(off)
+            # an engine at the hull's edge lights only its inboard half (the texture ends with the hull), so the samples
+            # are one-sided: their outline's centre sits off the nozzle, and the remake centres the plume on it (inboard by
+            # up to 0.7 of the nozzle's radius: the Sutoe-Shii's side engines). There, the samples and their mirror through
+            # the helper: the nozzle's full extent around where the helper puts it.
+            if len(hull) >= 3:
+                ctr, r = area_centroid(hull), float(np.linalg.norm(np.asarray(hull), axis=1).mean())
+                if r > 0 and float(np.linalg.norm(ctr)) > 0.1 * r: hull = convex_hull(np.vstack([off, -off]))
             if len(hull) >= 3: e["outline"] = [[round(float(x), 3), round(float(y), 3)] for x, y in hull]
             e["lit"] = round(float(bright.sum()) / float(near.sum()), 3)
         out.append(e)

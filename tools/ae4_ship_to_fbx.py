@@ -113,6 +113,18 @@ mountm = material("weapon_generic_mount_000", "weapon_generic_mount_000_basecolo
 shadowm = material("ship_mount_shadow", "ship_mount_shadow.png", alpha=True, black=True, roughness=1.0)
 
 root = bpy.data.objects.new(name, None); coll.objects.link(root)
+scene = next((os.path.join(src, f) for f in os.listdir(src) if f.lower() == f"{name}.ae4scene".lower()), None)   # ship_StarFox_000
+nodes = ae4_scene.read(scene)
+def placed(ob, node_name, fallback=None):
+    """ob at its scene node (its own local transform and its parents'): most hulls' body node is the identity, but some
+    carry one (terran/031's 0.75 scale and +5.82 z, which the mount helpers were already scaled by)."""
+    nid = next((i for i, n in nodes.items() if n["name"] == node_name), None)
+    if nid is None and fallback: nid = next((i for i, n in nodes.items() if n["name"] == fallback), None)
+    M = mathutils.Matrix.Identity(4); seen = set()
+    while nid is not None and nid in nodes and nid not in seen:
+        seen.add(nid); M = local(nodes[nid]) @ M; nid = nodes[nid]["parent"]
+    ob.matrix_basis = M
+    return ob
 lods = lod_materials(os.path.join(src, f"{name}_lod_000_body.ae4model"))
 ids = [i for lod in lods for i in lod]
 body_id = max(lods[0], key=lambda i: (ids.count(i), -lods[0].index(i)))   # the most used material is the hull (a tie: the
@@ -124,13 +136,14 @@ for k in range(0, 21):   # most ships 6 LODs, some (nivelian/221) 13
     mats = lods[k] if k < len(lods) else [body_id]
     slot = {i: (1 if m != body_id and glass else 0) for i, m in enumerate(mats)}
     glass_sections += sum(slot.values()) if k == 0 else 0
-    mesh(p, f"{name}_LOD{k}", [body, glass] if any(slot.values()) else [body], slot).parent = root
+    ob = mesh(p, f"{name}_LOD{k}", [body, glass] if any(slot.values()) else [body], slot); ob.parent = root
+    placed(ob, f"{name}_lod_{k:03d}_body", f"{name}_lod_000_body")
 dp = os.path.join(src, f"{name}_lod_000_decals.ae4meshgroup")
-if os.path.exists(dp): mesh(dp, f"{name}_decals", [decal]).parent = root
+if os.path.exists(dp):
+    ob = mesh(dp, f"{name}_decals", [decal]); ob.parent = root
+    placed(ob, f"{name}_lod_000_decals", f"{name}_lod_000_body")
 
-# scene nodes
-scene = next((os.path.join(src, f) for f in os.listdir(src) if f.lower() == f"{name}.ae4scene".lower()), None)   # ship_StarFox_000
-nodes = ae4_scene.read(scene)
+# scene nodes (read above)
 objs = {}
 skip = re.compile(r"^(node_\d+|weapon_generic_mount_000.*|.*_lod_\d+_(body|decals)|.*_geometry|.*_weapon_shadow_\d+)$")
 def build(nid, parent):

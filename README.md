@@ -38,10 +38,14 @@ It runs on **Windows, macOS and Linux**.
     `python3 -m pip install numpy pillow texture2ddecoder scipy pyzstd`
   - Linux: `python3 -m pip install numpy pillow texture2ddecoder scipy pyzstd` (in a virtual environment if your distribution
     asks for one: `python3 -m venv venv` and use `venv/bin/python`)
+  - GoF3's files are zstd v0.6 ("legacy") frames. Some pyzstd wheels (0.16) import but can't read them; the importer then
+    tries the next decoder: a libzstd file named by `GOF3_LIBZSTD` (or a `libzstd.dll` / `.dylib` / `.so` next to
+    `tools/ae4unpack.py`), then the system's libzstd. A recent pyzstd (0.20) reads them itself.
 - **For the sounds (optional): vgmstream and ffmpeg.** GoF3's engine, boost and gun sounds are FMOD FADPCM waves only
   vgmstream decodes: `vgmstream-cli` on the PATH (or `GOF3_VGMSTREAM=<path>`), else FModel's own Windows copy
   (`~/Downloads/FModel/Output/.data/vgmstream-cli.exe`, through Wine off Windows). ffmpeg makes them Ogg Vorbis (without
-  it they go in as .wav). Without vgmstream the mod is built without sounds and the ships keep the game's.
+  it they go in as .wav). Without vgmstream the mod is built without sounds and the ships keep the game's. The decoded
+  sound bank is kept in `~/.cache/gof3_ships_importer`, or the folder `GOF3_CACHE` names.
 - **Blender 4.2 or newer** (blender.org): it builds the models. It is found by itself on the PATH, in Program Files
   (Windows; also Steam's copy) or in Applications (macOS); else give its path with `--blender`.
 - **Disk space** for the work folder: about 11 GB with the Android files, 21 GB with the Switch and Android files together
@@ -154,7 +158,8 @@ on in the Mods screen. Don't put this importer folder itself in the Mods folder.
   Runs on its own over a built mod too: `python tools/gof3_wanted.py <mod folder>`.
 - Each boss flies in its gang's paint (`tools/gof3_boss_skins.py`: its data.pdb record's Customization, Gr'Gath act 1,
   Grey Shadow act 2, Vortex act 3) as a skin of its hull (data_skins.json `"boss": true`, one per hull and paint),
-  wanted.json `"skin"` (needs a remake that reads it, 2026-11-11). `python tools/gof3_boss_skins.py --write` regenerates
+  wanted.json `"skin"` (needs a remake that reads it, 2026-11-13; with `--remake` pointing at an older one the field is
+  left out, as the game would only log "unknown field" for it). `python tools/gof3_boss_skins.py --write` regenerates
   the entries from data.pdb.
 - The same 31 bosses are rift bosses (encounters.json: the mod's `rift` entry adds them to the remake's EVERSPACE 2 rift
   run on the cruise drive, whose chance is the remake's): its boss stage may bring one of them, its hull as many pirate raiders' as GoF3 makes it, its hull +
