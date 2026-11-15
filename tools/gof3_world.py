@@ -23,7 +23,7 @@ own it redoes a built mod's orbits (not the traffic hulls' models, which are bak
   systems' battleMusic for GoF2's three battle tracks (1-2 enemies, 3-4, 5+): the low layer, then the high one on top
   at half and at full, each piece 1-3 in a row (combat_music()). The high layer is a stem over the low one (2-11 dB
   quieter, uncorrelated with it; GoF3's MusicHandler sets the FMOD parameter "fight" or "fight_heavy"). The attention / calm-down stingers and the levels' warm-ups are left out."""
-import collections, glob, json, math, os, re, shutil, struct, subprocess, sys
+import collections, glob, hashlib, json, math, os, re, shutil, struct, subprocess, sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 from PIL import Image
@@ -235,6 +235,15 @@ def scene_of(folder):
     return s[0] if s else None
 
 
+MAX_ID = 40   # the remake's ModManifest.MaxIdLength: a longer id fails the whole mod ("id" must be ...)
+
+
+def short_id(s):
+    """'s' as a mod id of at most MAX_ID characters: a longer one cut, with a hash of the whole so it stays unique."""
+    if len(s) <= MAX_ID: return s
+    return s[:MAX_ID - 7].rstrip("_") + "_" + hashlib.sha1(s.encode()).hexdigest()[:6]
+
+
 def npcships(world, station_ids, hulls):
     """npcships.json: per traffic kind and station, freighters as many as GoF3 spawns there."""
     have = {h for h, *_ in hulls}
@@ -251,7 +260,7 @@ def npcships(world, station_ids, hulls):
             elif record == MORPHEUS:
                 hid, name, race, ship = "gof3_morpheus", "Morpheus", "terran", "gof3_ships:capital_terran_000"
             else: continue
-            out.append({"id": f"{hid}_{sid[5:]}", "kind": "freighter", "ship": ship, "name": name, "race": race, "speed": 2,
+            out.append({"id": short_id(f"{hid}_{sid[5:]}"), "kind": "freighter", "ship": ship, "name": name, "race": race, "speed": 2,
                         "escorts": {"count": 0},
                         "loot": {"items": [{"item": 156 if "ining" in record else 116, "amount": [3, 8]}]},
                         "spawn": {"chance": 100, "stations": [f"gof3_systems:{sid}"], "count": int(n)}})
