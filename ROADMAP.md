@@ -29,11 +29,14 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
   flat suns on a grey world, engines dark, the ship smaller in the plate. To do: recover GoF2's icon camera instead of
   guessing it: render a few of GoF2's own ships (the project's models) and fit the view direction, framing and lights
   until they match their original icons, then render GoF3's hulls with that camera and rebuild the icons.
-- **Weapon icons:** GoF3 has art for both kinds (`swf/`): the secondaries' `SW_*_MK1-3` (used: `secondary_icon`, on GoF2's
-  item plate) and the primaries' `PW_<CR|MR|LR><1-3>_<name>_MK1-3` (Burst Laser, Scatter Cannon, Machine Gun, Plasma
-  Sprayer, Pulse Laser, Ricochet Gun, Auto Cannon, Ion Cannon, Railgun; Gold variants of three), not used: the mod adds
-  no primary items (PRIMARY_GUNS only puts GoF3 gun models on GoF2's own weapons, which keep GoF2's icons). If GoF3
-  primaries become items, their icons come from there the way the secondaries' do.
+- **Weapon icons:** GoF3 has art for both kinds (`swf/`): the secondaries' `SW_*_MK1-3` (used: `secondary_icon`, the 7
+  missiles on GoF2's item plate) and the primaries' `PW_<CR|MR|LR><1-3>_<name>_MK1-3` (Burst Laser, Scatter Cannon,
+  Machine Gun, Plasma Sprayer, Pulse Laser, Ricochet Gun, Auto Cannon, Ion Cannon, Railgun; Gold variants of three),
+  **not used**: the mod's 27 primary items (e2b9136: burst_laser_1-3 ... beam_laser_1-3, named after GoF3's gun model
+  families 000-008) carry no "icon", so each shows its GoF2 base item's. To do: map the model families to the UI names
+  through GoF3's data (Burst Laser and Railgun match by name; Scatter Plasma, Plasma Focus, Dismantler, Mass Driver,
+  Plasma Blast, Auto Laser and Beam Laser need the item records), then each mark's PW_ art on GoF2's item plate as the
+  secondaries' (MK1-3 for the items' 1-3).
 - **Device icons:** GoF3 has no item art for devices: `device_icon` cuts a lore banner to the plate, which reads as a scene,
   not an item. Better: a render of the device's model (where it has one) with the same GoF2 icon camera.
 
