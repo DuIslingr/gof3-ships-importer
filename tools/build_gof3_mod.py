@@ -69,7 +69,6 @@ OUT = os.path.abspath(args[0] if args else os.path.expanduser("~/GOF2UnityRemake
 MAXTEX = int(sys.argv[sys.argv.index("--max-texture") + 1]) if "--max-texture" in sys.argv else 1024
 ICONS = "--no-icons" not in sys.argv
 JOBS = int(sys.argv[sys.argv.index("--jobs") + 1]) if "--jobs" in sys.argv else 0   # 0: by the memory free (jobs())
-ICONS_FROM = os.path.abspath(sys.argv[sys.argv.index("--icons-from") + 1]) if "--icons-from" in sys.argv else None
 # Where the earlier stages put their results (import.py sets these; the defaults are the original layout next to tools/).
 CONV = os.environ.get("GOF3_CONV") or os.path.join(HERE, "..", "gof3converted")
 LOAD = os.environ.get("GOF3_LOADOUTS") or os.path.join(HERE, "..", "gof3converted_loadouts")
@@ -883,14 +882,6 @@ def drawn_plate():
     return out
 
 
-def icon(render_png, out_png):
-    shot = Image.open(render_png).convert("RGBA")
-    shot = shot.crop(shot.getbbox() or (0, 0, shot.width, shot.height))
-    s = min(170 / shot.width, 80 / shot.height)
-    shot = shot.resize((max(1, round(shot.width * s)), max(1, round(shot.height * s))), Image.LANCZOS)
-    p = plate(); p.alpha_composite(shot, ((180 - shot.width) // 2, (88 - shot.height) // 2)); p.save(out_png)
-
-
 # ---------------------------------------------------------------- the turret (Blender)
 
 # GoF3 player ships have no turret: the kit's is built from GoF3 parts: the generic weapon mount (the hull's gun pylon) as a
@@ -1669,8 +1660,7 @@ def main():
             "armor": armor, "cargo": cargo, "handling": handling, "price": price, "priceDefault": price_default,
             "slots": {"primary": sum(1 for m in mounts if m["slotType"] == 0), "secondary": sum(1 for m in mounts if m["slotType"] == 1),
                       "turret": len(turrets), "equipment": equip},
-            "kit": KIT, "kitType": sid, "build": {"hull": sid},
-            "icon": f"icons/{sid}.png",
+            "kit": KIT, "kitType": sid, "build": {"hull": sid},   # no "icon": the remake draws it (ModShipIcons)
             "engineGlowRadius": round(min(70, max(18, 24 * length / 1000)), 1),
             "engineGlowColor": ship_colour,
             "mounts": mounts,
@@ -1750,28 +1740,27 @@ def main():
     snap_floating_mounts(ships, parts, weapon_rules())
     phase("floating guns checked")
 
-    # icons and preview (rendered from the loadout .glb: the hull with its GoF3 default guns)
+    # the preview (rendered from the loadout .glb: the hull with its GoF3 default guns). The ships' shop icons are no longer
+    # rendered here (2026-11-21): the remake draws every mod ship without an "icon" from its model on the loading screen
+    # (Modding.ModShipIcons, ShipIconMaker: GoF2's own camera, light and ship frame), so they match the game's.
     if ICONS:
         tmp = os.path.join(OUT, ".icon_renders"); os.makedirs(tmp, exist_ok=True)
         script = os.path.join(tmp, "render.py"); open(script, "w", encoding='utf-8').write(ICON_SCRIPT)
-        def render(s):
-            out_png = os.path.join(OUT, s["icon"])
-            if ICONS_FROM and os.path.exists(os.path.join(ICONS_FROM, s["id"] + ".png")) and not s["id"] in PREVIEW \
-                    and info[s["id"]]["folder"] not in TURN:   # (a turned hull's old icon shows it the old way round)
-                shutil.copy(os.path.join(ICONS_FROM, s["id"] + ".png"), out_png); return s["id"], True
-            png = os.path.join(tmp, s["id"] + ".png")
-            folder = info[s["id"]]["folder"]
+        by_id = {s["id"]: s for s in ships}
+        def render(sid):
+            png = os.path.join(tmp, sid + ".png")
+            folder = info[sid]["folder"]
             src = turned(os.path.join(LOAD, folder + ".glb"), TURN.get(folder), os.path.join(tmp, folder + "_turned.glb"))
             r = subprocess.run([BLENDER, "-b", "-P", script, "--", src, png], capture_output=True, text=True, errors="replace")
-            if os.path.exists(png): icon(png, out_png)
-            render.why[s["id"]] = (r.stdout + r.stderr)[-1500:]
-            return s["id"], os.path.exists(png)
+            render.why[sid] = (r.stdout + r.stderr)[-1500:]
+            return sid, os.path.exists(png)
         render.why = {}
+        wanted = [sid for sid in PREVIEW if sid in by_id]
         with ThreadPoolExecutor(6) as ex:
-            failed = [sid for sid, ok in ex.map(render, ships) if not ok]
+            failed = [sid for sid, ok in ex.map(render, wanted) if not ok]
         for sid in failed:   # once more, alone (six Blenders at once can run a machine out of memory)
-            ok = render(next(s for s in ships if s["id"] == sid))[1]
-            print(f"icon {'rendered on the second try' if ok else 'failed'}: {sid}")
+            ok = render(sid)[1]
+            print(f"preview render {'done on the second try' if ok else 'failed'}: {sid}")
             if not ok: print("  Blender's last output:\n    " + render.why.get(sid, "").strip().replace("\n", "\n    "))
         prev = Image.new("RGB", (640, 360), (14, 18, 28)); d = ImageDraw.Draw(prev)
         for i, sid in enumerate(PREVIEW):
@@ -1790,7 +1779,7 @@ def main():
         prev.save(os.path.join(OUT, "preview.png"))
         shutil.rmtree(tmp, ignore_errors=True)
 
-    phase("icons and preview")
+    phase("preview")
     kit = {"id": KIT, "name": "Galaxy on Fire 3 hulls", "slots": ["hull"], "scale": round(K * 0.05, 5), "yaw": 180,
            "parts": parts, "skins": skins, "palettes": {"weapons": weapon_palette()},
            "hardpoints": {"turret": "turret/turret.glb", "toggle": True, "weapons": with_sounds(weapon_rules(), snd)}}

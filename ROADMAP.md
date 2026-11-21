@@ -22,13 +22,10 @@ stars, fog), suns and each level's light and fog; the structures' own materials 
 
 ## Icons in GoF2's own look (noted 2026-11-15, for later)
 
-- **Ship icons:** each is a Blender render of the GoF3 loadout model on GoF2's ship plate (the remake's `frame_ship`, else
-  `drawn_plate`), 180 x 88. The plate matches; the shot doesn't. GoF2's own (`Resources/GoF2Icons/hull_ship_*`,
-  `ship_*`) point the nose left, are taken low and from the side (the ship long across the plate) under harder, warmer
-  light with the engines lit; ICON_SCRIPT's camera sits ~35 degrees up on (1, 0.45, 0.75), most hulls face right, three
-  flat suns on a grey world, engines dark, the ship smaller in the plate. To do: recover GoF2's icon camera instead of
-  guessing it: render a few of GoF2's own ships (the project's models) and fit the view direction, framing and lights
-  until they match their original icons, then render GoF3's hulls with that camera and rebuild the icons.
+- **Ship icons:** done 2026-11-21, in the remake: the mod's ships carry no "icon" and the remake draws each from its model
+  (Modding.ModShipIcons on the loading screen, ShipIconMaker: the Mod Builder's GoF2 camera, light and ship frame, cached
+  under ModCache/ShipIcons), so they match GoF2's own and the capital ships, kamikazes, UFOs and bombers have one too. The
+  Blender icon render is gone; it renders only the preview's six ships now.
 - **Weapon icons:** GoF3 has art for both kinds (`swf/`): the secondaries' `SW_*_MK1-3` (used: `secondary_icon`, the 7
   missiles on GoF2's item plate) and the primaries' `PW_<CR|MR|LR><1-3>_<name>_MK1-3` (Burst Laser, Scatter Cannon,
   Machine Gun, Plasma Sprayer, Pulse Laser, Ricochet Gun, Auto Cannon, Ion Cannon, Railgun; Gold variants of three),

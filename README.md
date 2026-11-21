@@ -70,7 +70,7 @@ It checks Python, Blender and the game files first, then works through six stage
 3. converts every hull: its materials, its textures baked with the game's own shader math, the model in Blender, and each
    named paint scheme (this is the long one: about a minute per hull, several at once);
 4. converts the guns, the mounts and the rockets;
-5. puts each hull together with its default guns (for the icons, and to know what each hardpoint carries);
+5. puts each hull together with its default guns (for the preview, and to know what each hardpoint carries);
 6. builds the mod: `gof3_ships` next to this script.
 
 Everything a stage makes is kept in the work folder, so if a run stops (or you close it), running the same command again
@@ -89,9 +89,10 @@ Options:
 - `--jobs <n>`: how many hulls are converted at once (default: half your processor's cores, at most 8). Each runs Blender:
   lower it if your computer runs out of memory.
 - `--max-texture 2048`: the hulls' textures at full size (default 1024: about half the mod's size, and lighter to draw).
-- `--no-icons`: skip rendering the shop icons and the mod's preview image.
+- `--no-icons`: skip rendering the mod's preview image. The ships carry no shop icons: the remake draws each from its
+  model in GoF2's own look (its loading screen, once, then cached).
 - `--remake <folder>`: a checkout of the remake's source: the ship prices are fitted to its ship tables as they are now,
-  and the icons get the game's own ship frame (without it, built-in price fits and a drawn frame stand in).
+  and the item icons get the game's own ship frame (without it, built-in price fits and a drawn frame stand in).
 - `--blender <path>`: Blender's executable (or `Blender.app` on a Mac), if it isn't found by itself.
 - `--fbx`: also write FBX files of the converted models into the work folder (the mod doesn't need them).
 - `--fresh`: delete the work folder and start over.
