@@ -13,8 +13,8 @@ What comes from where (gof3_galaxy for the data):
   stations don't count unless all are), its security (lower with pirate stations, Rigant lowest), its sky (the first
   level's skybox cubemap, sky_strip), its sun (the first level's biggest sun sprite, tinted), its jumpgate (GoF3's gate
   model of the race whose gates its missions use) and gates to its neighbours on GoF3's map (GoF3 travels by its Khador
-  drive alone, so the routes are made here: each cluster's nearest neighbours, Trim to Porros to Rigant, and Trim's
-  Anchorage to GoF2's Me'enkk);
+  drive between its clusters: its galaxy map's 21 routes, make_gates(), then bridges between the clusters, to Thorn and the
+  club, and Trim's Anchorage to GoF2's Me'enkk);
 - a station per level: its name, the largest of the level's GoF3 stations as its model (scene_glb; scaled to at most 5 km:
   GoF3's stations are far bigger next to its ships than GoF2's), not dockable (GoF3 docks at none: its missions start
   from the galaxy map, and "docking" there only ever means the Manticore), a tech level by the sector's place in GoF3's
@@ -39,8 +39,13 @@ MEENKK = 30                              # GoF2's Me'enkk, the GoF2 system neare
 RACES = {"Terran": 0, "Mining": 0, "Vossk": 1, "Nivelian": 2, "Pirates": None}
 SUBTITLE = {"Terran": "Terran station", "Mining": "Mining station", "Vossk": "Vossk station", "Nivelian": "Nivelian station",
             "Pirates": "Pirate hideout"}
-SECURITY_BASE = {"Trim": 3, "Porros": 2, "Rigant": 1}
-GOF2_SKY = {"Trim": 3, "Porros": 13, "Rigant": 10}     # the GoF2 sky each cluster's light takes before its own sun colour
+SECURITY_BASE = {"Trim": 3, "Porros": 2, "Rigant": 1, "Mkkt": 1}   # Mkkt Bkkt's club: "on the edge of legality"
+GOF2_SKY = {"Trim": 3, "Porros": 13, "Rigant": 10, "Mkkt": 13}     # the GoF2 sky each cluster's light takes before its own sun colour
+# Mkkt Bkkt's club has no stations of its own in GoF3's data (its two areas, kaamo_club and kaamo_club2, are the venues of
+# its arena and race events): its orbits get the club's arenas (scenery/mkktbkkt/arena), the second one named apart
+CLUB_MODELS = {"MKKT_BKKT_000": ["/assets/scenery/mkktbkkt/arena/scenery_mkktbkkt_arena_large.ae4scene",
+                                 "/assets/scenery/mkktbkkt/arena/scenery_mkktbkkt_arena_medium.ae4scene"]}
+CLUB_NAMES = {"kaamo_club2": "Mkkt Bkkt Club Arena"}
 PLANETS = [i for i in range(27) if i != 23]
 
 
@@ -60,8 +65,11 @@ def cluster_of(sector): return sector["record"].split("_")[0].capitalize()
 
 
 def map_pos(star):
+    """The star map place of a galaxy map star: GoF3's map seen as GoF3 shows it, x to the right and its z up the screen
+    (the galaxy camera's up, GalaxyMapCameraController's M[1] ~ +z); the remake's map y grows down the screen
+    (GalaxyMap.SunPosition), so z goes in negated (until 2026-11-22 it went in as it is: GoF3's map stood upside down)."""
     x, z = gof3_galaxy.STAR_NODES[star]
-    return [round(125 + x * MAP_SCALE), round(110 + z * MAP_SCALE), 50]
+    return [round(125 + x * MAP_SCALE), round(110 - z * MAP_SCALE), 50]
 
 
 def station_race(e):
@@ -110,6 +118,40 @@ def sky_materials(shape, assets):
     return out
 
 
+
+def make_gates(systems, lines):
+    """Each system's "gates" (written into its entry): GoF3's own routes (gof3_galaxy.map_lines: the 21 lines of its galaxy
+    map, within the clusters), then bridges so every system can be reached by gate (GoF3 moves between its clusters, and to
+    Thorn and Mkkt Bkkt's club, by its Khador drive alone): each cluster to the next by their nearest pair (Trim-Porros,
+    Porros-Rigant, Trim-Rigant), a system no line reaches to its nearest of its cluster (Thorn), the club to its nearest
+    Trim and Porros systems, and Trim's Anchorage to GoF2's Me'enkk. systems: [(sector, entry)]; returns {id: entry}."""
+    pos = {e["id"]: np.array(gof3_galaxy.STAR_NODES[s["star"]]) for s, e in systems}
+    id_of = {s["record"]: e["id"] for s, e in systems}
+    by_cluster = collections.defaultdict(list)
+    for s, e in systems: by_cluster[cluster_of(s)].append(e["id"])
+    links = set()
+    def link(x, y): links.add(tuple(sorted((x, y))))
+    for ra, rb in lines:
+        if ra in id_of and rb in id_of: link(id_of[ra], id_of[rb])
+    linked = {i for l in links for i in l}
+    for cl, ids in by_cluster.items():   # a system no line reaches: to its cluster's nearest
+        for x in ids:
+            others = [y for y in ids if y != x]
+            if x not in linked and others: link(x, min(others, key=lambda y: np.linalg.norm(pos[x] - pos[y])))
+    def bridge(c1, c2):
+        if c1 in by_cluster and c2 in by_cluster:
+            x, y = min(((x, y) for x in by_cluster[c1] for y in by_cluster[c2]), key=lambda p: np.linalg.norm(pos[p[0]] - pos[p[1]]))
+            link(x, y)
+    bridge("Trim", "Porros"); bridge("Porros", "Rigant"); bridge("Trim", "Rigant")
+    bridge("Mkkt", "Trim"); bridge("Mkkt", "Porros")   # Mkkt Bkkt's club, between them
+    out = {}
+    for s, e in systems:
+        e["gates"] = [f"{MOD_ID}:{y if x == e['id'] else x}" for x, y in sorted(links) if e["id"] in (x, y)]
+        if s["record"].startswith("Trim_000_A"): e["gates"].append(MEENKK)
+        out[e["id"]] = e
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pdb", required=True); ap.add_argument("--assets", required=True); ap.add_argument("--out", required=True)
@@ -148,6 +190,8 @@ def main():
             if rc:
                 top = max(rc, key=lambda r: (rc[r], r != "Pirates"))
                 cands = [e for e in cands if station_race(e) == top]
+            if not cands and s["record"] in CLUB_MODELS and li < len(CLUB_MODELS[s["record"]]):
+                cands = [{"name": "Mkkt Bkkt Arena", "templates": [], "shape": CLUB_MODELS[s["record"]][li]}]
             best = None
             for e in cands:
                 h = hashlib.md5(e["shape"].encode()).hexdigest()[:10]
@@ -172,7 +216,7 @@ def main():
         first_station = None
         for li, (lv, best) in enumerate(levels):
             stid = "gof3_" + slug(lv["record"].replace(" - ", "_"))
-            name = title(lv["name"] or lv["record"])
+            name = CLUB_NAMES.get(lv["record"]) or title(lv["name"] or lv["record"])
             st = {"id": stid, "system": f"{MOD_ID}:{sid}", "name": name, "techLevel": tech,
                   "planet": PLANETS[int(hashlib.md5(stid.encode()).hexdigest(), 16) % len(PLANETS)]}
             if best:
@@ -189,6 +233,7 @@ def main():
                            "orbit": {"station": "nodock"}, "subtitle": SUBTITLE[race],
                            "materials": [{"material": f"gof3[{k}]"} for k in sorted(info["groups"])]})
                 if race == "Pirates": st["subtitle"] = "Pirate hideout"
+                if s["record"] in CLUB_MODELS: st["subtitle"] = "Mkkt Bkkt's club"
                 first_station = first_station or stid
             else:
                 st["orbit"] = {"station": False}; st["subtitle"] = "Deep space"
@@ -210,28 +255,8 @@ def main():
                 if tint: sys_entry["sunTexture"] = spng; sys_entry["sunColor"] = [min(1, max(0.25, v)) for v in tint]
             break
         systems.append((s, sys_entry))
-    # the gates: each system's nearest neighbours in its cluster, the clusters to each other, Trim's Anchorage to Me'enkk
-    pos = {e["id"]: np.array(gof3_galaxy.STAR_NODES[s["star"]]) for s, e in systems}
-    by_cluster = collections.defaultdict(list)
-    for s, e in systems: by_cluster[cluster_of(s)].append(e["id"])
-    links = set()
-    def link(x, y): links.add(tuple(sorted((x, y))))
-    for cl, ids in by_cluster.items():
-        done = {ids[0]}
-        while len(done) < len(ids):   # a minimum spanning tree
-            x, y = min(((x, y) for x in done for y in ids if y not in done), key=lambda p: np.linalg.norm(pos[p[0]] - pos[p[1]]))
-            link(x, y); done.add(y)
-        for x in ids:                 # and each one's second nearest, for a loop or two
-            near = sorted((y for y in ids if y != x), key=lambda y: np.linalg.norm(pos[x] - pos[y]))
-            if len(near) > 1 and np.linalg.norm(pos[x] - pos[near[1]]) < 120: link(x, near[1])
-    def bridge(c1, c2):
-        if c1 in by_cluster and c2 in by_cluster:
-            x, y = min(((x, y) for x in by_cluster[c1] for y in by_cluster[c2]), key=lambda p: np.linalg.norm(pos[p[0]] - pos[p[1]]))
-            link(x, y)
-    bridge("Trim", "Porros"); bridge("Porros", "Rigant"); bridge("Trim", "Rigant")
-    for s, e in systems:
-        e["gates"] = [f"{MOD_ID}:{y if x == e['id'] else x}" for x, y in sorted(links) if e["id"] in (x, y)]
-        if s["record"].startswith("Trim_000_A"): e["gates"].append(MEENKK)
+    # the gates: GoF3's own routes, bridged so every system can be reached (make_gates)
+    make_gates(systems, gof3_galaxy.map_lines(a.pdb))
     # jumpgates: GoF3's gate model of the race whose gates the sector's missions use
     gate_models = {}
     for r in ("terran", "vossk", "nivelian"):
@@ -324,6 +349,9 @@ def main():
     # GoF3's shading per kind: the structure atlases no environment or rim, the see-through parts their own (gof3_shading)
     import gof3_shading
     gof3_shading.systems(out, assets)
+    # GoF3's star map scene for the system views (gof3_map_scene: models/gof3_galaxymap.glb, "mapScene", "mapArea")
+    import gof3_map_scene
+    gof3_map_scene.apply(out, a.pdb, assets)
     shutil.rmtree(tmp, ignore_errors=True)
     print(len(systems), "systems,", len(stations), "stations,", len(groups), "atlases")
 

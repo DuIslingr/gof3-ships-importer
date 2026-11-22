@@ -220,7 +220,17 @@ python tools/build_gof3_systems.py --pdb <Android data.pdb> --assets <merged GoF
   its Khador drive alone).
 - None of the stations can be docked at, as in GoF3: its missions start from the galaxy map and "docking" only ever
   means the Manticore, which roams these systems too (the GoF3 ships mod).
-- Kaamo's MKKT BKKT Club sector is left out (GoF2 has its own Kaamo Club).
+- Mkkt Bkkt's club (GoF3's MKKT BKKT CLUB sector, the venue of its arena and race events) is a system of its own on its
+  star between Trim and Porros, gated to its nearest system of each: GoF3 gives its two areas no stations, so they get
+  the club's arenas (`scenery/mkktbkkt/arena`, large and medium; the second named "Mkkt Bkkt Club Arena").
+- GoF3's map stands as GoF3 shows it: its z up the screen (until 2026-11-22 the clusters stood upside down).
+- The star map's system views are GoF3's own map (`tools/gof3_map_scene.py`): its galaxymap scene as one model
+  (`models/gof3_galaxymap.glb`: every planet, moon, ring, orbit line, rock field and nebula, in GoF3's map materials as
+  `"unlit"` glTF extras), each system seen from GoF3's own camera (decompiled from GalaxyMapCameraController, with each
+  sector's galaxyMapCamRotation; checked against recordings of GoF3's map) and each station's ring on its GoF3 area
+  (systems.json `"mapScene"`, stations.json `"mapArea"`; needs a remake with map scenes, 2026-11-22).
+- `tools/patch_gof3_systems.py --pdb ... --assets ... --mod <built mod>` brings a mod built before 2026-11-22 up to
+  these three without building it all again (the club's sector built alone and merged in).
 - The stations, gates and capital ships are drawn with GoF3's own materials: every part of a model names its material
   (platings, windows, pipes, solar panels...), baked with its textures into the model's light-map space, with GoF3's
   specular colour and gloss and its normal maps (the remake's specular workflow); antennas, glass and decals keep their

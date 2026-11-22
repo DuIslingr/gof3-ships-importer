@@ -35,6 +35,9 @@ STAR_NODES = {
     "GM_star_Trim_001_B": (-75.3, 123.5), "GM_star_Trim_003": (-109.7, 275.4), "GM_star_Trim_003_B": (-147.4, 311.3),
     "GM_star_Trim_006": (-315.1, 147.4), "GM_star_Trim_004": (-42.4, 189.8), "GM_star_Trim_002": (-289.7, 345.3),
     "GM_star_Trim_005": (-163.0, 206.5),
+    # Mkkt Bkkt's club (MKKT_BKKT_000, "MKKT BKKT CLUB": GoF3's arena and race events), its own star between Trim and
+    # Porros (the scene's GM_star_MKKT_BKKT_000)
+    "GM_star_MKKT_BKKT_000": (26.7, 68.9),
 }
 
 
@@ -127,3 +130,27 @@ class Galaxy:
 
 def sectors(pdb):
     return Galaxy(pdb).sectors()
+
+
+F_CONFIG_LINES, F_LINE_SYSTEMS = 6733238, 1500478   # ConfigGalaxyMap.lines, GalaxyMapLines.solarSystems
+
+
+def map_lines(pdb):
+    """GoF3's galaxy map routes, as pairs of sector records: ConfigGalaxyMap.lines names its GalaxyMapLines records, each a
+    polyline through its solarSystems (TrimLines04: Anchorage Station, New Vegas, Geminus, Phoenix Station), each step a
+    route. 21 of them, within the clusters; none to Thorn or Mkkt Bkkt's club, none between Trim, Porros and Rigant."""
+    G = Galaxy(pdb); R = G.R
+    cfg = None
+    for rid in R.p.recs:
+        try: f = R.fields(rid)
+        except Exception: continue
+        if F_CONFIG_LINES in f: cfg = f; break
+    if cfg is None: return []
+    pairs = set()
+    for ref in cfg[F_CONFIG_LINES]:
+        try: lf = R.fields(R.sub(ref).get(1))
+        except Exception: continue
+        chain = [(R.name(R.sub(x).get(1)) or "").strip() for x in lf.get(F_LINE_SYSTEMS, [])]
+        for a, b in zip(chain, chain[1:]):
+            if a and b and a != b: pairs.add(tuple(sorted((a, b))))
+    return sorted(pairs)
