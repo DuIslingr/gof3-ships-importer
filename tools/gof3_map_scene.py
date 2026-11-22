@@ -131,7 +131,7 @@ def _glsl(material, assets, vertex_colours):
 
 
 def look(material, assets, vertex_colours):
-    """(extras "unlit" dict, texture (path, channel) or None) of one material as its GLSL draws it."""
+    """(extras "unlit" dict, texture (id, channel) or None, flow map id or None) of one material as its GLSL draws it."""
     v, _ = ae4_material.read(material)
     frag, vert = _glsl(material, assets, vertex_colours)
     def col(k, dflt=(1, 1, 1, 1)): return [round(float(c), 4) for c in (v.get(k) or dflt)]
@@ -146,6 +146,7 @@ def look(material, assets, vertex_colours):
         tex = (ae4_material.texture_ids(material).get("Diffuse"), ch)
     elif "custom_DiffuseColor" in frag.split("out_FragColor = diffuseTexel")[0]:
         colour = col("DiffuseColor")
+    if tex and "diffuseTexel * custom_DiffuseColor" in frag: colour = col("DiffuseColor")   # (the effects: texture x colour)
     if re.search(r"out_FragColor \*= Opacity", frag):
         colour = [c * float(v.get("Opacity", 1.0)) for c in colour]
     u["color"] = [round(c, 4) for c in colour]
@@ -163,10 +164,25 @@ def look(material, assets, vertex_colours):
     if "v_rimEffect" in frag:
         u["rim"] = {"color": col("RimEffect_Color")[:3], "min": round(float(v.get("RimEffect_MinAngle", 0.0)), 4),
                     "max": round(float(v.get("RimEffect_MaxAngle", 1.0)), 4)}
-    if "UVAnim_Speed" in vert.split("void main()")[-1] and v.get("UVAnim_Enabled"):
-        sp = v.get("UVAnim_Speed") or (0, 0, 0); k = float(v.get("UVAnim_SpeedMultiplier", 1.0))
-        if any(sp[:2]): u["scroll"] = [round(sp[0] * k, 4), round(sp[1] * k, 4)]
-    return u, tex
+    body = vert.split("void main()")[-1]
+    sp = v.get("UVAnim_Speed") or (0, 0, 0); k = float(v.get("UVAnim_SpeedMultiplier", 1.0))
+    speed = [round(sp[0] * k, 4), round(sp[1] * k, 4)]
+    if v.get("UVAnim_Enabled") and re.search(r"v_texCoord0 = a_texCoord0 \+ fract\(uvSpeed", body) and any(speed): u["scroll"] = speed
+    # the flow map (UVAnim_Flow*: the texture's coordinates pushed by a scrolling flow texture, the plasma storm's swirl)
+    flow = None
+    if "texture2D(FlowMap" in frag:
+        fid = ae4_material.texture_ids(material).get("FlowMap")
+        if fid:
+            flow = fid
+            u["flow"] = {"tiling": round(float(v.get("UVAnim_FlowTiling", 1.0)), 4),
+                         "strength": round(float(v.get("UVAnim_FlowStrength", 0.01)) * 0.1, 5),
+                         "speed": speed if "v_texCoordFlow = v_texCoordFlow + fract(uvSpeed" in body else [0.0, 0.0]}
+    # AngleBlend (the alpha by how the surface faces the eye: N.E abs'd, else negated, then min..max; the plasma storm's
+    # sheets and the traffic lanes vanish edge-on)
+    if "v_angleBlend" in frag and v.get("AngleBlend_Enabled"):
+        u["angleBlend"] = {"min": round(float(v.get("AngleBlend_MinAngle", 0.0)), 4), "max": round(float(v.get("AngleBlend_MaxAngle", 1.0)), 4),
+                           "absolute": "abs(v_angleBlend)" in body}
+    return u, tex, flow
 
 
 def _image(path, channel, assets_kind):
@@ -181,7 +197,7 @@ def _image(path, channel, assets_kind):
     elif channel == "rgb" or a[:, :, 3].min() == 255:
         im = Image.fromarray(a[:, :, :3], "RGB")
     buf = io.BytesIO()
-    if im.mode in ("RGB", "L") and "_ui" not in os.path.basename(path):
+    if im.mode in ("RGB", "L") and "_ui" not in os.path.basename(path) and "flowmap" not in os.path.basename(path):   # (a flow map is data: lossless)
         im.save(buf, "JPEG", quality=92); return buf.getvalue(), "image/jpeg"
     im.save(buf, "PNG", optimize=True); return buf.getvalue(), "image/png"
 
@@ -198,7 +214,7 @@ def convert(assets, out_glb, cam_rotations, log=print):
     def material_index(path, vertex_colours):
         key = (path, vertex_colours)
         if key in looks: return looks[key]
-        u, tex = look(path, assets, vertex_colours)
+        u, tex, flow = look(path, assets, vertex_colours)
         name = os.path.basename(path)[:-len(".ae4material")] + ("" if vertex_colours else "_novc")
         m = {"name": f"gof3map[{name}]", "extras": {"unlit": u},
              "pbrMetallicRoughness": {"baseColorFactor": [1, 1, 1, 1], "metallicFactor": 0.0, "roughnessFactor": 1.0}}
@@ -210,6 +226,15 @@ def convert(assets, out_glb, cam_rotations, log=print):
                     b, mime = _image(f, tex[1], assets)
                     img_of[ik] = len(images); images.append((b, mime, os.path.basename(f).split(".")[0] + "_" + tex[1], True))
                 m["pbrMetallicRoughness"]["baseColorTexture"] = {"index": img_of[ik]}
+        if flow:
+            f = ae4_ids.resolve(assets, flow)
+            if f:
+                ik = (f, "rgb")
+                if ik not in img_of:
+                    b, mime = _image(f, "rgb", assets)
+                    img_of[ik] = len(images); images.append((b, mime, os.path.basename(f).split(".")[0] + "_flow", True))
+                u["flow"]["texture"] = {"index": img_of[ik]}
+            else: u.pop("flow", None)
         if u["blend"] != "opaque": m["alphaMode"] = "BLEND"
         if u["cull"] == "none": m["doubleSided"] = True
         looks[key] = len(mats); mats.append(m)
